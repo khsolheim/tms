@@ -1,0 +1,378 @@
+import { PrismaClient, Bedrift, Prisma } from '@prisma/client';
+import { BaseRepository, PaginationOptions, PaginationResult } from './base.repository';
+
+export interface BedriftCreateInput {
+  navn: string;
+  organisasjonsnummer?: string;
+  adresse?: string;
+  postnummer?: string;
+  poststed?: string;
+  telefon?: string;
+  epost?: string;
+  stiftelsesdato?: string;
+  organisasjonsform?: string;
+  organisasjonsformKode?: string;
+  næringskode?: string;
+  næringskodeKode?: string;
+  dagligLeder?: string;
+  styreleder?: string;
+  signaturrett?: any;
+  brregMetadata?: any;
+}
+
+export interface BedriftUpdateInput {
+  navn?: string;
+  organisasjonsnummer?: string;
+  adresse?: string;
+  postnummer?: string;
+  poststed?: string;
+  telefon?: string;
+  epost?: string;
+  hovedbrukerId?: number;
+  stiftelsesdato?: string;
+  organisasjonsform?: string;
+  organisasjonsformKode?: string;
+  næringskode?: string;
+  næringskodeKode?: string;
+  dagligLeder?: string;
+  styreleder?: string;
+  signaturrett?: any;
+  brregMetadata?: any;
+}
+
+export interface BedriftSearchFilters {
+  navn?: string;
+  organisasjonsnummer?: string;
+  poststed?: string;
+  harHovedbruker?: boolean;
+  organisasjonsform?: string;
+  fraDato?: Date;
+  tilDato?: Date;
+}
+
+export class BedriftRepository extends BaseRepository<
+  Bedrift,
+  BedriftCreateInput,
+  BedriftUpdateInput,
+  Prisma.BedriftWhereInput
+> {
+  constructor(prisma: PrismaClient) {
+    super(prisma, 'bedrift');
+  }
+
+  /**
+   * Finn bedrifter med avanserte søkefiltre
+   */
+  async findWithFilters(
+    filters: BedriftSearchFilters,
+    pagination?: PaginationOptions,
+    orderBy?: Prisma.BedriftOrderByWithRelationInput[]
+  ): Promise<PaginationResult<Bedrift> | Bedrift[]> {
+    const where: Prisma.BedriftWhereInput = {};
+
+    if (filters.navn) {
+      where.navn = {
+        contains: filters.navn,
+        mode: 'insensitive'
+      };
+    }
+
+    if (filters.organisasjonsnummer) {
+      where.organisasjonsnummer = {
+        contains: filters.organisasjonsnummer.replace(/\s/g, ''),
+        mode: 'insensitive'
+      };
+    }
+
+    if (filters.poststed) {
+      where.poststed = {
+        contains: filters.poststed,
+        mode: 'insensitive'
+      };
+    }
+
+    if (filters.harHovedbruker !== undefined) {
+      where.hovedbrukerId = filters.harHovedbruker 
+        ? { not: null } 
+        : null;
+    }
+
+    if (filters.organisasjonsform) {
+      where.organisasjonsform = {
+        contains: filters.organisasjonsform,
+        mode: 'insensitive'
+      };
+    }
+
+    if (filters.fraDato || filters.tilDato) {
+      where.opprettet = {};
+      if (filters.fraDato) {
+        where.opprettet.gte = filters.fraDato;
+      }
+      if (filters.tilDato) {
+        where.opprettet.lte = filters.tilDato;
+      }
+    }
+
+    const include = {
+      hovedbruker: {
+        select: { 
+          id: true, 
+          fornavn: true, 
+          etternavn: true, 
+          epost: true 
+        }
+      },
+      _count: {
+        select: {
+          ansatte: true,
+          elever: true,
+          kontrakter: true,
+          kjoretoy: true
+        }
+      }
+    };
+
+    if (pagination) {
+      return this.findManyPaginated(where, pagination, {
+        include,
+        orderBy: orderBy || [{ navn: 'asc' }]
+      });
+    }
+
+    return this.findMany(where, {
+      include,
+      orderBy: orderBy || [{ navn: 'asc' }]
+    });
+  }
+
+  /**
+   * Finn bedrift med fullstendige detaljer
+   */
+  async findWithDetails(id: number): Promise<Bedrift | null> {
+    return this.findById(id, {
+      hovedbruker: {
+        select: { 
+          id: true, 
+          fornavn: true, 
+          etternavn: true, 
+          epost: true,
+          telefon: true,
+          rolle: true
+        }
+      },
+      ansatte: {
+        select: {
+          id: true,
+          fornavn: true,
+          etternavn: true,
+          epost: true,
+          rolle: true,
+          opprettet: true
+        },
+        orderBy: { fornavn: 'asc' }
+      },
+      klasser: {
+        select: { id: true, klassekode: true }
+      },
+      kjoretoy: {
+        select: {
+          id: true,
+          merke: true,
+          modell: true,
+          registreringsnummer: true,
+          status: true
+        }
+      },
+      _count: {
+        select: {
+          ansatte: true,
+          elever: true,
+          kontrakter: true,
+          kjoretoy: true,
+          sikkerhetskontroller: true
+        }
+      }
+    });
+  }
+
+  /**
+   * Finn bedrift ved organisasjonsnummer
+   */
+  async findByOrgNummer(organisasjonsnummer: string): Promise<Bedrift | null> {
+    return this.findFirst({
+      organisasjonsnummer: organisasjonsnummer.replace(/\s/g, '')
+    });
+  }
+
+  /**
+   * Søk bedrifter med tekstsøk
+   */
+  async search(
+    searchTerm: string,
+    pagination?: PaginationOptions
+  ): Promise<PaginationResult<Bedrift> | Bedrift[]> {
+    const where: Prisma.BedriftWhereInput = {
+      OR: [
+        {
+          navn: {
+            contains: searchTerm,
+            mode: 'insensitive'
+          }
+        },
+        {
+          organisasjonsnummer: {
+            contains: searchTerm.replace(/\s/g, ''),
+            mode: 'insensitive'
+          }
+        },
+        {
+          poststed: {
+            contains: searchTerm,
+            mode: 'insensitive'
+          }
+        }
+      ]
+    };
+
+    const include = {
+      hovedbruker: {
+        select: { 
+          id: true, 
+          fornavn: true, 
+          etternavn: true 
+        }
+      },
+      _count: {
+        select: {
+          ansatte: true,
+          elever: true,
+          kontrakter: true
+        }
+      }
+    };
+
+    if (pagination) {
+      return this.findManyPaginated(where, pagination, {
+        include,
+        orderBy: [{ navn: 'asc' }]
+      });
+    }
+
+    return this.findMany(where, {
+      include,
+      orderBy: [{ navn: 'asc' }]
+    });
+  }
+
+  /**
+   * Hent statistikk for bedrifter
+   */
+  async getStatistics(): Promise<{
+    total: number;
+    medHovedbruker: number;
+    utenHovedbruker: number;
+    totalAnsatte: number;
+    totalElever: number;
+    totalKontrakter: number;
+    gjennomsnittligAnsattePerBedrift: number;
+  }> {
+    const [
+      total,
+      medHovedbruker,
+      utenHovedbruker,
+      ansatteStats,
+      eleverStats,
+      kontraktStats
+    ] = await Promise.all([
+      this.count(),
+      this.count({ hovedbrukerId: { not: null } }),
+      this.count({ hovedbrukerId: null }),
+      this.aggregate({
+        _count: true,
+        _sum: { id: true }
+      }),
+      this.prisma.elev.count(),
+      this.prisma.kontrakt.count()
+    ]);
+
+    const totalAnsatte = await this.prisma.ansatt.count();
+
+    return {
+      total,
+      medHovedbruker,
+      utenHovedbruker,
+      totalAnsatte,
+      totalElever: eleverStats,
+      totalKontrakter: kontraktStats,
+      gjennomsnittligAnsattePerBedrift: total > 0 ? totalAnsatte / total : 0
+    };
+  }
+
+  /**
+   * Finn bedrifter som trenger oppfølging
+   */
+  async findRequiringAttention(): Promise<Bedrift[]> {
+    return this.findMany(
+      {
+        OR: [
+          // Bedrifter uten hovedbruker
+          { hovedbrukerId: null },
+          // Bedrifter uten ansatte
+          { ansatte: { none: {} } },
+          // Bedrifter uten elever (potensielt inaktive)
+          { elever: { none: {} } }
+        ]
+      },
+      {
+        include: {
+          hovedbruker: {
+            select: { fornavn: true, etternavn: true, epost: true }
+          },
+          _count: {
+            select: {
+              ansatte: true,
+              elever: true,
+              kontrakter: true
+            }
+          }
+        },
+        orderBy: [{ opprettet: 'desc' }]
+      }
+    );
+  }
+
+  /**
+   * Oppdater hovedbruker for bedrift
+   */
+    async updateHovedbruker(
+    bedriftId: number,
+    hovedbrukerId: number | null
+  ): Promise<Bedrift> {
+    return this.update(bedriftId, {
+      hovedbrukerId: hovedbrukerId ?? undefined
+    });
+  }
+
+  /**
+   * Sjekk om organisasjonsnummer er unikt
+   */
+  async isOrgNumerUnique(
+    organisasjonsnummer: string, 
+    excludeBedriftId?: number
+  ): Promise<boolean> {
+    if (!organisasjonsnummer) return true;
+    
+    const cleanOrgNummer = organisasjonsnummer.replace(/\s/g, '');
+    const where: Prisma.BedriftWhereInput = { 
+      organisasjonsnummer: cleanOrgNummer 
+    };
+    
+    if (excludeBedriftId) {
+      where.id = { not: excludeBedriftId };
+    }
+
+    const existing = await this.findFirst(where);
+    return !existing;
+  }
+} 

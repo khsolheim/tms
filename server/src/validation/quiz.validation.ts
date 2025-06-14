@@ -1,0 +1,200 @@
+import { z } from 'zod';
+
+// Schema for å opprette quiz kategori
+export const createQuizKategoriSchema = z.object({
+  body: z.object({
+    navn: z.string()
+      .min(2, "Navn må være minst 2 tegn")
+      .max(100, "Navn kan ikke være lengre enn 100 tegn")
+      .trim(),
+    klasse: z.string()
+      .min(1, "Klasse er påkrevd")
+      .max(10, "Klasse kan ikke være lengre enn 10 tegn")
+      .trim(),
+    hovedkategoriId: z.number({
+      invalid_type_error: "Hovedkategori ID må være et tall"
+    }).positive("Hovedkategori ID må være et positivt tall").optional().nullable()
+  })
+});
+
+// Schema for å oppdatere quiz kategori
+export const updateQuizKategoriSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^\d+$/, "ID må være et tall").transform(Number)
+  }),
+  body: z.object({
+    navn: z.string()
+      .min(2, "Navn må være minst 2 tegn")
+      .max(100, "Navn kan ikke være lengre enn 100 tegn")
+      .trim()
+      .optional(),
+    klasse: z.string()
+      .min(1, "Klasse er påkrevd")
+      .max(10, "Klasse kan ikke være lengre enn 10 tegn")
+      .trim()
+      .optional(),
+    hovedkategoriId: z.number({
+      invalid_type_error: "Hovedkategori ID må være et tall"
+    }).positive("Hovedkategori ID må være et positivt tall").optional().nullable()
+  })
+});
+
+// Schema for å slette quiz kategori
+export const deleteQuizKategoriSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^\d+$/, "ID må være et tall").transform(Number)
+  })
+});
+
+// Schema for quiz kategori query parameters
+export const quizKategoriQuerySchema = z.object({
+  query: z.object({
+    klasse: z.string()
+      .max(10, "Klasse kan ikke være lengre enn 10 tegn")
+      .optional()
+  })
+});
+
+// Schema for å opprette quiz spørsmål
+export const createQuizSporsmalSchema = z.object({
+  body: z.object({
+    tekst: z.string()
+      .min(5, "Spørsmålstekst må være minst 5 tegn")
+      .max(1000, "Spørsmålstekst kan ikke være lengre enn 1000 tegn")
+      .trim(),
+    svaralternativer: z.array(
+      z.string()
+        .min(1, "Svaralternativ kan ikke være tomt")
+        .max(200, "Svaralternativ kan ikke være lengre enn 200 tegn")
+        .trim()
+    )
+      .min(2, "Minimum 2 svaralternativer påkrevd")
+      .max(6, "Maksimum 6 svaralternativer tillatt"),
+    riktigSvar: z.number({
+      required_error: "Riktig svar indeks er påkrevd",
+      invalid_type_error: "Riktig svar må være et tall"
+    })
+      .min(0, "Riktig svar indeks må være minst 0")
+      .int("Riktig svar indeks må være et helt tall"),
+    bildeUrl: z.string()
+      .url("Ugyldig bilde URL")
+      .max(500, "Bilde URL kan ikke være lengre enn 500 tegn")
+      .optional()
+      .nullable(),
+    forklaring: z.string()
+      .max(1000, "Forklaring kan ikke være lengre enn 1000 tegn")
+      .optional()
+      .nullable(),
+    klasser: z.array(
+      z.string()
+        .min(1, "Klassekode kan ikke være tom")
+        .max(10, "Klassekode kan ikke være lengre enn 10 tegn")
+    )
+      .min(1, "Minst én klasse må velges")
+      .max(20, "Maksimalt 20 klasser kan velges"),
+    kategoriId: z.number({
+      invalid_type_error: "Kategori ID må være et tall"
+    }).positive("Kategori ID må være et positivt tall").optional().nullable()
+  })
+  .refine((data) => {
+    // Valider at riktigSvar indeks er innenfor svaralternativer array
+    return data.riktigSvar < data.svaralternativer.length;
+  }, {
+    message: "Riktig svar indeks må være innenfor svaralternativer array",
+    path: ["riktigSvar"]
+  })
+});
+
+// Schema for å oppdatere quiz spørsmål
+export const updateQuizSporsmalSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^\d+$/, "ID må være et tall").transform(Number)
+  }),
+  body: z.object({
+    tekst: z.string()
+      .min(5, "Spørsmålstekst må være minst 5 tegn")
+      .max(1000, "Spørsmålstekst kan ikke være lengre enn 1000 tegn")
+      .trim()
+      .optional(),
+    svaralternativer: z.array(
+      z.string()
+        .min(1, "Svaralternativ kan ikke være tomt")
+        .max(200, "Svaralternativ kan ikke være lengre enn 200 tegn")
+        .trim()
+    )
+      .min(2, "Minimum 2 svaralternativer påkrevd")
+      .max(6, "Maksimum 6 svaralternativer tillatt")
+      .optional(),
+    riktigSvar: z.number({
+      invalid_type_error: "Riktig svar må være et tall"
+    })
+      .min(0, "Riktig svar indeks må være minst 0")
+      .int("Riktig svar indeks må være et helt tall")
+      .optional(),
+    bildeUrl: z.string()
+      .url("Ugyldig bilde URL")
+      .max(500, "Bilde URL kan ikke være lengre enn 500 tegn")
+      .optional()
+      .nullable(),
+    forklaring: z.string()
+      .max(1000, "Forklaring kan ikke være lengre enn 1000 tegn")
+      .optional()
+      .nullable(),
+    klasser: z.array(
+      z.string()
+        .min(1, "Klassekode kan ikke være tom")
+        .max(10, "Klassekode kan ikke være lengre enn 10 tegn")
+    )
+      .min(1, "Minst én klasse må velges")
+      .max(20, "Maksimalt 20 klasser kan velges")
+      .optional(),
+    kategoriId: z.number({
+      invalid_type_error: "Kategori ID må være et tall"
+    }).positive("Kategori ID må være et positivt tall").optional().nullable()
+  })
+  .refine((data) => {
+    // Valider at riktigSvar indeks er innenfor svaralternativer array (kun hvis begge er oppgitt)
+    if (data.riktigSvar !== undefined && data.svaralternativer !== undefined) {
+      return data.riktigSvar < data.svaralternativer.length;
+    }
+    return true;
+  }, {
+    message: "Riktig svar indeks må være innenfor svaralternativer array",
+    path: ["riktigSvar"]
+  })
+});
+
+// Schema for å slette quiz spørsmål
+export const deleteQuizSporsmalSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^\d+$/, "ID må være et tall").transform(Number)
+  })
+});
+
+// Schema for å hente quiz spørsmål med query parameters
+export const quizSporsmalQuerySchema = z.object({
+  query: z.object({
+    klasse: z.string()
+      .max(10, "Klasse kan ikke være lengre enn 10 tegn")
+      .optional(),
+    kategoriId: z.string()
+      .regex(/^\d+$/, "Kategori ID må være et tall")
+      .transform(Number)
+      .optional(),
+    limit: z.string()
+      .regex(/^\d+$/, "Limit må være et tall")
+      .transform(Number)
+      .optional(),
+    offset: z.string()
+      .regex(/^\d+$/, "Offset må være et tall")
+      .transform(Number)
+      .optional()
+  })
+});
+
+// Schema for å hente enkelt quiz spørsmål
+export const getQuizSporsmalSchema = z.object({
+  params: z.object({
+    id: z.string().regex(/^\d+$/, "ID må være et tall").transform(Number)
+  })
+}); 

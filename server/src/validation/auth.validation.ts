@@ -1,0 +1,36 @@
+import { z } from 'zod';
+
+// Schema for innlogging
+export const loggInnSchema = z.object({
+  body: z.object({
+    epost: z.string()
+      .min(1, "E-post er påkrevd")
+      .email("Ugyldig e-post format")
+      .max(255, "E-post kan ikke være lengre enn 255 tegn")
+      .toLowerCase()
+      .trim(),
+    passord: z.string()
+      .min(1, "Passord er påkrevd")
+      .max(128, "Passord kan ikke være lengre enn 128 tegn")
+  })
+});
+
+// Schema for impersonering
+export const impersonerBrukerSchema = z.object({
+  params: z.object({
+    id: z.string()
+      .regex(/^\d+$/, "Bruker ID må være et tall")
+      .transform(val => parseInt(val, 10))
+      .refine(val => val > 0, "Bruker ID må være positivt")
+  })
+});
+
+// Schema for stopp impersonering (ingen input validering nødvendig)
+export const stoppImpersoneringSchema = z.object({
+  // Ingen body/query/params validering nødvendig
+  // Token validering håndteres i middleware
+});
+
+// Type exports for TypeScript
+export type LoggInnInput = z.infer<typeof loggInnSchema>['body'];
+export type ImpersonerBrukerParams = z.infer<typeof impersonerBrukerSchema>['params']; 

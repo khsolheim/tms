@@ -1,0 +1,19 @@
+{
+  "totalEndpoints": 17,
+  "methodCounts": {
+    "POST": 7,
+    "GET": 7,
+    "DELETE": 2,
+    "PUT": 1
+  },
+  "tagCounts": {
+    "Authentication": 1,
+    "System": 3,
+    "Regnskapsintegrasjon": 5,
+    "Tenants": 8
+  },
+  "securityRequiredEndpoints": 17,
+  "deprecatedEndpoints": 0,
+  "generatedAt": "2025-06-12T21:43:33.058Z",
+  "environment": "development"
+}

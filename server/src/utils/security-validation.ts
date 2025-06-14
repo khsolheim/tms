@@ -1,0 +1,518 @@
+import DOMPurify from 'isomorphic-dompurify';
+import validator from 'validator';
+
+/**
+ * Security validation utilities for preventing common attacks
+ */
+
+/**
+ * XSS (Cross-Site Scripting) Prevention
+ */
+export class XSSPrevention {
+  /**
+   * Sanitize HTML content to prevent XSS attacks
+   */
+  static sanitizeHTML(html: string): string {
+    if (!html || typeof html !== 'string') {
+      return '';
+    }
+
+    // Use DOMPurify to clean HTML
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'u', 'ol', 'ul', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'blockquote', 'code', 'pre'
+      ],
+      ALLOWED_ATTR: ['href', 'title', 'alt'],
+      ALLOW_DATA_ATTR: false,
+      FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover']
+    });
+  }
+
+  /**
+   * Escape HTML entities
+   */
+  static escapeHTML(text: string): string {
+    if (!text || typeof text !== 'string') {
+      return '';
+    }
+
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  }
+
+  /**
+   * Validate and sanitize user input for XSS
+   */
+  static validateInput(input: string): { isValid: boolean; sanitized: string; errors: string[] } {
+    const errors: string[] = [];
+    let sanitized = input;
+
+    if (!input || typeof input !== 'string') {
+      return { isValid: true, sanitized: '', errors: [] };
+    }
+
+    // Check for obvious XSS patterns
+    const xssPatterns = [
+      /<script[\s\S]*?>[\s\S]*?<\/script>/gi,
+      /javascript:/gi,
+      /on\w+\s*=/gi,
+      /<iframe[\s\S]*?>/gi,
+      /<object[\s\S]*?>/gi,
+      /<embed[\s\S]*?>/gi,
+      /eval\s*\(/gi,
+      /expression\s*\(/gi
+    ];
+
+    for (const pattern of xssPatterns) {
+      if (pattern.test(input)) {
+        errors.push('Potensielt farlig innhold oppdaget');
+        break;
+      }
+    }
+
+    // Sanitize the input
+    sanitized = this.escapeHTML(input);
+
+    return {
+      isValid: errors.length === 0,
+      sanitized,
+      errors
+    };
+  }
+}
+
+/**
+ * SQL Injection Prevention
+ */
+export class SQLInjectionPrevention {
+  /**
+   * Common SQL injection patterns to detect
+   */
+  private static readonly SQL_INJECTION_PATTERNS = [
+    /(\bUNION\b.*\bSELECT\b)|(\bSELECT\b.*\bFROM\b)/gi,
+    /(\bINSERT\b.*\bINTO\b)|(\bUPDATE\b.*\bSET\b)/gi,
+    /(\bDELETE\b.*\bFROM\b)|(\bDROP\b.*\bTABLE\b)/gi,
+    /(\bCREATE\b.*\bTABLE\b)|(\bALTER\b.*\bTABLE\b)/gi,
+    /(\bEXEC\b.*\()|(\bEXECUTE\b.*\()/gi,
+    /(\b(OR|AND)\b.*['"]\s*(=|LIKE)\s*['"])/gi,
+    /(--|\/\*|\*\/|;)/g,
+    /('.*OR.*'.*=.*')|(".*OR.*".*=.*")/gi,
+    /(1=1|1=0)/gi,
+    /\b(CAST|CONVERT|CHAR|ASCII|SUBSTRING)\s*\(/gi
+  ];
+
+  /**
+   * Validate input for SQL injection attempts
+   */
+  static validateInput(input: string): { isValid: boolean; sanitized: string; errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!input || typeof input !== 'string') {
+      return { isValid: true, sanitized: input || '', errors: [] };
+    }
+
+    // Check for SQL injection patterns
+    for (const pattern of this.SQL_INJECTION_PATTERNS) {
+      if (pattern.test(input)) {
+        errors.push('Potensielt SQL injection forsøk oppdaget');
+        break;
+      }
+    }
+
+    // Sanitize by escaping dangerous characters
+    const sanitized = input
+      .replace(/'/g, "''")  // Escape single quotes
+      .replace(/\\/g, '\\\\') // Escape backslashes
+      .replace(/;/g, '\\;')   // Escape semicolons
+      .replace(/--/g, '\\--') // Escape SQL comments
+      .replace(/\/\*/g, '\\/\\*') // Escape comment start
+      .replace(/\*\//g, '\\*\\/'); // Escape comment end
+
+    return {
+      isValid: errors.length === 0,
+      sanitized,
+      errors
+    };
+  }
+
+  /**
+   * Parameterized query helper (for use with Prisma)
+   */
+  static createSafeQuery(template: string, params: any[]): { query: string; params: any[] } {
+    // This is mainly for documentation - Prisma already handles parameterization
+    // But useful for raw queries
+    return {
+      query: template,
+      params: params.map(param => {
+        if (typeof param === 'string') {
+          return this.validateInput(param).sanitized;
+        }
+        return param;
+      })
+    };
+  }
+}
+
+/**
+ * Path Traversal Prevention
+ */
+export class PathTraversalPrevention {
+  /**
+   * Dangerous path patterns
+   */
+  private static readonly DANGEROUS_PATH_PATTERNS = [
+    /\.\./g,                    // Directory traversal
+    /~\//g,                     // Home directory access
+    /\/etc\//gi,                // System config access
+    /\/proc\//gi,               // Process info access
+    /\/sys\//gi,                // System info access
+    /\/dev\//gi,                // Device access
+    /\/var\/log\//gi,           // Log access
+    /\/root\//gi,               // Root directory access
+    /\\\\|\\\.\\\./g,           // Windows path traversal
+    /\$\{.*\}/g,                // Environment variable injection
+    /%2e%2e/gi,                 // URL encoded ..
+    /%2f/gi,                    // URL encoded /
+    /%5c/gi                     // URL encoded \
+  ];
+
+  /**
+   * Validate file path for traversal attempts
+   */
+  static validatePath(path: string): { isValid: boolean; sanitized: string; errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!path || typeof path !== 'string') {
+      return { isValid: true, sanitized: path || '', errors: [] };
+    }
+
+    // Check for dangerous patterns
+    for (const pattern of this.DANGEROUS_PATH_PATTERNS) {
+      if (pattern.test(path)) {
+        errors.push('Potensielt farlig filsti oppdaget');
+        break;
+      }
+    }
+
+    // Additional checks
+    if (path.startsWith('/') && !path.startsWith('/uploads/')) {
+      errors.push('Absolutte stier er ikke tillatt');
+    }
+
+    if (path.includes('\0')) {
+      errors.push('Null bytes er ikke tillatt i filstier');
+    }
+
+    // Sanitize path
+    let sanitized = path
+      .replace(/\.\./g, '')       // Remove ..
+      .replace(/\/+/g, '/')       // Remove multiple slashes
+      .replace(/^\/+/, '')        // Remove leading slashes
+      .replace(/\/+$/, '');       // Remove trailing slashes
+
+    // Ensure path is within allowed directory
+    if (sanitized && !sanitized.startsWith('uploads/')) {
+      sanitized = `uploads/${sanitized}`;
+    }
+
+    return {
+      isValid: errors.length === 0,
+      sanitized,
+      errors
+    };
+  }
+
+  /**
+   * Get safe filename from user input
+   */
+  static sanitizeFilename(filename: string): string {
+    if (!filename || typeof filename !== 'string') {
+      return 'file';
+    }
+
+    return filename
+      .replace(/[^a-zA-Z0-9._-]/g, '_')  // Replace unsafe chars
+      .replace(/^\.+/, '')               // Remove leading dots
+      .replace(/\.+$/, '')               // Remove trailing dots
+      .replace(/_{2,}/g, '_')            // Replace multiple underscores
+      .substring(0, 255);                // Limit length
+  }
+}
+
+/**
+ * Command Injection Prevention
+ */
+export class CommandInjectionPrevention {
+  /**
+   * Command injection patterns
+   */
+  private static readonly COMMAND_INJECTION_PATTERNS = [
+    /[;&|`$(){}[\]<>]/g,          // Shell metacharacters
+    /\s*(&&|\|\|)\s*/g,           // Command chaining
+    /\$\(.*\)/g,                  // Command substitution
+    /`.*`/g,                      // Backtick command execution
+    /\bexec\b/gi,                 // Exec command
+    /\beval\b/gi,                 // Eval command
+    /\bsystem\b/gi,               // System command
+    /\bpassthru\b/gi,             // Passthru command
+    /\bshell_exec\b/gi,           // Shell exec
+    /\bpopen\b/gi,                // Popen command
+    /\bproc_open\b/gi,            // Proc open
+    /\w+\s*=\s*\$\(/g            // Variable assignment with command substitution
+  ];
+
+  /**
+   * Validate input for command injection attempts
+   */
+  static validateInput(input: string): { isValid: boolean; sanitized: string; errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!input || typeof input !== 'string') {
+      return { isValid: true, sanitized: input || '', errors: [] };
+    }
+
+    // Check for command injection patterns
+    for (const pattern of this.COMMAND_INJECTION_PATTERNS) {
+      if (pattern.test(input)) {
+        errors.push('Potensielt command injection forsøk oppdaget');
+        break;
+      }
+    }
+
+    // Sanitize by removing dangerous characters
+    const sanitized = input
+      .replace(/[;&|`$(){}[\]<>]/g, '')  // Remove shell metacharacters
+      .replace(/\s*(&&|\|\|)\s*/g, ' ')  // Remove command chaining
+      .replace(/\$\(.*\)/g, '')          // Remove command substitution
+      .replace(/`.*`/g, '');             // Remove backtick execution
+
+    return {
+      isValid: errors.length === 0,
+      sanitized,
+      errors
+    };
+  }
+
+  /**
+   * Validate command arguments safely
+   */
+  static validateCommandArgs(args: string[]): { isValid: boolean; sanitizedArgs: string[]; errors: string[] } {
+    const errors: string[] = [];
+    const sanitizedArgs: string[] = [];
+
+    for (const arg of args) {
+      const result = this.validateInput(arg);
+      if (!result.isValid) {
+        errors.push(...result.errors);
+      }
+      sanitizedArgs.push(result.sanitized);
+    }
+
+    return {
+      isValid: errors.length === 0,
+      sanitizedArgs,
+      errors
+    };
+  }
+}
+
+/**
+ * General Input Validation
+ */
+export class InputValidation {
+  /**
+   * Validate email address
+   */
+  static validateEmail(email: string): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!email || typeof email !== 'string') {
+      errors.push('E-post er påkrevd');
+      return { isValid: false, errors };
+    }
+
+    if (!validator.isEmail(email)) {
+      errors.push('Ugyldig e-postformat');
+    }
+
+    if (email.length > 320) {
+      errors.push('E-post er for lang');
+    }
+
+    return { isValid: errors.length === 0, errors };
+  }
+
+  /**
+   * Validate URL
+   */
+  static validateURL(url: string): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!url || typeof url !== 'string') {
+      return { isValid: true, errors }; // URL can be optional
+    }
+
+    if (!validator.isURL(url, {
+      protocols: ['http', 'https'],
+      require_protocol: true,
+      require_valid_protocol: true,
+      allow_protocol_relative_urls: false
+    })) {
+      errors.push('Ugyldig URL format');
+    }
+
+    // Check for suspicious URLs
+    const suspiciousPatterns = [
+      /javascript:/gi,
+      /data:/gi,
+      /file:/gi,
+      /ftp:/gi
+    ];
+
+    for (const pattern of suspiciousPatterns) {
+      if (pattern.test(url)) {
+        errors.push('Potensielt farlig URL');
+        break;
+      }
+    }
+
+    return { isValid: errors.length === 0, errors };
+  }
+
+  /**
+   * Validate JSON input
+   */
+  static validateJSON(jsonString: string): { isValid: boolean; parsed?: any; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!jsonString || typeof jsonString !== 'string') {
+      errors.push('JSON data er påkrevd');
+      return { isValid: false, errors };
+    }
+
+    try {
+      const parsed = JSON.parse(jsonString);
+      
+      // Check for prototype pollution
+      if (jsonString.includes('__proto__') || jsonString.includes('constructor') || jsonString.includes('prototype')) {
+        errors.push('Potensielt farlig JSON struktur');
+      }
+
+      return { isValid: errors.length === 0, parsed, errors };
+    } catch (error) {
+      errors.push('Ugyldig JSON format');
+      return { isValid: false, errors };
+    }
+  }
+}
+
+/**
+ * Rate Limiting Helper
+ */
+export class RateLimitingValidation {
+  private static attempts: Map<string, { count: number; resetTime: number }> = new Map();
+
+  /**
+   * Check if request should be rate limited
+   */
+  static checkRateLimit(identifier: string, maxAttempts: number, windowMs: number): { allowed: boolean; resetTime?: number } {
+    const now = Date.now();
+    const record = this.attempts.get(identifier);
+
+    if (!record || now > record.resetTime) {
+      // First attempt or window expired
+      this.attempts.set(identifier, { count: 1, resetTime: now + windowMs });
+      return { allowed: true };
+    }
+
+    if (record.count >= maxAttempts) {
+      // Rate limit exceeded
+      return { allowed: false, resetTime: record.resetTime };
+    }
+
+    // Increment count
+    record.count++;
+    this.attempts.set(identifier, record);
+    return { allowed: true };
+  }
+
+  /**
+   * Reset rate limit for identifier
+   */
+  static resetRateLimit(identifier: string): void {
+    this.attempts.delete(identifier);
+  }
+}
+
+/**
+ * Complete security validation middleware
+ */
+export const SecurityValidation = {
+  XSS: XSSPrevention,
+  SQLInjection: SQLInjectionPrevention,
+  PathTraversal: PathTraversalPrevention,
+  CommandInjection: CommandInjectionPrevention,
+  Input: InputValidation,
+  RateLimit: RateLimitingValidation,
+
+  /**
+   * Comprehensive input sanitization
+   */
+  sanitizeAllInputs(data: any): any {
+    if (typeof data === 'string') {
+      const xssResult = XSSPrevention.validateInput(data);
+      const sqlResult = SQLInjectionPrevention.validateInput(xssResult.sanitized);
+      const cmdResult = CommandInjectionPrevention.validateInput(sqlResult.sanitized);
+      return cmdResult.sanitized;
+    }
+
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeAllInputs(item));
+    }
+
+    if (data && typeof data === 'object') {
+      const sanitized: any = {};
+      for (const [key, value] of Object.entries(data)) {
+        sanitized[key] = this.sanitizeAllInputs(value);
+      }
+      return sanitized;
+    }
+
+    return data;
+  },
+
+  /**
+   * Validate all security aspects
+   */
+  validateSecurity(input: string): { isValid: boolean; sanitized: string; errors: string[] } {
+    const allErrors: string[] = [];
+    let currentInput = input;
+
+    // Run all validations
+    const xssResult = XSSPrevention.validateInput(currentInput);
+    allErrors.push(...xssResult.errors);
+    currentInput = xssResult.sanitized;
+
+    const sqlResult = SQLInjectionPrevention.validateInput(currentInput);
+    allErrors.push(...sqlResult.errors);
+    currentInput = sqlResult.sanitized;
+
+    const cmdResult = CommandInjectionPrevention.validateInput(currentInput);
+    allErrors.push(...cmdResult.errors);
+    currentInput = cmdResult.sanitized;
+
+    return {
+      isValid: allErrors.length === 0,
+      sanitized: currentInput,
+      errors: allErrors
+    };
+  }
+}; 

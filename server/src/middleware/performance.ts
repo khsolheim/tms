@@ -1,0 +1,246 @@
+/**
+ * Performance Monitoring Middleware
+ * 
+ * Overvåker API responstider, memory usage og detekterer slow queries
+ * Gir performance metrics og alerting for optimalisering
+ */
+
+import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger';
+
+// Performance data cache (in-memory)
+interface PerformanceMetrics {
+  requestCount: number;
+  totalResponseTime: number;
+  averageResponseTime: number;
+  slowestRequest: { endpoint: string; duration: number; timestamp: Date };
+  fastestRequest: { endpoint: string; duration: number; timestamp: Date };
+  memoryUsage: NodeJS.MemoryUsage[];
+  slowQueries: Array<{
+    endpoint: string;
+    duration: number;
+    timestamp: Date;
+    userAgent?: string;
+    ip?: string;
+  }>;
+}
+
+class PerformanceMonitor {
+  private metrics: PerformanceMetrics = {
+    requestCount: 0,
+    totalResponseTime: 0,
+    averageResponseTime: 0,
+    slowestRequest: { endpoint: '', duration: 0, timestamp: new Date() },
+    fastestRequest: { endpoint: '', duration: Infinity, timestamp: new Date() },
+    memoryUsage: [],
+    slowQueries: []
+  };
+
+  private cleanupInterval: NodeJS.Timeout;
+
+  constructor() {
+    // Cleanup old data every hour
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupOldData();
+    }, 60 * 60 * 1000);
+
+    // Track memory usage every 30 seconds
+    setInterval(() => {
+      this.trackMemoryUsage();
+    }, 30 * 1000);
+  }
+
+  private cleanupOldData(): void {
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 timer
+
+    // Behold kun de siste 100 memory målinger
+    this.metrics.memoryUsage = this.metrics.memoryUsage
+      .slice(-100);
+
+    // Behold kun slow queries fra de siste 24 timer
+    this.metrics.slowQueries = this.metrics.slowQueries
+      .filter(query => query.timestamp > cutoffTime)
+      .slice(-500); // Max 500 slow queries
+
+    logger.debug('Performance monitoring: Cleaned up old data', {
+      memoryEntries: this.metrics.memoryUsage.length,
+      slowQueries: this.metrics.slowQueries.length
+    });
+  }
+
+  private trackMemoryUsage(): void {
+    const memUsage = process.memoryUsage();
+    this.metrics.memoryUsage.push(memUsage);
+
+    // Alert on high memory usage (over 1GB)
+    if (memUsage.heapUsed > 1024 * 1024 * 1024) {
+      logger.warn('High memory usage detected', {
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`
+      });
+    }
+  }
+
+  recordRequest(endpoint: string, duration: number, req: Request): void {
+    this.metrics.requestCount++;
+    this.metrics.totalResponseTime += duration;
+    this.metrics.averageResponseTime = this.metrics.totalResponseTime / this.metrics.requestCount;
+
+    // Update fastest request
+    if (duration < this.metrics.fastestRequest.duration) {
+      this.metrics.fastestRequest = {
+        endpoint,
+        duration,
+        timestamp: new Date()
+      };
+    }
+
+    // Update slowest request
+    if (duration > this.metrics.slowestRequest.duration) {
+      this.metrics.slowestRequest = {
+        endpoint,
+        duration,
+        timestamp: new Date()
+      };
+    }
+
+    // Track slow queries (over 2 seconds)
+    if (duration > 2000) {
+      this.metrics.slowQueries.push({
+        endpoint,
+        duration,
+        timestamp: new Date(),
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+      });
+
+      logger.warn('Slow API request detected', {
+        endpoint,
+        duration: `${duration}ms`,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+      });
+    }
+
+    // Log performance for analysis
+    logger.info('API performance', {
+      endpoint,
+      duration: `${duration}ms`,
+      method: req.method,
+      statusCode: req.res?.statusCode
+    });
+  }
+
+  getMetrics(): PerformanceMetrics & {
+    currentMemory: NodeJS.MemoryUsage;
+    recommendations: string[];
+  } {
+    const recommendations: string[] = [];
+
+    // Generate recommendations based on metrics
+    if (this.metrics.averageResponseTime > 1000) {
+      recommendations.push('Gjennomsnittlig responstid er over 1 sekund. Vurder caching og database optimalisering.');
+    }
+
+    if (this.metrics.slowQueries.length > 10) {
+      recommendations.push(`${this.metrics.slowQueries.length} slow queries detektert. Sjekk database indekser og query optimalisering.`);
+    }
+
+    const currentMemory = process.memoryUsage();
+    if (currentMemory.heapUsed > 512 * 1024 * 1024) {
+      recommendations.push('Høy memory bruk detektert. Vurder memory optimalisering og garbage collection tuning.');
+    }
+
+    return {
+      ...this.metrics,
+      currentMemory,
+      recommendations
+    };
+  }
+
+  getTopSlowEndpoints(limit: number = 10): Array<{ endpoint: string; averageDuration: number; count: number }> {
+    const endpointStats = new Map<string, { totalDuration: number; count: number }>();
+
+    this.metrics.slowQueries.forEach(query => {
+      const existing = endpointStats.get(query.endpoint) || { totalDuration: 0, count: 0 };
+      endpointStats.set(query.endpoint, {
+        totalDuration: existing.totalDuration + query.duration,
+        count: existing.count + 1
+      });
+    });
+
+    return Array.from(endpointStats.entries())
+      .map(([endpoint, stats]) => ({
+        endpoint,
+        averageDuration: stats.totalDuration / stats.count,
+        count: stats.count
+      }))
+      .sort((a, b) => b.averageDuration - a.averageDuration)
+      .slice(0, limit);
+  }
+}
+
+const performanceMonitor = new PerformanceMonitor();
+
+/**
+ * Performance monitoring middleware
+ * Tracks response times and detects performance issues
+ */
+export const performanceMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const startTime = Date.now();
+
+  // Use res.on('finish') to capture response time
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    const endpoint = `${req.method} ${req.route?.path || req.path}`;
+    
+    performanceMonitor.recordRequest(endpoint, duration, req);
+  });
+
+  next();
+};
+
+/**
+ * Get performance metrics (admin only)
+ */
+export const getPerformanceMetrics = (req: Request, res: Response) => {
+  try {
+    const metrics = performanceMonitor.getMetrics();
+    const topSlowEndpoints = performanceMonitor.getTopSlowEndpoints();
+
+    res.json({
+      success: true,
+      data: {
+        ...metrics,
+        topSlowEndpoints,
+        timestamp: new Date()
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get performance metrics', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve performance metrics'
+    });
+  }
+};
+
+/**
+ * Request ID middleware for correlation tracking
+ * Creates unique request ID for each API call
+ */
+export const requestIdMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Add to request and response headers
+  req.headers['x-request-id'] = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  
+  // Add to logger context
+  req.requestId = requestId;
+  
+  next();
+};
+
+export { performanceMonitor }; 

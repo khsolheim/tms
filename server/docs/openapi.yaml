@@ -1,0 +1,2879 @@
+openapi: 3.0.0
+info:
+  title: TMS API
+  version: 1.0.0
+  description: |2-
+
+        # TMS (Training Management System) API
+        
+        Comprehensive API for managing training programs, students, companies, and security controls.
+        
+        ## Features
+        - 🏢 **Company Management**: Manage companies and their employees
+        - 👨‍🎓 **Student Management**: Handle student registration and tracking
+        - 📋 **Contract Management**: Create and manage training contracts
+        - 🔒 **Security Controls**: Safety inspections and compliance tracking
+        - 📊 **Quiz System**: Training assessments and evaluations
+        - 🚗 **Vehicle Management**: Fleet and vehicle tracking
+        - 📈 **Reporting**: Comprehensive reporting and analytics
+        
+        ## Authentication
+        Most endpoints require authentication using JWT tokens.
+        Include the token in the Authorization header:
+        `Authorization: Bearer <your-jwt-token>`
+        
+        ## Rate Limiting
+        - General API: 1000 requests per 15 minutes
+        - Authentication endpoints: 5 requests per 15 minutes
+        
+        ## Error Handling
+        All endpoints return consistent error responses with:
+        - Error message in Norwegian
+        - HTTP status codes
+        - Request ID for tracking
+        
+        ## API Versioning
+        Current version: v1
+        - Path versioning: `/api/v1/...`
+        - Header versioning: `Accept-Version: 1.0`
+        
+  termsOfService: https://tms.example.com/terms
+  contact:
+    name: TMS API Support
+    email: support@tms.example.com
+    url: https://tms.example.com/support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Development server
+  - url: https://staging.tms.example.com/api/v1
+    description: Staging server
+  - url: https://api.tms.example.com/api/v1
+    description: Production server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |2-
+
+                JWT token for authentication. Obtain a token by logging in via /api/auth/login.
+                
+                **Usage:**
+                `Authorization: Bearer <your-jwt-token>`
+                
+                **Token expiry:** 7 days for regular users, 30 days for admin users.
+                
+                **Refresh:** Tokens cannot be refreshed. Login again to get a new token.
+                
+  parameters:
+    pageParam:
+      name: page
+      in: query
+      description: Page number for pagination
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limitParam:
+      name: limit
+      in: query
+      description: Number of items per page
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    sortParam:
+      name: sort
+      in: query
+      description: Sort field and direction (e.g., "name:asc", "createdAt:desc")
+      required: false
+      schema:
+        type: string
+        pattern: ^[a-zA-Z]+:(asc|desc)$
+        example: name:asc
+    searchParam:
+      name: search
+      in: query
+      description: Search term for filtering results
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid input data
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Ugyldig input data
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    field:
+                      type: string
+                    message:
+                      type: string
+              requestId:
+                type: string
+                example: 123e4567-e89b-12d3-a456-426614174000
+    Unauthorized:
+      description: Unauthorized - Invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Ikke autorisert - ugyldig token
+              requestId:
+                type: string
+                example: 123e4567-e89b-12d3-a456-426614174000
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Ingen tilgang til denne ressursen
+              requestId:
+                type: string
+                example: 123e4567-e89b-12d3-a456-426614174000
+    NotFound:
+      description: Not Found - Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Ressurs ikke funnet
+              requestId:
+                type: string
+                example: 123e4567-e89b-12d3-a456-426614174000
+    RateLimited:
+      description: Too Many Requests - Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: For mange forespørsler, prøv igjen senere
+              retryAfter:
+                type: string
+                example: 15 minutter
+    InternalServerError:
+      description: Intern serverfeil
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Intern serverfeil
+              requestId:
+                type: string
+                example: 123e4567-e89b-12d3-a456-426614174000
+    ValidationError:
+      description: Valideringsfeil i input data
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Valideringsfeil i forespørselen
+              details:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+                example:
+                  body.epost:
+                    - Ugyldig e-postadresse
+                  body.passord:
+                    - Passord må være minst 8 tegn
+              requestId:
+                type: string
+                example: 123e4567-e89b-12d3-a456-426614174000
+          examples:
+            validationError:
+              $ref: '#/components/examples/ValidationError'
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - epost
+        - passord
+      properties:
+        epost:
+          type: string
+          format: email
+          description: Ansatt sin e-postadresse
+          example: admin@example.com
+        passord:
+          type: string
+          format: password
+          description: Ansatt sitt passord
+          example: SecurePassword123!
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique user identifier
+          example: 1
+        navn:
+          type: string
+          description: Full name of the user
+          example: John Doe
+        epost:
+          type: string
+          format: email
+          description: User email address
+          example: john.doe@example.com
+        rolle:
+          type: string
+          enum:
+            - ADMIN
+            - INSTRUKTØR
+            - ELEV
+          description: User role in the system
+          example: ADMIN
+        tilganger:
+          type: array
+          items:
+            type: string
+          description: User permissions
+          example:
+            - READ_USERS
+            - WRITE_USERS
+        bedrift:
+          $ref: '#/components/schemas/Company'
+        bedriftId:
+          type: integer
+          description: Company identifier
+          example: 1
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT authentication token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        bruker:
+          $ref: '#/components/schemas/User'
+        isImpersonating:
+          type: boolean
+          description: Whether user is impersonating another user
+          example: false
+    ansattRegistrerSchema:
+      $ref: '#/definitions/ansattRegistrerSchema'
+      definitions:
+        ansattRegistrerSchema:
+          type: object
+          properties:
+            fornavn:
+              type: string
+              minLength: 2
+              maxLength: 50
+            etternavn:
+              type: string
+              minLength: 2
+              maxLength: 50
+            epost:
+              type: string
+              format: email
+            passord:
+              type: string
+              minLength: 8
+              maxLength: 100
+            bekreftPassord:
+              type: string
+            telefon:
+              type: string
+              pattern: >-
+                ^(\+47)?[\s]?(\d{2}[\s]?\d{2}[\s]?\d{2}[\s]?\d{2}|\d{3}[\s]?\d{2}[\s]?\d{3}|\d{8})$
+              nullable: true
+            adresse:
+              type: string
+              maxLength: 200
+              nullable: true
+            postnummer:
+              type: string
+              pattern: ^\d{4}$
+              nullable: true
+            poststed:
+              type: string
+              maxLength: 100
+              nullable: true
+            rolle:
+              type: string
+              enum:
+                - HOVEDBRUKER
+                - TRAFIKKLARER
+                - ADMIN
+            klasser:
+              type: array
+              items:
+                type: string
+            kjøretøy:
+              type: array
+              items:
+                type: number
+            hovedkjøretøy:
+              type: number
+              nullable: true
+            bedriftId:
+              type: number
+              exclusiveMinimum: true
+              minimum: 0
+          required:
+            - fornavn
+            - etternavn
+            - epost
+            - passord
+            - bedriftId
+          additionalProperties: false
+    ansattInnloggingSchema:
+      $ref: '#/definitions/ansattInnloggingSchema'
+      definitions:
+        ansattInnloggingSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                epost:
+                  type: string
+                  format: email
+                passord:
+                  type: string
+                  minLength: 1
+              required:
+                - epost
+                - passord
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    oppdaterAnsattProfilSchema:
+      $ref: '#/definitions/oppdaterAnsattProfilSchema'
+      definitions:
+        oppdaterAnsattProfilSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                fornavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                etternavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                telefon:
+                  type: string
+                  pattern: >-
+                    ^(\+47)?[\s]?(\d{2}[\s]?\d{2}[\s]?\d{2}[\s]?\d{2}|\d{3}[\s]?\d{2}[\s]?\d{3}|\d{8})$
+                  nullable: true
+                kallenavn:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                om_meg_selv:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                cv:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                fodselsdag:
+                  type: string
+                  format: date
+                  nullable: true
+                kjonn:
+                  type: string
+                  enum:
+                    - MANN
+                    - KVINNE
+                    - ANNET
+                  nullable: true
+                nasjonalitet:
+                  type: string
+                  maxLength: 50
+                  nullable: true
+                adresse:
+                  type: string
+                  maxLength: 200
+                  nullable: true
+                postnummer:
+                  type: string
+                  pattern: ^\d{4}$
+                  nullable: true
+                poststed:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+                nokontaktNavn:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+                nokontaktTelefon:
+                  type: string
+                  pattern: >-
+                    ^(\+47)?[\s]?(\d{2}[\s]?\d{2}[\s]?\d{2}[\s]?\d{2}|\d{3}[\s]?\d{2}[\s]?\d{3}|\d{8})$
+                  nullable: true
+                ansattKode:
+                  type: string
+                  maxLength: 20
+                  nullable: true
+                avdeling:
+                  type: string
+                  maxLength: 100
+                  nullable: true
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    endrePassordSchema:
+      $ref: '#/definitions/endrePassordSchema'
+      definitions:
+        endrePassordSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                gammeltPassord:
+                  type: string
+                  minLength: 1
+                nyttPassord:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  allOf:
+                    - pattern: (?=.*[a-z])
+                    - pattern: (?=.*[A-Z])
+                    - pattern: (?=.*\d)
+                    - pattern: (?=.*[@$!%*?&])
+                bekreftNyttPassord:
+                  type: string
+              required:
+                - gammeltPassord
+                - nyttPassord
+                - bekreftNyttPassord
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    glemtPassordSchema:
+      $ref: '#/definitions/glemtPassordSchema'
+      definitions:
+        glemtPassordSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                epost:
+                  type: string
+                  format: email
+              required:
+                - epost
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    tilbakestillPassordSchema:
+      $ref: '#/definitions/tilbakestillPassordSchema'
+      definitions:
+        tilbakestillPassordSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                nyttPassord:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  allOf:
+                    - pattern: (?=.*[a-z])
+                    - pattern: (?=.*[A-Z])
+                    - pattern: (?=.*\d)
+                    - pattern: (?=.*[@$!%*?&])
+                bekreftNyttPassord:
+                  type: string
+              required:
+                - token
+                - nyttPassord
+                - bekreftNyttPassord
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    adminOppdaterAnsattSchema:
+      $ref: '#/definitions/adminOppdaterAnsattSchema'
+      definitions:
+        adminOppdaterAnsattSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                fornavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                etternavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                epost:
+                  type: string
+                  format: email
+                rolle:
+                  type: string
+                  enum:
+                    - ADMIN
+                    - TRAFIKKLARER
+                    - SENSOR
+                aktiv:
+                  type: boolean
+                bedriftId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    adminTilbakestillPassordSchema:
+      $ref: '#/definitions/adminTilbakestillPassordSchema'
+      definitions:
+        adminTilbakestillPassordSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                nyttPassord:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  allOf:
+                    - pattern: (?=.*[a-z])
+                    - pattern: (?=.*[A-Z])
+                    - pattern: (?=.*\d)
+                    - pattern: (?=.*[@$!%*?&])
+              required:
+                - nyttPassord
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    slettAnsattSchema:
+      $ref: '#/definitions/slettAnsattSchema'
+      definitions:
+        slettAnsattSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    hentAnsatteBedriftSchema:
+      $ref: '#/definitions/hentAnsatteBedriftSchema'
+      definitions:
+        hentAnsatteBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    adminOppdaterTilgangerSchema:
+      $ref: '#/definitions/adminOppdaterTilgangerSchema'
+      definitions:
+        adminOppdaterTilgangerSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                tilganger:
+                  type: array
+                  items:
+                    type: string
+                  default: []
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    impersonerBrukerSchema:
+      $ref: '#/definitions/impersonerBrukerSchema'
+      definitions:
+        impersonerBrukerSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    createBedriftSchema:
+      $ref: '#/definitions/createBedriftSchema'
+      definitions:
+        createBedriftSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                orgNummer:
+                  type: string
+                  default: ''
+                adresse:
+                  type: string
+                  maxLength: 200
+                postnummer:
+                  type: string
+                poststed:
+                  type: string
+                  maxLength: 100
+                telefon:
+                  type: string
+                epost:
+                  type: string
+                stiftelsesdato:
+                  anyOf:
+                    - type: string
+                      format: date-time
+                    - type: string
+                      format: date
+                    - type: string
+                  nullable: true
+                organisasjonsform:
+                  type: string
+                  nullable: true
+                organisasjonsformKode:
+                  type: string
+                  nullable: true
+                næringskode:
+                  type: string
+                  nullable: true
+                næringskodeKode:
+                  type: string
+                  nullable: true
+                dagligLeder:
+                  anyOf:
+                    - type: string
+                    - type: object
+                      properties:
+                        fornavn:
+                          type: string
+                        etternavn:
+                          type: string
+                        fulltNavn:
+                          type: string
+                        beskrivelse:
+                          type: string
+                        sistEndret:
+                          type: string
+                      additionalProperties: false
+                    - enum:
+                        - 'null'
+                      nullable: true
+                  nullable: true
+                styreleder:
+                  anyOf:
+                    - type: string
+                    - type: object
+                      properties:
+                        fornavn:
+                          type: string
+                        etternavn:
+                          type: string
+                        fulltNavn:
+                          type: string
+                        beskrivelse:
+                          type: string
+                        sistEndret:
+                          type: string
+                      additionalProperties: false
+                    - enum:
+                        - 'null'
+                      nullable: true
+                  nullable: true
+                signaturrett:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: string
+                      - type: object
+                        properties:
+                          fornavn:
+                            type: string
+                          etternavn:
+                            type: string
+                          fulltNavn:
+                            type: string
+                          beskrivelse:
+                            type: string
+                        additionalProperties: false
+                  default: &ref_0 []
+                brregMetadata:
+                  nullable: true
+              required:
+                - navn
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    updateBedriftSchema:
+      $ref: '#/definitions/updateBedriftSchema'
+      definitions:
+        updateBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                orgNummer:
+                  type: string
+                  default: ''
+                adresse:
+                  type: string
+                  maxLength: 200
+                postnummer:
+                  type: string
+                poststed:
+                  type: string
+                  maxLength: 100
+                telefon:
+                  type: string
+                epost:
+                  type: string
+                stiftelsesdato:
+                  anyOf:
+                    - type: string
+                      format: date-time
+                    - type: string
+                      format: date
+                    - type: string
+                  nullable: true
+                organisasjonsform:
+                  type: string
+                  nullable: true
+                organisasjonsformKode:
+                  type: string
+                  nullable: true
+                næringskode:
+                  type: string
+                  nullable: true
+                næringskodeKode:
+                  type: string
+                  nullable: true
+                dagligLeder:
+                  anyOf:
+                    - type: string
+                    - type: object
+                      properties:
+                        fornavn:
+                          type: string
+                        etternavn:
+                          type: string
+                        fulltNavn:
+                          type: string
+                        beskrivelse:
+                          type: string
+                        sistEndret:
+                          type: string
+                      additionalProperties: false
+                    - enum:
+                        - 'null'
+                      nullable: true
+                  nullable: true
+                styreleder:
+                  anyOf:
+                    - type: string
+                    - type: object
+                      properties:
+                        fornavn:
+                          type: string
+                        etternavn:
+                          type: string
+                        fulltNavn:
+                          type: string
+                        beskrivelse:
+                          type: string
+                        sistEndret:
+                          type: string
+                      additionalProperties: false
+                    - enum:
+                        - 'null'
+                      nullable: true
+                  nullable: true
+                signaturrett:
+                  type: array
+                  items:
+                    anyOf:
+                      - type: string
+                      - type: object
+                        properties:
+                          fornavn:
+                            type: string
+                          etternavn:
+                            type: string
+                          fulltNavn:
+                            type: string
+                          beskrivelse:
+                            type: string
+                        additionalProperties: false
+                  default: *ref_0
+                brregMetadata:
+                  nullable: true
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    setHovedbrukerSchema:
+      $ref: '#/definitions/setHovedbrukerSchema'
+      definitions:
+        setHovedbrukerSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                hovedbrukerId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+              required:
+                - hovedbrukerId
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    addKlasserSchema:
+      $ref: '#/definitions/addKlasserSchema'
+      definitions:
+        addKlasserSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                klasser:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 10
+                  minItems: 1
+                  maxItems: 20
+              required:
+                - klasser
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    createAnsattSchema:
+      $ref: '#/definitions/createAnsattSchema'
+      definitions:
+        createAnsattSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                fornavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                etternavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                epost:
+                  type: string
+                  format: email
+                passord:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  allOf:
+                    - pattern: (?=.*[a-z])
+                    - pattern: (?=.*[A-Z])
+                    - pattern: (?=.*\d)
+                rolle:
+                  type: string
+                  enum:
+                    - ADMIN
+                    - TRAFIKKLARER
+                    - SENSOR
+                  default: TRAFIKKLARER
+              required:
+                - fornavn
+                - etternavn
+                - epost
+                - passord
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    createKjoretoySchema:
+      $ref: '#/definitions/createKjoretoySchema'
+      definitions:
+        createKjoretoySchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                registreringsnummer:
+                  type: string
+                  pattern: ^[A-Z]{2}\d{5}$
+                merke:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                modell:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                aarsmodell:
+                  type: number
+                  minimum: 1900
+                  maximum: 2026
+                type:
+                  type: string
+                  enum:
+                    - Personbil
+                    - Motorsykkel
+                    - Lastebil
+                    - Buss
+                    - Traktor
+                status:
+                  type: string
+                  enum:
+                    - AKTIV
+                    - INAKTIV
+                    - SERVICE
+                    - SOLGT
+                forerkortklass:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 5
+                  minItems: 1
+              required:
+                - registreringsnummer
+                - merke
+                - modell
+                - aarsmodell
+                - type
+                - status
+                - forerkortklass
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    updateKjoretoySchema:
+      $ref: '#/definitions/updateKjoretoySchema'
+      definitions:
+        updateKjoretoySchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                bedriftId:
+                  type: string
+                  pattern: ^\d+$
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - bedriftId
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                registreringsnummer:
+                  type: string
+                  pattern: ^[A-Z]{2}\d{5}$
+                merke:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                modell:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                aarsmodell:
+                  type: number
+                  minimum: 1900
+                  maximum: 2026
+                type:
+                  type: string
+                  enum:
+                    - Personbil
+                    - Motorsykkel
+                    - Lastebil
+                    - Buss
+                    - Traktor
+                status:
+                  type: string
+                  enum:
+                    - AKTIV
+                    - INAKTIV
+                    - SERVICE
+                    - SOLGT
+                forerkortklass:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 5
+                  minItems: 1
+              required:
+                - registreringsnummer
+                - merke
+                - modell
+                - aarsmodell
+                - type
+                - status
+                - forerkortklass
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    deleteByIdSchema:
+      $ref: '#/definitions/deleteByIdSchema'
+      definitions:
+        deleteByIdSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    deleteKjoretoySchema:
+      $ref: '#/definitions/deleteKjoretoySchema'
+      definitions:
+        deleteKjoretoySchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                bedriftId:
+                  type: string
+                  pattern: ^\d+$
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - bedriftId
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getBedriftByIdSchema:
+      $ref: '#/definitions/getBedriftByIdSchema'
+      definitions:
+        getBedriftByIdSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getBedriftByNameSchema:
+      $ref: '#/definitions/getBedriftByNameSchema'
+      definitions:
+        getBedriftByNameSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+              required:
+                - navn
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getAnsatteByBedriftSchema:
+      $ref: '#/definitions/getAnsatteByBedriftSchema'
+      definitions:
+        getAnsatteByBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getKjoretoyByBedriftSchema:
+      $ref: '#/definitions/getKjoretoyByBedriftSchema'
+      definitions:
+        getKjoretoyByBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    addKlasserToBedriftSchema:
+      $ref: '#/definitions/addKlasserToBedriftSchema'
+      definitions:
+        addKlasserToBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                klasser:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                  minItems: 1
+                  maxItems: 50
+              required:
+                - klasser
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    setHovedbrukerForBedriftSchema:
+      $ref: '#/definitions/setHovedbrukerForBedriftSchema'
+      definitions:
+        setHovedbrukerForBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                hovedbrukerId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+              required:
+                - hovedbrukerId
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    updateKjoretoyForBedriftSchema:
+      $ref: '#/definitions/updateKjoretoyForBedriftSchema'
+      definitions:
+        updateKjoretoyForBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                bedriftId:
+                  type: string
+                  pattern: ^\d+$
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - bedriftId
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                registreringsnummer:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+                  pattern: ^[A-Z0-9]+$
+                merke:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                modell:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                aarsmodell:
+                  type: number
+                  minimum: 1900
+                  maximum: 2027
+                type:
+                  type: string
+                  enum:
+                    - PERSONBIL
+                    - LASTEBIL
+                    - BUS
+                    - MOTORSYKKEL
+                    - ANNET
+                status:
+                  type: string
+                  enum:
+                    - AKTIV
+                    - INAKTIV
+                    - UNDER_SERVICE
+                  default: AKTIV
+                forerkortklass:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+              required:
+                - registreringsnummer
+                - merke
+                - modell
+                - aarsmodell
+                - type
+                - forerkortklass
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    createElevSchema:
+      $ref: '#/definitions/createElevSchema'
+      definitions:
+        createElevSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                personnummer:
+                  type: string
+                  pattern: ^\d{11}$
+                fornavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                etternavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                epost:
+                  type: string
+                  format: email
+                telefon:
+                  type: string
+                  pattern: >-
+                    ^(\+47)?[\s]?(\d{2}[\s]?\d{2}[\s]?\d{2}[\s]?\d{2}|\d{3}[\s]?\d{2}[\s]?\d{3}|\d{8})$
+                gate:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                postnummer:
+                  type: string
+                  pattern: ^\d{4}$
+                poststed:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                klassekode:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+                bedriftId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+              required:
+                - personnummer
+                - fornavn
+                - etternavn
+                - epost
+                - telefon
+                - gate
+                - postnummer
+                - poststed
+                - klassekode
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    updateElevSchema:
+      $ref: '#/definitions/updateElevSchema'
+      definitions:
+        updateElevSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                fornavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                etternavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                epost:
+                  type: string
+                  format: email
+                telefon:
+                  type: string
+                  pattern: >-
+                    ^(\+47)?[\s]?(\d{2}[\s]?\d{2}[\s]?\d{2}[\s]?\d{2}|\d{3}[\s]?\d{2}[\s]?\d{3}|\d{8})$
+                gate:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                postnummer:
+                  type: string
+                  pattern: ^\d{4}$
+                poststed:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                klassekode:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    createElevSoknadSchema:
+      $ref: '#/definitions/createElevSoknadSchema'
+      definitions:
+        createElevSoknadSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                personnummer:
+                  type: string
+                  pattern: ^\d{11}$
+                fornavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                etternavn:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                epost:
+                  type: string
+                  format: email
+                telefon:
+                  type: string
+                  pattern: >-
+                    ^(\+47)?[\s]?(\d{2}[\s]?\d{2}[\s]?\d{2}[\s]?\d{2}|\d{3}[\s]?\d{2}[\s]?\d{3}|\d{8})$
+                adresse:
+                  type: string
+                  maxLength: 200
+                postnummer:
+                  type: string
+                  pattern: ^\d{4}$
+                poststed:
+                  type: string
+                  maxLength: 100
+                merknad:
+                  type: string
+                  maxLength: 500
+                bedriftId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+              required:
+                - personnummer
+                - fornavn
+                - etternavn
+                - epost
+                - bedriftId
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    handleElevSoknadSchema:
+      $ref: '#/definitions/handleElevSoknadSchema'
+      definitions:
+        handleElevSoknadSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - godkjenn
+                    - avvis
+                merknad:
+                  type: string
+                  maxLength: 500
+              required:
+                - action
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    searchElevSchema:
+      $ref: '#/definitions/searchElevSchema'
+      definitions:
+        searchElevSchema:
+          type: object
+          properties:
+            query:
+              type: object
+              properties:
+                sokeord:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+              required:
+                - sokeord
+              additionalProperties: false
+          required:
+            - query
+          additionalProperties: false
+    deleteElevSchema:
+      $ref: '#/definitions/deleteElevSchema'
+      definitions:
+        deleteElevSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getElevByPersonnummerSchema:
+      $ref: '#/definitions/getElevByPersonnummerSchema'
+      definitions:
+        getElevByPersonnummerSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                personnummer:
+                  type: string
+                  pattern: ^\d{11}$
+              required:
+                - personnummer
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getElevByIdSchema:
+      $ref: '#/definitions/getElevByIdSchema'
+      definitions:
+        getElevByIdSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getEleverByBedriftSchema:
+      $ref: '#/definitions/getEleverByBedriftSchema'
+      definitions:
+        getEleverByBedriftSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                bedriftId:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - bedriftId
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    kontraktOpprettSchema:
+      $ref: '#/definitions/kontraktOpprettSchema'
+      definitions:
+        kontraktOpprettSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                elevFornavn:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                elevEtternavn:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                elevPersonnummer:
+                  type: string
+                  pattern: ^\d{11}$
+                elevTelefon:
+                  type: string
+                  pattern: ^(\+47)?[\s]?[\d\s-()]+$
+                elevEpost:
+                  type: string
+                  format: email
+                elevGate:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                elevPostnr:
+                  type: string
+                  pattern: ^\d{4}$
+                elevPoststed:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                harFakturaansvarlig:
+                  type: boolean
+                fakturaansvarligFornavn:
+                  type: string
+                  maxLength: 100
+                fakturaansvarligEtternavn:
+                  type: string
+                  maxLength: 100
+                fakturaansvarligPersonnummer:
+                  type: string
+                fakturaansvarligTelefon:
+                  type: string
+                fakturaansvarligEpost:
+                  type: string
+                fakturaansvarligGate:
+                  type: string
+                  maxLength: 200
+                fakturaansvarligPostnr:
+                  type: string
+                fakturaansvarligPoststed:
+                  type: string
+                  maxLength: 100
+                lan:
+                  type: number
+                  minimum: 1000
+                  maximum: 1000000
+                lopetid:
+                  type: number
+                rente:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                etableringsgebyr:
+                  type: number
+                  minimum: 0
+                  maximum: 10000
+                termingebyr:
+                  type: number
+                  minimum: 0
+                  maximum: 500
+                terminerPerAr:
+                  type: number
+                  minimum: 1
+                  maximum: 12
+                  default: 12
+                inkludererGebyrerILan:
+                  type: boolean
+                  default: false
+                effektivRente:
+                  type: number
+                renterOgGebyr:
+                  type: number
+                terminbelop:
+                  type: number
+                totalRente:
+                  type: number
+                totalBelop:
+                  type: number
+              required:
+                - elevFornavn
+                - elevEtternavn
+                - elevPersonnummer
+                - elevTelefon
+                - elevEpost
+                - elevGate
+                - elevPostnr
+                - elevPoststed
+                - harFakturaansvarlig
+                - lan
+                - lopetid
+                - rente
+                - etableringsgebyr
+                - termingebyr
+                - effektivRente
+                - renterOgGebyr
+                - terminbelop
+                - totalRente
+                - totalBelop
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    getKontraktSchema:
+      $ref: '#/definitions/getKontraktSchema'
+      definitions:
+        getKontraktSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    deleteKontraktSchema:
+      $ref: '#/definitions/deleteKontraktSchema'
+      definitions:
+        deleteKontraktSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    kontraktOppdaterSchema:
+      $ref: '#/definitions/kontraktOppdaterSchema'
+      definitions:
+        kontraktOppdaterSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - UTKAST
+                    - GODKJENT
+                    - SIGNERT
+                    - AKTIV
+                    - AVSLUTTET
+                    - KANSELLERT
+                elevFornavn:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                elevEtternavn:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                elevPersonnummer:
+                  type: string
+                  pattern: ^\d{11}$
+                elevTelefon:
+                  type: string
+                  pattern: ^(\+47)?[\s]?[\d\s-()]+$
+                elevEpost:
+                  type: string
+                  format: email
+                elevGate:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                elevPostnr:
+                  type: string
+                  pattern: ^\d{4}$
+                elevPoststed:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                harFakturaansvarlig:
+                  type: boolean
+                fakturaansvarligFornavn:
+                  type: string
+                  maxLength: 100
+                fakturaansvarligEtternavn:
+                  type: string
+                  maxLength: 100
+                fakturaansvarligPersonnummer:
+                  type: string
+                fakturaansvarligTelefon:
+                  type: string
+                fakturaansvarligEpost:
+                  type: string
+                fakturaansvarligGate:
+                  type: string
+                  maxLength: 200
+                fakturaansvarligPostnr:
+                  type: string
+                fakturaansvarligPoststed:
+                  type: string
+                  maxLength: 100
+                lan:
+                  type: number
+                  minimum: 1000
+                  maximum: 1000000
+                lopetid:
+                  type: number
+                rente:
+                  type: number
+                  minimum: 0
+                  maximum: 50
+                etableringsgebyr:
+                  type: number
+                  minimum: 0
+                  maximum: 10000
+                termingebyr:
+                  type: number
+                  minimum: 0
+                  maximum: 500
+                terminerPerAr:
+                  type: number
+                  minimum: 1
+                  maximum: 12
+                inkludererGebyrerILan:
+                  type: boolean
+                effektivRente:
+                  type: number
+                renterOgGebyr:
+                  type: number
+                terminbelop:
+                  type: number
+                totalRente:
+                  type: number
+                totalBelop:
+                  type: number
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    systemConfigSchema:
+      $ref: '#/definitions/systemConfigSchema'
+      definitions:
+        systemConfigSchema:
+          type: object
+          properties:
+            dagerForfallFaktura:
+              type: number
+              minimum: 1
+              maximum: 90
+            purregebyr:
+              type: number
+              minimum: 0
+              maximum: 1000
+            forsinkelsesrente:
+              type: number
+              minimum: 0
+              maximum: 30
+            kontonummer:
+              type: string
+              maxLength: 20
+            standardRente:
+              type: number
+              minimum: 0
+              maximum: 30
+            standardEtableringsgebyr:
+              type: number
+              minimum: 0
+              maximum: 10000
+            standardTermingebyr:
+              type: number
+              minimum: 0
+              maximum: 500
+            standardLopetid:
+              type: number
+            sendKvitteringTilElev:
+              type: boolean
+            sendKopiTilBedrift:
+              type: boolean
+            standardAvsenderEpost:
+              anyOf:
+                - anyOf:
+                    - not: {}
+                    - type: string
+                      format: email
+                - type: string
+                  minLength: 0
+                  maxLength: 0
+            standardAvsenderNavn:
+              type: string
+              maxLength: 100
+            varsleNyKontrakt:
+              type: boolean
+            varsleStatusendring:
+              type: boolean
+            varsleForfall:
+              type: boolean
+            dagerForVarslingForfall:
+              type: number
+              minimum: 1
+              maximum: 30
+            visPersonnummerILister:
+              type: boolean
+            tillateElevregistrering:
+              type: boolean
+            kreverGodkjenningElevSoknad:
+              type: boolean
+          additionalProperties: false
+    createSikkerhetskontrollSchema:
+      $ref: '#/definitions/createSikkerhetskontrollSchema'
+      definitions:
+        createSikkerhetskontrollSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                beskrivelse:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                sjekkpunkter:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sjekkpunktId:
+                        type: number
+                        exclusiveMinimum: true
+                        minimum: 0
+                      rekkefølge:
+                        type: number
+                        minimum: 1
+                      kanGodkjennesAv:
+                        type: string
+                        enum:
+                          - LÆRER
+                          - ELEV
+                          - BEGGE
+                        default: LÆRER
+                      påkrevd:
+                        type: boolean
+                        default: true
+                    required:
+                      - sjekkpunktId
+                      - rekkefølge
+                    additionalProperties: false
+                  minItems: 1
+                kontrollmalId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  nullable: true
+                bedriftId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+              required:
+                - navn
+                - sjekkpunkter
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    updateSikkerhetskontrollSchema:
+      $ref: '#/definitions/updateSikkerhetskontrollSchema'
+      definitions:
+        updateSikkerhetskontrollSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                beskrivelse:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                sjekkpunkter:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sjekkpunktId:
+                        type: number
+                        exclusiveMinimum: true
+                        minimum: 0
+                      rekkefølge:
+                        type: number
+                        minimum: 1
+                      kanGodkjennesAv:
+                        type: string
+                        enum:
+                          - LÆRER
+                          - ELEV
+                          - BEGGE
+                        default: LÆRER
+                      påkrevd:
+                        type: boolean
+                        default: true
+                    required:
+                      - sjekkpunktId
+                      - rekkefølge
+                    additionalProperties: false
+                  minItems: 1
+                kontrollmalId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  nullable: true
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    deleteSikkerhetskontrollSchema:
+      $ref: '#/definitions/deleteSikkerhetskontrollSchema'
+      definitions:
+        deleteSikkerhetskontrollSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getSikkerhetskontrollByIdSchema:
+      $ref: '#/definitions/getSikkerhetskontrollByIdSchema'
+      definitions:
+        getSikkerhetskontrollByIdSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    getSikkerhetskontrollerQuerySchema:
+      $ref: '#/definitions/getSikkerhetskontrollerQuerySchema'
+      definitions:
+        getSikkerhetskontrollerQuerySchema:
+          type: object
+          properties:
+            query:
+              type: object
+              properties:
+                bedriftId:
+                  type: string
+                  pattern: ^\d+$
+                kontrollmalId:
+                  type: string
+                  pattern: ^\d+$
+                status:
+                  type: string
+                  enum:
+                    - AKTIV
+                    - INAKTIV
+                    - FULLFØRT
+                limit:
+                  type: string
+                  pattern: ^\d+$
+                offset:
+                  type: string
+                  pattern: ^\d+$
+              additionalProperties: false
+          required:
+            - query
+          additionalProperties: false
+    registrerAvvikSchema:
+      $ref: '#/definitions/registrerAvvikSchema'
+      definitions:
+        registrerAvvikSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                sjekkpunktId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                beskrivelse:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                alvorlighetsgrad:
+                  type: string
+                  enum:
+                    - LAV
+                    - MIDDELS
+                    - HOY
+                    - KRITISK
+                  default: MIDDELS
+                handlingsplan:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                fristUtbedring:
+                  type: string
+                  format: date
+                  nullable: true
+              required:
+                - sjekkpunktId
+                - beskrivelse
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    godkjennSjekkpunktSchema:
+      $ref: '#/definitions/godkjennSjekkpunktSchema'
+      definitions:
+        godkjennSjekkpunktSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                sjekkpunktId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                godkjent:
+                  type: boolean
+                kommentar:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+              required:
+                - sjekkpunktId
+                - godkjent
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    createQuizKategoriSchema:
+      $ref: '#/definitions/createQuizKategoriSchema'
+      definitions:
+        createQuizKategoriSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                klasse:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+                hovedkategoriId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  nullable: true
+              required:
+                - navn
+                - klasse
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    updateQuizKategoriSchema:
+      $ref: '#/definitions/updateQuizKategoriSchema'
+      definitions:
+        updateQuizKategoriSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                navn:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                klasse:
+                  type: string
+                  minLength: 1
+                  maxLength: 10
+                hovedkategoriId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  nullable: true
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    deleteQuizKategoriSchema:
+      $ref: '#/definitions/deleteQuizKategoriSchema'
+      definitions:
+        deleteQuizKategoriSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    quizKategoriQuerySchema:
+      $ref: '#/definitions/quizKategoriQuerySchema'
+      definitions:
+        quizKategoriQuerySchema:
+          type: object
+          properties:
+            query:
+              type: object
+              properties:
+                klasse:
+                  type: string
+                  maxLength: 10
+              additionalProperties: false
+          required:
+            - query
+          additionalProperties: false
+    createQuizSporsmalSchema:
+      $ref: '#/definitions/createQuizSporsmalSchema'
+      definitions:
+        createQuizSporsmalSchema:
+          type: object
+          properties:
+            body:
+              type: object
+              properties:
+                tekst:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                svaralternativer:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  minItems: 2
+                  maxItems: 6
+                riktigSvar:
+                  type: integer
+                  minimum: 0
+                bildeUrl:
+                  type: string
+                  format: uri
+                  maxLength: 500
+                  nullable: true
+                forklaring:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                klasser:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 10
+                  minItems: 1
+                  maxItems: 20
+                kategoriId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  nullable: true
+              required:
+                - tekst
+                - svaralternativer
+                - riktigSvar
+                - klasser
+              additionalProperties: false
+          required:
+            - body
+          additionalProperties: false
+    updateQuizSporsmalSchema:
+      $ref: '#/definitions/updateQuizSporsmalSchema'
+      definitions:
+        updateQuizSporsmalSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+            body:
+              type: object
+              properties:
+                tekst:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                svaralternativer:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                  minItems: 2
+                  maxItems: 6
+                riktigSvar:
+                  type: integer
+                  minimum: 0
+                bildeUrl:
+                  type: string
+                  format: uri
+                  maxLength: 500
+                  nullable: true
+                forklaring:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                klasser:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 10
+                  minItems: 1
+                  maxItems: 20
+                kategoriId:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  nullable: true
+              additionalProperties: false
+          required:
+            - params
+            - body
+          additionalProperties: false
+    deleteQuizSporsmalSchema:
+      $ref: '#/definitions/deleteQuizSporsmalSchema'
+      definitions:
+        deleteQuizSporsmalSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+    quizSporsmalQuerySchema:
+      $ref: '#/definitions/quizSporsmalQuerySchema'
+      definitions:
+        quizSporsmalQuerySchema:
+          type: object
+          properties:
+            query:
+              type: object
+              properties:
+                klasse:
+                  type: string
+                  maxLength: 10
+                kategoriId:
+                  type: string
+                  pattern: ^\d+$
+                limit:
+                  type: string
+                  pattern: ^\d+$
+                offset:
+                  type: string
+                  pattern: ^\d+$
+              additionalProperties: false
+          required:
+            - query
+          additionalProperties: false
+    getQuizSporsmalSchema:
+      $ref: '#/definitions/getQuizSporsmalSchema'
+      definitions:
+        getQuizSporsmalSchema:
+          type: object
+          properties:
+            params:
+              type: object
+              properties:
+                id:
+                  type: string
+                  pattern: ^\d+$
+              required:
+                - id
+              additionalProperties: false
+          required:
+            - params
+          additionalProperties: false
+  examples:
+    SuccessResponse:
+      summary: Vellykket respons
+      value:
+        success: true
+        data: {}
+        timestamp: '2025-06-11T20:00:00.000Z'
+    ValidationError:
+      summary: Valideringsfeil
+      value:
+        error: Valideringsfeil i forespørselen
+        details:
+          body.epost:
+            - Ugyldig e-postadresse
+          body.passord:
+            - Passord må være minst 8 tegn
+        requestId: 123e4567-e89b-12d3-a456-426614174000
+    UnauthorizedError:
+      summary: Ikke autorisert
+      value:
+        error: Ikke autorisert - ugyldig token
+        requestId: 123e4567-e89b-12d3-a456-426614174000
+security:
+  - bearerAuth: []
+tags:
+  - name: Authentication
+    description: Authentication and authorization endpoints
+  - name: Companies
+    description: Company management endpoints
+  - name: Employees
+    description: Employee management endpoints
+  - name: Students
+    description: Student management endpoints
+  - name: Contracts
+    description: Training contract management endpoints
+  - name: Security Controls
+    description: Safety inspection and compliance endpoints
+  - name: Quizzes
+    description: Assessment and quiz management endpoints
+  - name: Vehicles
+    description: Vehicle and fleet management endpoints
+  - name: Reports
+    description: Reporting and analytics endpoints
+  - name: System
+    description: System health and configuration endpoints
+paths:
+  /auth/logg-inn:
+    post:
+      summary: User authentication
+      description: Authenticate user with email and password
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Ugyldig påloggingsinformasjon
+                  requestId:
+                    type: string
+                    example: 123e4567-e89b-12d3-a456-426614174000
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /docs:
+    get:
+      summary: API Documentation UI
+      description: Interactive Swagger UI for exploring and testing the API
+      tags:
+        - System
+      responses:
+        '200':
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+  /docs/json:
+    get:
+      summary: OpenAPI Specification (JSON)
+      description: Get the complete OpenAPI 3.0 specification in JSON format
+      tags:
+        - System
+      responses:
+        '200':
+          description: OpenAPI specification
+          content:
+            application/json:
+              schema:
+                type: object
+                description: OpenAPI 3.0 specification
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /docs/stats:
+    get:
+      summary: API Statistics
+      description: Get statistics about the API endpoints and structure
+      tags:
+        - System
+      responses:
+        '200':
+          description: API statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalEndpoints:
+                    type: integer
+                    description: Total number of API endpoints
+                    example: 45
+                  methodCounts:
+                    type: object
+                    description: Count of endpoints by HTTP method
+                    example:
+                      GET: 20
+                      POST: 15
+                      PUT: 8
+                      DELETE: 2
+                  tagCounts:
+                    type: object
+                    description: Count of endpoints by tag/category
+                    example:
+                      Companies: 8
+                      Employees: 6
+                      Students: 7
+                  securityRequiredEndpoints:
+                    type: integer
+                    description: Number of endpoints requiring authentication
+                    example: 40
+                  deprecatedEndpoints:
+                    type: integer
+                    description: Number of deprecated endpoints
+                    example: 0
+                  generatedAt:
+                    type: string
+                    format: date-time
+                    description: When these statistics were generated
+                  environment:
+                    type: string
+                    description: Current environment
+                    example: development
+  /api/regnskaps-integrasjon/konfigurasjon:
+    get:
+      summary: Hent regnskapskonfigurasjon
+      tags:
+        - Regnskapsintegrasjon
+      security:
+        - bearerAuth: []
+    post:
+      summary: Lagre regnskapskonfigurasjon
+      tags:
+        - Regnskapsintegrasjon
+      security:
+        - bearerAuth: []
+  /api/regnskaps-integrasjon/test-forbindelse:
+    post:
+      summary: Test forbindelse til regnskapssystem
+      tags:
+        - Regnskapsintegrasjon
+      security:
+        - bearerAuth: []
+  /api/regnskaps-integrasjon/status:
+    get:
+      summary: Hent integrasjonsstatus
+      tags:
+        - Regnskapsintegrasjon
+      security:
+        - bearerAuth: []
+  /api/regnskaps-integrasjon/sync:
+    post:
+      summary: Start manuell synkronisering
+      tags:
+        - Regnskapsintegrasjon
+      security:
+        - bearerAuth: []
+  /api/tenants:
+    get:
+      summary: Hent alle tenants for bruker
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+    post:
+      summary: Opprett ny tenant
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+  /api/tenants/{tenantId}:
+    get:
+      summary: Hent tenant detaljer
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+    delete:
+      summary: Slett tenant
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+  /api/tenants/{tenantId}/inviter:
+    post:
+      summary: Inviter bruker til tenant
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+  /api/tenants/{tenantId}/aksepter:
+    post:
+      summary: Aksepter invitasjon til tenant
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+  /api/tenants/{tenantId}/brukere/{userId}/rolle:
+    put:
+      summary: Oppdater bruker rolle i tenant
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []
+  /api/tenants/{tenantId}/brukere/{userId}:
+    delete:
+      summary: Fjern bruker fra tenant
+      tags:
+        - Tenants
+      security:
+        - bearerAuth: []

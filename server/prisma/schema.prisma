@@ -1,0 +1,1608 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id      Int    @id @default(autoincrement())
+  epost   String @unique
+  navn    String
+  rolle   Rolle
+  skoleId Int?
+  // Soft delete fields
+  deletedAt DateTime?
+  deletedBy Int?
+  isDeleted Boolean  @default(false)
+  globalRole GlobalRolle @default(STANDARD_USER) // System-wide role
+  
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([epost])
+  @@index([rolle])
+  @@index([globalRole])
+  
+  // Multi-tenancy relations
+  userTenants       UserTenant[]
+  invitedUserTenants UserTenant[] @relation("UserTenantInviter")
+}
+
+model Sjekkpunkt {
+  id                   Int                       @id @default(autoincrement())
+  tittel               String
+  beskrivelse          String
+  bildeUrl             String?
+  videoUrl             String?
+  rettVerdi            String?
+  typeKontroll         KontrollType
+  system               String                    // Deprecated: use systemId instead
+  systemId             Int?                      // Reference to SjekkpunktSystem
+  intervallKm          Int?
+  intervallTid         Int?
+  forerkortklass       String[]                  @default([])
+  kjoretoyRegNr        String?
+  kjoretoyklass        String?
+  kjoretoymerke        String?
+  kjoretoytype         String?
+  oppdatert            DateTime                  @default(now()) @updatedAt
+  opprettet            DateTime                  @default(now())
+  unikForKjoretoyklass Boolean                   @default(false)
+  unikForMerke         Boolean                   @default(false)
+  unikForRegnr         Boolean                   @default(false)
+  unikForType          Boolean                   @default(false)
+  konsekvens           String[]                  @default([])
+  // Soft delete fields
+  deletedAt            DateTime?
+  deletedBy            Int?
+  isDeleted            Boolean                   @default(false)
+  
+  sjekkpunktSystem     SjekkpunktSystem?         @relation(fields: [systemId], references: [id])
+  malPunkter           KontrollMalPunkt[]
+  kontrollPunkter      SikkerhetskontrollPunkt[]
+  
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([systemId])
+}
+
+model KontrollMal {
+  id            Int                  @id @default(autoincrement())
+  navn          String
+  beskrivelse   String?
+  kategori      String
+  tags          String[]             @default([])
+  opprettetAvId Int
+  offentlig     Boolean              @default(true)
+  aktiv         Boolean              @default(true)
+  bruktAntall   Int                  @default(0)
+  opprettet     DateTime             @default(now())
+  oppdatert     DateTime             @default(now()) @updatedAt
+  // Soft delete fields
+  deletedAt     DateTime?
+  deletedBy     Int?
+  isDeleted     Boolean              @default(false)
+  
+  opprettetAv   Ansatt               @relation(fields: [opprettetAvId], references: [id])
+  punkter       KontrollMalPunkt[]
+  kopierteTil   Sikkerhetskontroll[]
+  deletedByUser Ansatt?              @relation("KontrollMalDeletedBy", fields: [deletedBy], references: [id])
+
+  @@index([kategori])
+  @@index([offentlig])
+  @@index([tags])
+  @@index([opprettetAvId])
+  @@index([opprettetAvId, aktiv])
+  @@index([opprettet])
+  @@index([offentlig, aktiv])
+  @@index([navn])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model KontrollMalPunkt {
+  id              Int         @id @default(autoincrement())
+  kontrollMalId   Int
+  sjekkpunktId    Int
+  rekkefølge     Int
+  kanGodkjennesAv GodkjentAv  @default(LAERER)
+  påkrevd        Boolean     @default(true)
+  opprettet       DateTime    @default(now())
+  kontrollMal     KontrollMal @relation(fields: [kontrollMalId], references: [id], onDelete: Cascade)
+  sjekkpunkt      Sjekkpunkt  @relation(fields: [sjekkpunktId], references: [id])
+
+  @@unique([kontrollMalId, sjekkpunktId])
+}
+
+model Sikkerhetskontroll {
+  id             Int                       @id @default(autoincrement())
+  navn           String
+  beskrivelse    String?
+  bedriftId      Int
+  opprettetAvId  Int
+  aktiv          Boolean                   @default(true)
+  opprettet      DateTime                  @default(now())
+  oppdatert      DateTime                  @default(now()) @updatedAt
+  basertPåMalId Int?
+  // Soft delete fields
+  deletedAt      DateTime?
+  deletedBy      Int?
+  isDeleted      Boolean                   @default(false)
+  
+  basertPåMal   KontrollMal?              @relation(fields: [basertPåMalId], references: [id])
+  bedrift        Bedrift                   @relation(fields: [bedriftId], references: [id])
+  opprettetAv    Ansatt                    @relation(fields: [opprettetAvId], references: [id])
+  punkter        SikkerhetskontrollPunkt[]
+  deletedByUser  Ansatt?                   @relation("SikkerhetskontrollDeletedBy", fields: [deletedBy], references: [id])
+
+  @@index([bedriftId])
+  @@index([bedriftId, aktiv])
+  @@index([opprettet])
+  @@index([opprettetAvId])
+  @@index([basertPåMalId])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model SikkerhetskontrollPunkt {
+  id                   Int                @id @default(autoincrement())
+  sikkerhetskontrollId Int
+  sjekkpunktId         Int
+  rekkefølge          Int
+  kanGodkjennesAv      GodkjentAv         @default(LAERER)
+  påkrevd             Boolean            @default(true)
+  opprettet            DateTime           @default(now())
+  sikkerhetskontroll   Sikkerhetskontroll @relation(fields: [sikkerhetskontrollId], references: [id], onDelete: Cascade)
+  sjekkpunkt           Sjekkpunkt         @relation(fields: [sjekkpunktId], references: [id])
+
+  @@unique([sikkerhetskontrollId, sjekkpunktId])
+}
+
+model Bedrift {
+  id                   Int                  @id @default(autoincrement())
+  navn                 String
+  organisasjonsnummer  String               @unique @default("")
+  adresse              String?
+  postnummer           String?
+  poststed             String?
+  telefon              String?
+  epost                String?
+  hovedbrukerId        Int?                 @unique
+  tenantId             Int?                 // Multi-tenancy support
+  // Utvidet informasjon fra Brønnøysundregisteret
+  stiftelsesdato       String?              // Format: YYYY-MM-DD
+  organisasjonsform    String?              // "Aksjeselskap", "Enkeltpersonforetak", etc.
+  organisasjonsformKode String?             // "AS", "ENK", etc.
+  næringskode          String?              // "Trafikkskoleundervisning"
+  næringskodeKode      String?              // "85.530"
+  dagligLeder          String?              // Fullt navn
+  styreleder           String?              // Fullt navn
+  signaturrett         Json?                @default("[]") // Array med personer som har signaturrett
+  brregMetadata        Json?                // Metadata fra Brønnøysundregisteret
+  opprettet            DateTime             @default(now())
+  oppdatert            DateTime             @default(now()) @updatedAt
+  deletedAt            DateTime?            // Soft delete timestamp
+  deletedBy            Int?                 // User who deleted the record
+  isDeleted            Boolean              @default(false) // Quick lookup for soft deletes
+  ansatte              Ansatt[]
+  hovedbruker          Ansatt?              @relation("BedriftHovedbruker", fields: [hovedbrukerId], references: [id], onDelete: SetNull)
+  klasser              BedriftsKlasse[]
+  elever               Elev[]
+  elevsoknader         ElevSoknad[]
+  kjoretoy             Kjoretoy[]
+  sikkerhetskontroller Sikkerhetskontroll[]
+  kontrakter           Kontrakt[]
+  systemConfig         SystemConfig?
+  deletedByUser        Ansatt?              @relation("BedriftDeletedBy", fields: [deletedBy], references: [id])
+  integrationConfigs   IntegrationConfiguration[]
+  integrationLogs      IntegrationLog[]
+  tenant               Tenant?              @relation(fields: [tenantId], references: [id])
+  
+  // New relations for additional pages
+  nyheter              Nyhet[]
+  kalenderEvents       KalenderEvent[]
+  oppgaver             Oppgave[]
+  prosjekter           Prosjekt[]
+  ressurser            Ressurs[]
+  ressursBookinger     RessursBooking[]
+  økonomiposter        Økonomipost[]
+
+  @@index([navn])
+  @@index([opprettet])
+  @@index([organisasjonsnummer])
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([tenantId])
+  // Data integritet - beholdt indekser og constraints som støttes av Prisma
+}
+
+model Ansatt {
+  id                             Int                  @id @default(autoincrement())
+  fornavn                        String
+  etternavn                      String
+  epost                          String               @unique
+  passordHash                    String
+  tilganger                      String[]             @default([])
+  bedriftId                      Int?
+  opprettet                      DateTime             @default(now())
+  oppdatert                      DateTime             @default(now()) @updatedAt
+  telefon                        String?
+  adresse                        String?
+  postnummer                     String?
+  poststed                       String?
+  rolle                           AnsattRolle          @default(TRAFIKKLARER)
+  klasser                        String[]             @default([])
+  kjøretøy                        Int[]                @default([])
+  hovedkjøretøy                   Int?
+  aktiv                          Boolean              @default(true)
+  sisteInnlogging                DateTime?
+  bedrift                         Bedrift?             @relation(fields: [bedriftId], references: [id])
+  hovedbrukerFor                  Bedrift?             @relation("BedriftHovedbruker")
+  opprettedeKontrollMaler         KontrollMal[]
+  opprettedeSikkerhetskontroller  Sikkerhetskontroll[]
+  opprettedeKontrakter            Kontrakt[]           @relation("KontraktOpprettetAv")
+  varslingsinnstillinger           Json?
+  deletedAt                        DateTime?            // Soft delete timestamp
+  deletedBy                        Int?                 // User who deleted the record (admin only)
+  isDeleted                        Boolean              @default(false) // Quick lookup for soft deletes
+  createdIntegrationConfigs        IntegrationConfiguration[]
+  
+  // Soft delete relations  
+  deletedBedrifter                 Bedrift[]            @relation("BedriftDeletedBy")
+  deletedElever                    Elev[]               @relation("ElevDeletedBy")
+  deletedKontrakter                Kontrakt[]           @relation("KontraktDeletedBy")
+  deletedBildeLibrary              BildeLibrary[]       @relation("BildeLibraryDeletedBy")
+  deletedQuizKategorier            QuizKategori[]       @relation("QuizKategoriDeletedBy")
+  deletedQuizSporsmal              QuizSporsmal[]       @relation("QuizSporsmalDeletedBy")
+  deletedKjoretoy                  Kjoretoy[]           @relation("KjoretoyDeletedBy")
+  deletedEmailTemplates            EmailTemplate[]      @relation("EmailTemplateDeletedBy")
+  deletedKontrollMaler             KontrollMal[]        @relation("KontrollMalDeletedBy")
+  deletedSikkerhetskontroller      Sikkerhetskontroll[] @relation("SikkerhetskontrollDeletedBy")
+  deletedFileAttachments           FileAttachment[]     @relation("FileAttachmentDeletedBy")
+  
+  // Audit and activity relations
+  auditLogs                        AuditLog[]
+  notifications                    Notification[]
+  fileUploads                      FileAttachment[]
+  
+  // New relations for additional pages
+  deletedNyheter                   Nyhet[]              @relation("NyhetDeletedBy")
+  kalenderEventsAsInstruktor       KalenderEvent[]      @relation("KalenderEventInstruktor")
+  deletedKalenderEvents            KalenderEvent[]      @relation("KalenderEventDeletedBy")
+  oppgaverTildelt                  Oppgave[]            @relation("OppgaveTildelt")
+  oppgaverOpprettet                Oppgave[]            @relation("OppgaveOpprettetAv")
+  deletedOppgaver                  Oppgave[]            @relation("OppgaveDeletedBy")
+  prosjekterSomLeder               Prosjekt[]           @relation("ProsjektLeder")
+  deletedProsjekter                Prosjekt[]           @relation("ProsjektDeletedBy")
+  ressurserAnsvarlig               Ressurs[]            @relation("RessursAnsvarlig")
+  deletedRessurser                 Ressurs[]            @relation("RessursDeletedBy")
+  ressursBookingerBooket           RessursBooking[]     @relation("RessursBookingBooketAv")
+  ressursBookingerGodkjent         RessursBooking[]     @relation("RessursBookingGodkjentAv")
+  hjelpArtiklerOpprettet           HjelpArtikkel[]      @relation("HjelpArtikkelOpprettetAv")
+  deletedHjelpArtikler             HjelpArtikkel[]      @relation("HjelpArtikkelDeletedBy")
+  økonomipostRegistrert            Økonomipost[]        @relation("ØkonomipostRegistrertAv")
+  deletedØkonomiposter             Økonomipost[]        @relation("ØkonomipostDeletedBy")
+
+  @@index([bedriftId, rolle])
+  @@index([epost])
+  @@index([bedriftId])
+  @@index([opprettet])
+  @@index([rolle])
+  @@index([fornavn, etternavn])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model BedriftsKlasse {
+  id         Int     @id @default(autoincrement())
+  klassekode String
+  bedriftId  Int
+  bedrift    Bedrift @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  
+  @@unique([klassekode, bedriftId], name: "unique_klasse_per_bedrift")
+  @@index([bedriftId])
+  @@index([klassekode])
+}
+
+model Kjoretoy {
+  id                  Int      @id @default(autoincrement())
+  registreringsnummer String   @unique
+  merke               String
+  modell              String
+  aarsmodell          Int
+  type                String
+  status              String
+  forerkortklass      String[]
+  bedriftId           Int
+  opprettet           DateTime @default(now())
+  oppdatert           DateTime @default(now()) @updatedAt
+  deletedAt           DateTime?  // Soft delete timestamp
+  deletedBy           Int?       // User who deleted the record
+  isDeleted           Boolean    @default(false) // Quick lookup for soft deletes
+  
+  bedrift             Bedrift  @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  deletedByUser       Ansatt?  @relation("KjoretoyDeletedBy", fields: [deletedBy], references: [id])
+  
+  // New relations for additional pages
+  kalenderEvents      KalenderEvent[]
+
+  @@index([bedriftId])
+  @@index([bedriftId, status])
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([merke, modell])
+  @@index([status])
+  @@index([aarsmodell])
+}
+
+model QuizKategori {
+  id              Int            @id @default(autoincrement())
+  navn            String
+  klasse          String
+  hovedkategoriId Int?
+  opprettet       DateTime       @default(now())
+  oppdatert       DateTime       @default(now()) @updatedAt
+  deletedAt       DateTime?      // Soft delete timestamp
+  deletedBy       Int?           // User who deleted the record
+  isDeleted       Boolean        @default(false) // Quick lookup for soft deletes
+  
+  hovedkategori   QuizKategori?  @relation("KategoriHierarki", fields: [hovedkategoriId], references: [id], onDelete: SetNull)
+  underkategorier QuizKategori[] @relation("KategoriHierarki")
+  sporsmal        QuizSporsmal[] @relation("SporsmalKategori")
+  deletedByUser   Ansatt?        @relation("QuizKategoriDeletedBy", fields: [deletedBy], references: [id])
+
+  @@index([klasse])
+  @@index([hovedkategoriId])
+  @@index([navn])
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@unique([navn, klasse], name: "unique_kategori_per_klasse")
+}
+
+model QuizSporsmal {
+  id               Int           @id @default(autoincrement())
+  tekst            String
+  svaralternativer String[]
+  riktigSvar       Int
+  bildeUrl         String?
+  forklaring       String?
+  klasser          String[]
+  kategoriId       Int?
+  opprettet        DateTime      @default(now())
+  oppdatert        DateTime      @default(now()) @updatedAt
+  deletedAt        DateTime?     // Soft delete timestamp
+  deletedBy        Int?          // User who deleted the record
+  isDeleted        Boolean       @default(false) // Quick lookup for soft deletes
+  
+  kategori         QuizKategori? @relation("SporsmalKategori", fields: [kategoriId], references: [id], onDelete: SetNull)
+  deletedByUser    Ansatt?       @relation("QuizSporsmalDeletedBy", fields: [deletedBy], references: [id])
+
+  @@index([kategoriId])
+  @@index([klasser])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model BildeLibrary {
+  id          Int      @id @default(autoincrement())
+  navn        String
+  beskrivelse String?
+  filnavn     String   @unique
+  url         String   @unique
+  storrelse   Int
+  mimeType    String
+  bredde      Int?
+  hoyde       Int?
+  tags        String[] @default([])
+  opprettet   DateTime @default(now())
+  oppdatert   DateTime @default(now()) @updatedAt
+  deletedAt   DateTime?  // Soft delete timestamp
+  deletedBy   Int?       // User who deleted the record
+  isDeleted   Boolean    @default(false) // Quick lookup for soft deletes
+  
+  // Relations
+  deletedByUser Ansatt? @relation("BildeLibraryDeletedBy", fields: [deletedBy], references: [id])
+
+  @@index([tags])
+  @@index([oppdatert])
+  @@index([mimeType])
+  @@index([navn])
+  @@index([opprettet])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model Elev {
+  id            Int        @id @default(autoincrement())
+  fornavn       String
+  etternavn     String
+  telefon       String
+  epost         String     @unique
+  gate          String
+  postnummer    String
+  poststed      String
+  personnummer  String     @unique
+  klassekode    String
+  larer         String?
+  status        ElevStatus @default(AKTIV)
+  sistInnlogget DateTime?
+  bedriftId     Int
+  opprettet     DateTime   @default(now())
+  oppdatert     DateTime   @default(now()) @updatedAt
+  deletedAt     DateTime?  // Soft delete timestamp
+  deletedBy     Int?       // User who deleted the record
+  isDeleted     Boolean    @default(false) // Quick lookup for soft deletes
+  
+  bedrift       Bedrift    @relation(fields: [bedriftId], references: [id])
+  kontrakter    Kontrakt[]
+  deletedByUser Ansatt?    @relation("ElevDeletedBy", fields: [deletedBy], references: [id])
+  
+  // Sikkerhetskontroll-relasjoner
+  sikkerhetskontrollProgresjon SikkerhetskontrollElevProgresjon[]
+  sikkerhetskontrollAchievements SikkerhetskontrollElevAchievement[]
+  sikkerhetskontrollBil SikkerhetskontrollBil?
+  
+  // New relations for additional pages
+  kalenderEvents KalenderEvent[]
+
+  @@index([bedriftId])
+  @@index([epost])
+  @@index([personnummer])
+  @@index([bedriftId, status])
+  @@index([fornavn, etternavn])
+  @@index([klassekode])
+  @@index([opprettet])
+  @@index([sistInnlogget])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model ElevSoknad {
+  id           Int              @id @default(autoincrement())
+  fornavn      String
+  etternavn    String
+  telefon      String
+  epost        String
+  gate         String
+  postnummer   String
+  poststed     String
+  personnummer String
+  klassekode   String
+  larer        String?
+  status       ElevSoknadStatus @default(PENDING)
+  bedriftId    Int
+  opprettet    DateTime         @default(now())
+  oppdatert    DateTime         @default(now()) @updatedAt
+  bedrift      Bedrift          @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  deletedAt    DateTime?        // Soft delete timestamp
+  deletedBy    Int?             // User who deleted the record
+  isDeleted    Boolean          @default(false) // Quick lookup for soft deletes
+
+  @@index([bedriftId])
+  @@index([status])
+  @@index([personnummer])
+  @@index([epost])
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([bedriftId, status])
+  @@unique([personnummer, bedriftId], name: "unique_elev_soknad_per_bedrift")
+}
+
+enum Rolle {
+  ADMIN
+  INSTRUKTOR
+  ELEV
+}
+
+enum KontrollType {
+  FYSISK
+  VISUELL
+}
+
+enum AnsattRolle {
+  HOVEDBRUKER
+  TRAFIKKLARER
+  ADMIN
+}
+
+enum GodkjentAv {
+  LAERER @map("LÆRER")
+  ELEV
+  BEGGE
+}
+
+enum ElevStatus {
+  AKTIV
+  INAKTIV
+  PENDING
+}
+
+enum ElevSoknadStatus {
+  PENDING
+  GODKJENT
+  AVVIST
+}
+
+model Kontrakt {
+  id          Int      @id @default(autoincrement())
+  // Elevinfo
+  elevId      Int?     // Kobling til eksisterende elev
+  elevFornavn String
+  elevEtternavn String
+  elevPersonnummer String
+  elevTelefon String
+  elevEpost   String
+  elevGate    String
+  elevPostnr  String
+  elevPoststed String
+  
+  // Fakturaansvarlig (valgfri)
+  harFakturaansvarlig Boolean @default(false)
+  fakturaansvarligFornavn String?
+  fakturaansvarligEtternavn String?
+  fakturaansvarligPersonnummer String?
+  fakturaansvarligTelefon String?
+  fakturaansvarligEpost String?
+  fakturaansvarligGate String?
+  fakturaansvarligPostnr String?
+  fakturaansvarligPoststed String?
+  
+  // Låneinformasjon
+  lan               Int
+  lopetid           Int     // måneder
+  rente             Float   // prosent
+  etableringsgebyr  Int
+  termingebyr       Int
+  terminerPerAr     Int     @default(12)
+  inkludererGebyrerILan Boolean @default(false)
+  
+  // Beregnet informasjon (lagret for historikk)
+  effektivRente     Float
+  renterOgGebyr     Int
+  terminbelop       Int
+  totalRente        Int
+  totalBelop        Int
+  
+  // Status og metadata
+  status            KontraktStatus @default(UTKAST)
+  bedriftId         Int
+  opprettetAv       Int
+  opprettet         DateTime @default(now())
+  oppdatert         DateTime @default(now()) @updatedAt
+  deletedAt         DateTime?        // Soft delete timestamp
+  deletedBy         Int?             // User who deleted the record
+  isDeleted         Boolean          @default(false) // Quick lookup for soft deletes
+  
+  // Relasjoner
+  elev              Elev?    @relation(fields: [elevId], references: [id])
+  bedrift           Bedrift  @relation(fields: [bedriftId], references: [id])
+  opprettetAvAnsatt Ansatt   @relation("KontraktOpprettetAv", fields: [opprettetAv], references: [id])
+  deletedByUser     Ansatt?  @relation("KontraktDeletedBy", fields: [deletedBy], references: [id])
+  betalingHistorikk PaymentTransaction[]
+  
+  @@index([bedriftId])
+  @@index([elevId])
+  @@index([status])
+  @@index([bedriftId, status])
+  @@index([elevPersonnummer])
+  @@index([opprettet])
+  @@index([opprettetAv])
+  @@index([elevFornavn, elevEtternavn])
+  @@index([oppdatert])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+enum KontraktStatus {
+  UTKAST
+  GODKJENT
+  SIGNERT
+  AKTIV
+  AVSLUTTET
+  KANSELLERT
+}
+
+model SystemConfig {
+  id                           Int      @id @default(autoincrement())
+  bedriftId                    Int      @unique
+  
+  // Fakturainnstillinger
+  dagerForfallFaktura          Int      @default(14)
+  purregebyr                   Int      @default(100)
+  forsinkelsesrente            Float    @default(8.5)
+  kontonummer                  String?
+  fakturaPrefix                String?
+  fakturaStartNummer           Int      @default(1)
+  fakturaForfall               Int      @default(14)
+  fakturaRente                 Float    @default(8.5)
+  
+  // Kontraktinnstillinger
+  standardRente                Float    @default(5.0)
+  standardEtableringsgebyr     Int      @default(1900)
+  standardTermingebyr          Int      @default(50)
+  standardLopetid              Int      @default(24)
+  
+  // E-postinnstillinger
+  sendKvitteringTilElev        Boolean  @default(true)
+  sendKopiTilBedrift           Boolean  @default(true)
+  standardAvsenderEpost        String?
+  standardAvsenderNavn         String?
+  smtpHost                     String?
+  smtpPort                     Int?
+  emailFrom                    String?
+  emailReplyTo                 String?
+  emailVarsler                 Boolean  @default(true)
+  
+  // Varslingsinnstillinger
+  varsleNyKontrakt             Boolean  @default(true)
+  varsleStatusendring          Boolean  @default(true)
+  varsleForfall                Boolean  @default(true)
+  dagerForVarslingForfall      Int      @default(7)
+  
+  // Øvrige innstillinger
+  visPersonnummerILister       Boolean  @default(false)
+  tillateElevregistrering      Boolean  @default(true)
+  kreverGodkjenningElevSoknad  Boolean  @default(true)
+  maksAntallElever             Int?
+  maksAntallAnsatte            Int?
+  loginUtløpstid               Int      @default(24)
+  epost                        String?
+  organisasjonsnummer          String?
+  postnummer                   String?
+  
+  opprettet                    DateTime @default(now())
+  oppdatert                    DateTime @default(now()) @updatedAt
+  
+  bedrift                      Bedrift  @relation(fields: [bedriftId], references: [id])
+}
+
+// Audit logging for tracking all changes to sensitive data
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  tableName   String   // Name of the table that was modified
+  recordId    Int      // ID of the record that was modified
+  action      String   // CREATE, UPDATE, DELETE
+  userId      Int?     // User who made the change (null for system changes)
+  changes     Json     // JSON object with before/after values
+  metadata    Json?    // Additional metadata (IP, user agent, etc.)
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  user        Ansatt?  @relation(fields: [userId], references: [id])
+  
+  @@index([tableName, recordId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([action])
+  @@index([tableName, timestamp])
+}
+
+// Email templates for dynamic email generation
+model EmailTemplate {
+  id          Int      @id @default(autoincrement())
+  navn        String   @unique
+  emne        String
+  innhold     String   // HTML template with placeholders
+  variabler   String[] @default([]) // Available template variables
+  kategori    String   // "KONTRAKT", "FAKTURA", "PÅMINNELSE", "SYSTEM"
+  aktiv       Boolean  @default(true)
+  systemMal   Boolean  @default(false) // Cannot be deleted if true
+  beskrivelse String?
+  opprettet   DateTime @default(now())
+  oppdatert   DateTime @default(now()) @updatedAt
+  deletedAt   DateTime?  // Soft delete timestamp (but not for systemMal=true)
+  deletedBy   Int?       // User who deleted the record
+  isDeleted   Boolean    @default(false) // Quick lookup for soft deletes
+  
+  // Relations to email logs
+  emailLogs     EmailLog[]
+  deletedByUser Ansatt?    @relation("EmailTemplateDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([kategori])
+  @@index([aktiv])
+  @@index([systemMal])
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([kategori, aktiv])
+}
+
+// In-app notifications
+model Notification {
+  id          Int      @id @default(autoincrement())
+  mottakerId  Int      // Ansatt who receives the notification
+  tittel      String
+  melding     String
+  type        String   // "INFO", "WARNING", "ERROR", "SUCCESS"
+  kategori    String   // "KONTRAKT", "FAKTURA", "SYSTEM", "SIKKERHET"
+  lest        Boolean  @default(false)
+  lestTidspunkt DateTime?
+  lenke       String?  // Optional link to relevant page
+  metadata    Json?    // Additional data (kontraktId, etc.)
+  opprettet   DateTime @default(now())
+  
+  // Relations
+  mottaker    Ansatt   @relation(fields: [mottakerId], references: [id], onDelete: Cascade)
+  
+  @@index([mottakerId, lest])
+  @@index([opprettet])
+  @@index([type])
+  @@index([kategori])
+  @@index([mottakerId, opprettet])
+  @@index([mottakerId, type])
+}
+
+// File attachments for documents
+model FileAttachment {
+  id            Int      @id @default(autoincrement())
+  originalName  String   // Original filename
+  filnavn       String   // Stored filename (usually UUID)
+  filsti        String   // Path to file on disk
+  mimeType      String
+  storrelse     Int      // File size in bytes
+  sjekksumMD5   String   // MD5 checksum for integrity
+  beskrivelse   String?
+  opploadetAv   Int      // User who uploaded the file
+  opprettet     DateTime @default(now())
+  
+  // File categorization
+  kategori      String   // "KONTRAKT", "FAKTURA", "PROFIL", "SIKKERHET"
+  relatertId    Int?     // ID of related record (kontraktId, etc.)
+  relatertTabell String? // Name of related table
+  
+  // Security flags
+  virussjekket  Boolean  @default(false)
+  godkjent      Boolean  @default(false)
+  offentlig     Boolean  @default(false)
+  
+  // Soft delete fields (important for audit trail)
+  deletedAt     DateTime?
+  deletedBy     Int?
+  isDeleted     Boolean  @default(false)
+  
+  // Relations
+  opploader     Ansatt   @relation(fields: [opploadetAv], references: [id])
+  deletedByUser Ansatt?  @relation("FileAttachmentDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([opploadetAv])
+  @@index([kategori, relatertId])
+  @@index([opprettet])
+  @@index([mimeType])
+  @@index([godkjent])
+  @@index([relatertTabell, relatertId])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+// Payment transaction history
+model PaymentTransaction {
+  id                Int      @id @default(autoincrement())
+  kontraktId        Int      // Related contract
+  referanse         String   @unique // Unique payment reference
+  belop             Int      // Amount in øre (NOK * 100)
+  status            String   // "PENDING", "COMPLETED", "FAILED", "CANCELLED"
+  type              String   // "TERMIN", "GEBYR", "PURRING", "RENTER"
+  forfallsdato      DateTime
+  betalingsdato     DateTime?
+  transaksjonsId    String?  // External transaction ID
+  betalingsmetode   String?  // "BANK", "VIPPS", "STRIPE", "MANUAL"
+  feilmelding       String?  // Error message if failed
+  metadata          Json?    // Additional payment data
+  opprettet         DateTime @default(now())
+  oppdatert         DateTime @default(now()) @updatedAt
+  
+  // Relations
+  kontrakt          Kontrakt @relation(fields: [kontraktId], references: [id])
+  
+  @@index([kontraktId])
+  @@index([status])
+  @@index([forfallsdato])
+  @@index([type])
+  @@index([referanse])
+  @@index([betalingsdato])
+  @@index([kontraktId, status])
+}
+
+// Email log for tracking sent emails
+model EmailLog {
+  id            Int      @id @default(autoincrement())
+  mottaker      String   // Email address
+  emne          String
+  templateId    Int?     // Reference to EmailTemplate if used
+  status        String   // "SENT", "FAILED", "PENDING", "BOUNCED"
+  messageId     String?  // External message ID from email service
+  feilmelding   String?  // Error message if failed
+  sendeforsoker Int      @default(1) // Number of send attempts
+  sistForsokt   DateTime @default(now())
+  sendt         DateTime?
+  lest          Boolean  @default(false) // Email opened tracking
+  klikket       Boolean  @default(false) // Link clicked tracking
+  metadata      Json?    // Additional email data
+  opprettet     DateTime @default(now())
+  
+  // Relations
+  template      EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  
+  @@index([mottaker])
+  @@index([status])
+  @@index([opprettet])
+  @@index([templateId])
+  @@index([sendt])
+  @@index([sistForsokt])
+  @@index([mottaker, status])
+  @@index([status, sistForsokt])
+}
+
+// EXTERNAL INTEGRATIONS MODELS
+
+// Integration providers and their configurations
+model IntegrationProvider {
+  id             Int      @id @default(autoincrement())
+  navn           String   @unique // "TRIPLETEX", "POWEROFFICE", "TWILIO", "SMSNO", "GOOGLE_CALENDAR", "OUTLOOK", "VIPPS", "STRIPE"
+  type           String   // "ACCOUNTING", "SMS", "CALENDAR", "PAYMENT"
+  beskrivelse    String?
+  apiBaseUrl     String?  // Base URL for API
+  dokumentasjon  String?  // Link to API documentation
+  logoUrl        String?
+  aktiv          Boolean  @default(true)
+  tilgjengelig   Boolean  @default(true) // Can be enabled/disabled globally
+  versjon        String?  // API version
+  opprettet      DateTime @default(now())
+  oppdatert      DateTime @default(now()) @updatedAt
+  
+  // Relations
+  konfigurasjoner IntegrationConfiguration[]
+  logginnslag     IntegrationLog[]
+  
+  @@index([type])
+  @@index([aktiv])
+  @@index([type, aktiv])
+}
+
+// Company-specific integration configurations
+model IntegrationConfiguration {
+  id                Int      @id @default(autoincrement())
+  bedriftId         Int
+  providerId        Int
+  navn              String   // User-friendly name for this configuration
+  aktiv            Boolean  @default(false)
+  autoSync         Boolean  @default(false)
+  syncInterval     Int?     // Minutes between syncs (null = manual only)
+  lastSync         DateTime?
+  lastSyncStatus   String?  // "SUCCESS", "ERROR", "PARTIAL"
+  
+  // Encrypted configuration data (API keys, tokens, etc.)
+  konfigurasjonsdata Json    // Encrypted JSON with provider-specific config
+  
+  // Sync preferences
+  syncKunder       Boolean  @default(true)
+  syncFakturaer    Boolean  @default(true)
+  syncProdukter    Boolean  @default(false)
+  syncKontrakter   Boolean  @default(true)
+  
+  // Mapping configuration
+  feltMapping      Json?    @default("{}") // Field mappings between TMS and external system
+  
+  // Error handling
+  maxRetries       Int      @default(3)
+  retryInterval    Int      @default(5) // Minutes
+  feilVarsling     Boolean  @default(true)
+  
+  opprettet        DateTime @default(now())
+  oppdatert        DateTime @default(now()) @updatedAt
+  opprettetAv      Int
+  
+  // Relations
+  bedrift          Bedrift              @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  provider         IntegrationProvider  @relation(fields: [providerId], references: [id])
+  opprettetAvAnsatt Ansatt              @relation(fields: [opprettetAv], references: [id])
+  logginnslag      IntegrationLog[]
+  syncJobs         IntegrationSyncJob[]
+  
+  @@unique([bedriftId, providerId]) // One config per provider per company
+  @@index([bedriftId])
+  @@index([providerId])
+  @@index([aktiv])
+  @@index([autoSync])
+  @@index([lastSync])
+  @@index([bedriftId, aktiv])
+}
+
+// Integration activity and error logging
+model IntegrationLog {
+  id              Int      @id @default(autoincrement())
+  bedriftId       Int
+  providerId      Int
+  konfigurasjonsId Int?
+  
+  operasjon       String   // "SYNC", "SEND_SMS", "CREATE_INVOICE", "UPDATE_CUSTOMER", etc.
+  status          String   // "SUCCESS", "ERROR", "WARNING"
+  melding         String?  // Human-readable message
+  feildetaljer    String?  // Technical error details
+  metadata        Json?    // Additional operation data
+  
+  // Performance tracking
+  starttid        DateTime
+  sluttid         DateTime?
+  varighet        Int?     // Milliseconds
+  
+  // Related entities
+  relatertTabell  String?  // "Kontrakt", "Bedrift", etc.
+  relatertId      Int?     // ID of related record
+  
+  // External references
+  eksternReferanse String? // External system reference/ID
+  
+  opprettet       DateTime @default(now())
+  
+  // Relations
+  bedrift         Bedrift                   @relation(fields: [bedriftId], references: [id])
+  provider        IntegrationProvider       @relation(fields: [providerId], references: [id])
+  konfigurasjon   IntegrationConfiguration? @relation(fields: [konfigurasjonsId], references: [id], onDelete: SetNull)
+  
+  @@index([bedriftId])
+  @@index([providerId])
+  @@index([status])
+  @@index([opprettet])
+  @@index([operasjon])
+  @@index([bedriftId, status])
+  @@index([providerId, status])
+  @@index([relatertTabell, relatertId])
+  @@index([eksternReferanse])
+}
+
+// Background sync job queue and status
+model IntegrationSyncJob {
+  id               Int      @id @default(autoincrement())
+  konfigurasjonsId Int
+  type             String   // "FULL_SYNC", "INCREMENTAL_SYNC", "MANUAL_SYNC"
+  status           String   @default("PENDING") // "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"
+  prioritet        Int      @default(5) // 1-10, higher = more priority
+  
+  // Scheduling
+  planlagtTid      DateTime
+  starttid         DateTime?
+  sluttid          DateTime?
+  varighet         Int?     // Milliseconds
+  
+  // Progress tracking
+  totalOppgaver    Int?
+  ferdigeOppgaver  Int      @default(0)
+  feiledOppgaver   Int      @default(0)
+  progressMelding  String?
+  
+  // Result summary
+  resultatSammendrag Json?  // Summary of sync results
+  feilmelding       String?
+  
+  // Retry logic
+  forsoker          Int      @default(0)
+  maksForsok        Int      @default(3)
+  nesteForsoket     DateTime?
+  
+  opprettet         DateTime @default(now())
+  oppdatert         DateTime @default(now()) @updatedAt
+  
+  // Relations
+  konfigurasjon     IntegrationConfiguration @relation(fields: [konfigurasjonsId], references: [id], onDelete: Cascade)
+  
+  @@index([status])
+  @@index([planlagtTid])
+  @@index([prioritet])
+  @@index([konfigurasjonsId])
+  @@index([type])
+  @@index([status, planlagtTid])
+  @@index([konfigurasjonsId, status])
+  @@index([nesteForsoket])
+}
+
+// ============================================================================
+// MULTI-TENANCY MODELS
+// ============================================================================
+
+model Tenant {
+  id          Int      @id @default(autoincrement())
+  navn        String
+  slug        String   @unique // URL-friendly identifier
+  domain      String?  @unique // Custom domain support
+  logo        String?
+  settings    Json     @default("{}") // Tenant-specific settings
+  plan        TenantPlan @default(BASIC)
+  aktiv       Boolean  @default(true)
+  opprettet   DateTime @default(now())
+  oppdatert   DateTime @default(now()) @updatedAt
+  deletedAt   DateTime?
+  deletedBy   Int?
+  isDeleted   Boolean  @default(false)
+  
+  // Relations
+  userTenants     UserTenant[]
+  bedrifter       Bedrift[]
+  
+  @@index([slug])
+  @@index([domain])
+  @@index([aktiv])
+  @@index([isDeleted])
+  @@index([deletedAt])
+}
+
+model UserTenant {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tenantId  Int
+  rolle     TenantRolle @default(VIEWER)
+  aktiv     Boolean  @default(true)
+  invitedBy Int?     // Who invited this user
+  invitedAt DateTime @default(now())
+  acceptedAt DateTime?
+  opprettet DateTime @default(now())
+  oppdatert DateTime @default(now()) @updatedAt
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inviter   User?    @relation("UserTenantInviter", fields: [invitedBy], references: [id])
+  
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([rolle])
+  @@index([aktiv])
+}
+
+enum TenantPlan {
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum TenantRolle {
+  SUPER_ADMIN    // Full system access across all tenants
+  TENANT_ADMIN   // Full admin within specific tenant
+  TENANT_MANAGER // Management access within tenant
+  BEDRIFT_ADMIN  // Admin within specific bedrift
+  BEDRIFT_LEDER  // Leader within specific bedrift
+  INSTRUCTOR     // Teaching/training access
+  VIEWER         // Read-only access
+}
+
+enum GlobalRolle {
+  SYSTEM_ADMIN    // Super admin across all tenants
+  PLATFORM_ADMIN  // Platform management
+  SUPPORT         // Customer support access  
+  STANDARD_USER   // Regular user
+}
+
+// ============================================================================
+// SIKKERHETSKONTROLL SYSTEM - LEARNING MODULE
+// ============================================================================
+
+model SikkerhetskontrollKlasse {
+  id                 Int                         @id @default(autoincrement())
+  navn               String                      @unique // "Klasse B", "Klasse C", etc.
+  beskrivelse        String                      // "Personbil opptil 3500 kg"
+  ikonUrl            String?                     // URL til klasse-ikon
+  aktiv              Boolean                     @default(true)
+  rekkefølge         Int                         @default(0) // For sortering
+  opprettet          DateTime                    @default(now())
+  oppdatert          DateTime                    @default(now()) @updatedAt
+  
+  kategorier         SikkerhetskontrollKategori[]
+  elevProgresjon     SikkerhetskontrollElevProgresjon[]
+  
+  @@index([aktiv])
+  @@index([rekkefølge])
+}
+
+model SikkerhetskontrollKategori {
+  id                 Int                         @id @default(autoincrement())
+  navn               String                      // "Bremser", "Lys", "Motorrom"
+  beskrivelse        String?                     // Kort beskrivelse av kategorien
+  ikonUrl            String?                     // URL til kategori-ikon
+  farge              String?                     // HEX-farge for kategorien
+  klasseId           Int
+  rekkefølge         Int                         @default(0) // For sortering innenfor klasse
+  aktiv              Boolean                     @default(true)
+  opprettet          DateTime                    @default(now())
+  oppdatert          DateTime                    @default(now()) @updatedAt
+  
+  klasse             SikkerhetskontrollKlasse    @relation(fields: [klasseId], references: [id], onDelete: Cascade)
+  sporsmal           SikkerhetskontrollSporsmal[]
+  elevProgresjon     SikkerhetskontrollElevProgresjon[]
+  
+  @@index([klasseId, aktiv])
+  @@index([rekkefølge])
+  @@unique([navn, klasseId], name: "unique_kategori_per_klasse")
+}
+
+model SikkerhetskontrollSporsmal {
+  id                 Int                         @id @default(autoincrement())
+  sporsmalTekst      String                      // "Hvordan sjekker du bremsepedalens gang?"
+  svarKort           String                      // Kort fasit-svar
+  svarDetaljert      String                      // Utfyllende pedagogisk forklaring
+  hvorforderVikreligTekst String                 // Forklarer hvorfor denne sjekken er viktig
+  kategoriId         Int
+  vanskelighetsgrad  SikkerhetskontrollVanskelighetsgrad @default(MIDDELS)
+  rekkefølge         Int                         @default(0) // For sortering innenfor kategori
+  aktiv              Boolean                     @default(true)
+  opprettet          DateTime                    @default(now())
+  oppdatert          DateTime                    @default(now()) @updatedAt
+  
+  kategori           SikkerhetskontrollKategori  @relation(fields: [kategoriId], references: [id], onDelete: Cascade)
+  media              SikkerhetskontrollMedia[]
+  elevProgresjon     SikkerhetskontrollElevProgresjon[]
+  
+  @@index([kategoriId, aktiv])
+  @@index([vanskelighetsgrad])
+  @@index([rekkefølge])
+}
+
+model SikkerhetskontrollMedia {
+  id                 Int                         @id @default(autoincrement())
+  sporsmalId         Int
+  mediaType          SikkerhetskontrollMediaType
+  url                String                      // URL til mediefilen
+  altTekst           String                      // For universell utforming
+  tittel             String?                     // Tittel på mediet
+  storrelse          Int?                        // Filstørrelse i bytes
+  varighet           Int?                        // For video/lyd i sekunder
+  bredde             Int?                        // For bilder/video
+  hoyde              Int?                        // For bilder/video
+  rekkefølge         Int                         @default(0) // For sortering
+  opprettet          DateTime                    @default(now())
+  
+  sporsmal           SikkerhetskontrollSporsmal  @relation(fields: [sporsmalId], references: [id], onDelete: Cascade)
+  
+  @@index([sporsmalId])
+  @@index([mediaType])
+  @@index([rekkefølge])
+}
+
+model SikkerhetskontrollElevProgresjon {
+  id                 Int                         @id @default(autoincrement())
+  elevId             Int                         // Kobling til Elev-tabellen
+  klasseId           Int?                        // For å tracke progresjon per klasse
+  kategoriId         Int?                        // For å tracke progresjon per kategori
+  sporsmalId         Int?                        // For å tracke progresjon per spørsmål
+  status             SikkerhetskontrollStatus    @default(IKKE_SETT)
+  antallRiktigeForsok Int                        @default(0)
+  antallGaleForsok   Int                         @default(0)
+  mestret            Boolean                     @default(false) // Om kategorien/spørsmålet er mestret
+  mestretDato        DateTime?                   // Når mestring ble oppnådd
+  totalTid           Int                         @default(0) // Total tid brukt i sekunder
+  antallSporsmalSett Int                         @default(0) // Antall spørsmål sett i kategorien
+  sisteAktivitet     DateTime                    @default(now()) // Siste gang eleven var aktiv
+  sisteInteraksjonDato DateTime                  @default(now())
+  personligNotat     String?                     // Elevens egne notater
+  vanskelighetsmarkering SikkerhetskontrollVanskelighetsgrad? // Elevens egen vurdering
+  xpOpptjent         Int                         @default(0) // XP for gamification
+  opprettet          DateTime                    @default(now())
+  oppdatert          DateTime                    @default(now()) @updatedAt
+  
+  elev               Elev                        @relation(fields: [elevId], references: [id], onDelete: Cascade)
+  klasse             SikkerhetskontrollKlasse?   @relation(fields: [klasseId], references: [id], onDelete: SetNull)
+  kategori           SikkerhetskontrollKategori? @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
+  sporsmal           SikkerhetskontrollSporsmal? @relation(fields: [sporsmalId], references: [id], onDelete: SetNull)
+  
+  @@index([elevId, klasseId])
+  @@index([elevId, kategoriId])
+  @@index([elevId, sporsmalId])
+  @@index([status])
+  @@index([mestret])
+  @@index([sisteInteraksjonDato])
+  @@index([sisteAktivitet])
+  @@unique([elevId, sporsmalId], name: "unique_elev_sporsmal_progresjon")
+  @@unique([elevId, kategoriId], name: "unique_elev_kategori_progresjon")
+}
+
+model SikkerhetskontrollAchievement {
+  id                 Int                         @id @default(autoincrement())
+  navn               String                      @unique // "Lysmester", "Bremsemester", etc.
+  beskrivelse        String                      // Beskrivelse av prestasjonen
+  ikonUrl            String?                     // URL til trophy-ikon
+  type               SikkerhetskontrollAchievementType
+  kriteria           Json                        // Kriterier for å oppnå prestasjonen
+  xpBelonning        Int                         @default(50) // XP som gis ved oppnåelse
+  sjelden            Boolean                     @default(false) // Om det er en sjelden prestasjon
+  skjult             Boolean                     @default(false) // Om prestasjonen er skjult til den oppnås
+  aktiv              Boolean                     @default(true)
+  opprettet          DateTime                    @default(now())
+  
+  elevAchievements   SikkerhetskontrollElevAchievement[]
+  
+  @@index([type])
+  @@index([aktiv])
+}
+
+model SikkerhetskontrollElevAchievement {
+  id                 Int                         @id @default(autoincrement())
+  elevId             Int
+  achievementId      Int
+  oppnaddDato        DateTime                    @default(now())
+  
+  elev               Elev                        @relation(fields: [elevId], references: [id], onDelete: Cascade)
+  achievement        SikkerhetskontrollAchievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([elevId, achievementId], name: "unique_elev_achievement")
+  @@index([elevId])
+  @@index([oppnaddDato])
+}
+
+model SikkerhetskontrollBil {
+  id                 Int                         @id @default(autoincrement())
+  elevId             Int                         @unique
+  bilNavn            String?                     // Elevens navn på bilen sin
+  monterdeDeler      Json                        @default("[]") // Array med monterte deler
+  totalProgresjon    Float                       @default(0.0) // 0.0 - 100.0%
+  sisteOppdatering   DateTime                    @default(now()) @updatedAt
+  opprettet          DateTime                    @default(now())
+  
+  elev               Elev                        @relation(fields: [elevId], references: [id], onDelete: Cascade)
+  
+  @@index([totalProgresjon])
+}
+
+enum SikkerhetskontrollStatus {
+  IKKE_SETT
+  SETT
+  VANSKELIG  
+  MESTRET
+}
+
+enum SikkerhetskontrollVanskelighetsgrad {
+  LETT
+  MIDDELS
+  VANSKELIG
+}
+
+enum SikkerhetskontrollMediaType {
+  BILDE
+  VIDEO
+  INTERAKTIVT_DIAGRAM
+  LYDFIL
+}
+
+enum SikkerhetskontrollAchievementType {
+  FERDIGHET      // Kategorispesifikke achievements
+  INNSATS        // Basert på aktivitet
+  SOSIAL         // Leaderboard/konkurransebaserte
+  SPESIELL       // Morsomme/skjulte achievements
+}
+
+// ============================================================================
+// REFERENCE DATA TABLES - REPLACING HARDCODED DATA
+// ============================================================================
+
+model SjekkpunktSystem {
+  id          Int      @id @default(autoincrement())
+  navn        String   @unique
+  beskrivelse String?
+  ikon        String?
+  aktiv       Boolean  @default(true)
+  rekkefølge  Int?
+  opprettet   DateTime @default(now())
+  oppdatert   DateTime @default(now()) @updatedAt
+  
+  sjekkpunkter Sjekkpunkt[]
+  
+  @@index([aktiv])
+  @@index([rekkefølge])
+  @@map("SjekkpunktSystemer")
+}
+
+model FørerkortKlasse {
+  id             Int      @id @default(autoincrement())
+  kode           String   @unique
+  navn           String
+  beskrivelse    String?
+  kategori       String?  // 'Motorsykkel', 'Bil', 'Lastebil', 'Buss'
+  minimumsalder  Int?
+  krav           String[] @default([])
+  aktiv          Boolean  @default(true)
+  opprettet      DateTime @default(now())
+  oppdatert      DateTime @default(now()) @updatedAt
+  
+  @@index([aktiv])
+  @@index([kategori])
+  @@map("FørerkortKlasser")
+}
+
+model SeedDataConfig {
+  id              Int      @id @default(autoincrement())
+  type            String   @unique
+  enabled         Boolean  @default(false)
+  beskrivelse     String?
+  sist_oppdatert  DateTime @default(now()) @updatedAt
+  
+  @@index([type])
+  @@map("SeedDataConfig")
+}
+
+// ============================================================================
+// ADDITIONAL PAGES MODELS - COMPLETE TMS FUNCTIONALITY
+// ============================================================================
+
+// News system
+model Nyhet {
+  id                Int        @id @default(autoincrement())
+  tittel            String
+  innhold           String
+  sammendrag        String?
+  bildeUrl          String?
+  publisert         Boolean    @default(false)
+  publiseringsdato  DateTime?
+  forfatter         String
+  kategori          String     @default("GENERELT")
+  tags              String[]   @default([])
+  prioritet         Int        @default(1)
+  visning           String     @default("ALLE") // "ALLE", "BEDRIFT", "ADMIN"
+  bedriftId         Int?
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift?   @relation(fields: [bedriftId], references: [id], onDelete: SetNull)
+  deletedByUser     Ansatt?    @relation("NyhetDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([kategori])
+  @@index([publisert])
+  @@index([opprettet])
+  @@index([isDeleted])
+}
+
+// Calendar and events
+model KalenderEvent {
+  id                Int        @id @default(autoincrement())
+  tittel            String
+  beskrivelse       String?
+  startDato         DateTime
+  sluttDato         DateTime
+  heldag            Boolean    @default(false)
+  lokasjon          String?
+  type              String     @default("UNDERVISNING") // "UNDERVISNING", "MØTE", "EKSAMEN", "FERIE"
+  status            String     @default("PLANLAGT") // "PLANLAGT", "BEKREFTET", "AVLYST", "GJENNOMFØRT"
+  deltakere         String[]   @default([])
+  instruktorId      Int?
+  elevId            Int?
+  kjoretoyId        Int?
+  bedriftId         Int
+  fargeKode         String?    @default("#3B82F6")
+  erindringSendt    Boolean    @default(false)
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  instruktor        Ansatt?    @relation("KalenderEventInstruktor", fields: [instruktorId], references: [id], onDelete: SetNull)
+  elev              Elev?      @relation(fields: [elevId], references: [id], onDelete: SetNull)
+  kjoretoy          Kjoretoy?  @relation(fields: [kjoretoyId], references: [id], onDelete: SetNull)
+  deletedByUser     Ansatt?    @relation("KalenderEventDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([startDato])
+  @@index([instruktorId])
+  @@index([elevId])
+  @@index([type])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// Task management
+model Oppgave {
+  id                Int        @id @default(autoincrement())
+  tittel            String
+  beskrivelse       String?
+  status            String     @default("IKKE_PAABEGYNT") // "IKKE_PAABEGYNT", "PAABEGYNT", "I_PROGRESJON", "FERDIG", "AVBRUTT"
+  prioritet         String     @default("MEDIUM") // "LAV", "MEDIUM", "HOY", "KRITISK"
+  forfallsdato      DateTime?
+  startdato         DateTime?
+  ferdigstiltDato   DateTime?
+  estimertTid       Int?       // minutter
+  faktiskTid        Int?       // minutter
+  tildeltTil        Int?
+  opprettetAv       Int
+  kategori          String     @default("GENERELT")
+  tags              String[]   @default([])
+  vedlegg           String[]   @default([])
+  kommentarer       Json       @default("[]")
+  bedriftId         Int
+  relatertTabell    String?    // "Elev", "Kontrakt", etc.
+  relatertId        Int?
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  tildelt           Ansatt?    @relation("OppgaveTildelt", fields: [tildeltTil], references: [id], onDelete: SetNull)
+  opprettetAvAnsatt Ansatt     @relation("OppgaveOpprettetAv", fields: [opprettetAv], references: [id], onDelete: Cascade)
+  deletedByUser     Ansatt?    @relation("OppgaveDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([tildeltTil])
+  @@index([opprettetAv])
+  @@index([status])
+  @@index([prioritet])
+  @@index([forfallsdato])
+  @@index([isDeleted])
+}
+
+// Project management
+model Prosjekt {
+  id                Int        @id @default(autoincrement())
+  navn              String
+  beskrivelse       String?
+  status            String     @default("PLANLEGGING") // "PLANLEGGING", "AKTIV", "PAABEGYNDT", "AVSLUTTET", "KANSELLERT"
+  startdato         DateTime?
+  sluttdato         DateTime?
+  budget            Int?       // øre
+  forbruktBudget    Int        @default(0)
+  prosjektleder     Int?
+  teammedlemmer     Int[]      @default([])
+  kategori          String     @default("GENERELT")
+  prioritet         String     @default("MEDIUM") // "LAV", "MEDIUM", "HOY"
+  progresjon        Int        @default(0) // 0-100%
+  milepaler         Json       @default("[]")
+  risikofaktorer    Json       @default("[]")
+  bedriftId         Int
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  leder             Ansatt?    @relation("ProsjektLeder", fields: [prosjektleder], references: [id], onDelete: SetNull)
+  deletedByUser     Ansatt?    @relation("ProsjektDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([prosjektleder])
+  @@index([status])
+  @@index([prioritet])
+  @@index([startdato])
+  @@index([isDeleted])
+}
+
+// Resource management
+model Ressurs {
+  id                Int        @id @default(autoincrement())
+  navn              String
+  type              String     // "LOKALE", "UTSTYR", "KJØRETØY", "PERSONELL"
+  beskrivelse       String?
+  kapasitet         Int        @default(1)
+  ledigTid          Json       @default("{}") // Tilgjengelighet schema
+  status            String     @default("TILGJENGELIG") // "TILGJENGELIG", "OPPTATT", "VEDLIKEHOLD", "IKKE_TILGJENGELIG"
+  kostnad           Int?       // kostnad per time i øre
+  lokasjon          String?
+  ansvarlig         Int?
+  bedriftId         Int
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  ansvarligPerson   Ansatt?    @relation("RessursAnsvarlig", fields: [ansvarlig], references: [id], onDelete: SetNull)
+  bookinger         RessursBooking[]
+  deletedByUser     Ansatt?    @relation("RessursDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([type])
+  @@index([status])
+  @@index([ansvarlig])
+  @@index([isDeleted])
+}
+
+model RessursBooking {
+  id                Int        @id @default(autoincrement())
+  ressursId         Int
+  startTid          DateTime
+  sluttTid          DateTime
+  formaal           String
+  beskrivelse       String?
+  booketAv          Int
+  godkjentAv        Int?
+  status            String     @default("PENDING") // "PENDING", "GODKJENT", "AVVIST", "AVLYST"
+  antallPersoner    Int        @default(1)
+  bedriftId         Int
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  
+  ressurs           Ressurs    @relation(fields: [ressursId], references: [id], onDelete: Cascade)
+  bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  booketAvAnsatt    Ansatt     @relation("RessursBookingBooketAv", fields: [booketAv], references: [id], onDelete: Cascade)
+  godkjentAvAnsatt  Ansatt?    @relation("RessursBookingGodkjentAv", fields: [godkjentAv], references: [id], onDelete: SetNull)
+  
+  @@index([ressursId])
+  @@index([bedriftId])
+  @@index([booketAv])
+  @@index([startTid])
+  @@index([status])
+}
+
+// Help system
+model HjelpKategori {
+  id                Int        @id @default(autoincrement())
+  navn              String
+  beskrivelse       String?
+  ikon              String?
+  rekkefølge        Int        @default(0)
+  aktiv             Boolean    @default(true)
+  opprettet         DateTime   @default(now())
+  
+  artikler          HjelpArtikkel[]
+  
+  @@index([aktiv])
+  @@index([rekkefølge])
+}
+
+model HjelpArtikkel {
+  id                     Int           @id @default(autoincrement())
+  tittel                 String
+  innhold                String
+  kategori               String
+  underkategori          String?
+  tags                   String[]      @default([])
+  visningsrekkefølge     Int           @default(0)
+  publisert              Boolean       @default(false)
+  søkeord                String[]      @default([])
+  opprettetAv            Int
+  opprettet              DateTime      @default(now())
+  oppdatert              DateTime      @default(now()) @updatedAt
+  deletedAt              DateTime?
+  deletedBy              Int?
+  isDeleted              Boolean       @default(false)
+  
+  kategoriModel          HjelpKategori @relation(fields: [kategori], references: [navn])
+  opprettetAvAnsatt      Ansatt        @relation("HjelpArtikkelOpprettetAv", fields: [opprettetAv], references: [id], onDelete: Cascade)
+  deletedByUser          Ansatt?       @relation("HjelpArtikkelDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([kategori])
+  @@index([publisert])
+  @@index([opprettetAv])
+  @@index([isDeleted])
+}
+
+// Economic posts (extension of existing financial system)
+model Økonomipost {
+  id                Int        @id @default(autoincrement())
+  beskrivelse       String
+  belop             Int        // øre
+  type              String     // "INNTEKT", "UTGIFT", "OVERFØRING"
+  kategori          String     // "LØNN", "UTSTYR", "DRIFT", "MARKEDSFØRING", etc.
+  dato              DateTime
+  referanse         String?
+  mottaker          String?
+  konto             String?
+  mva               Int        @default(0) // øre
+  status            String     @default("REGISTRERT") // "REGISTRERT", "BETALT", "KANSELLERT"
+  relatertTabell    String?
+  relatertId        Int?
+  bedriftId         Int
+  registrertAv      Int
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  registrertAvAnsatt Ansatt    @relation("ØkonomipostRegistrertAv", fields: [registrertAv], references: [id], onDelete: Cascade)
+  deletedByUser     Ansatt?    @relation("ØkonomipostDeletedBy", fields: [deletedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([type])
+  @@index([kategori])
+  @@index([dato])
+  @@index([status])
+  @@index([registrertAv])
+  @@index([isDeleted])
+}

@@ -1,0 +1,400 @@
+import { PrismaClient, Ansatt, Bedrift, Prisma } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import { BaseService } from '../base.service';
+import logger, { auditLog } from '../../utils/logger';
+import { ValidationError, ConflictError, NotFoundError, ForbiddenError } from '../../utils/errors';
+
+export interface AnsattCreateData {
+  fornavn: string;
+  etternavn: string;
+  epost: string;
+  passord: string;
+  telefon?: string;
+  adresse?: string;
+  postnummer?: string;
+  poststed?: string;
+  rolle?: 'HOVEDBRUKER' | 'TRAFIKKLARER' | 'ADMIN';
+  bedriftId: number;
+  klasser?: string[];
+  kjøretøy?: number[];
+  hovedkjøretøy?: number;
+  opprettetAv: number;
+}
+
+export interface AnsattUpdateData {
+  fornavn?: string;
+  etternavn?: string;
+  epost?: string;
+  telefon?: string;
+  adresse?: string;
+  postnummer?: string;
+  poststed?: string;
+  rolle?: 'HOVEDBRUKER' | 'TRAFIKKLARER' | 'ADMIN';
+  klasser?: string[];
+  kjøretøy?: number[];
+  hovedkjøretøy?: number;
+  passord?: string;
+}
+
+export interface AnsattFilters {
+  bedriftId?: number;
+  rolle?: 'HOVEDBRUKER' | 'TRAFIKKLARER' | 'ADMIN';
+  sokeTerm?: string;
+  page?: number;
+  limit?: number;
+}
+
+export class AnsattManagementService extends BaseService {
+  constructor() {
+    super();
+  }
+
+  /**
+   * Hent ansatt profil
+   */
+  async hentProfil(ansattId: number): Promise<Ansatt & { bedrift: Bedrift | null }> {
+    const ansatt = await this.prisma.ansatt.findUnique({
+      where: { id: ansattId },
+      include: { bedrift: true }
+    });
+
+    if (!ansatt) {
+      throw new NotFoundError('Ansatt', ansattId);
+    }
+
+    return ansatt;
+  }
+
+  /**
+   * Opprett ny ansatt
+   */
+  async opprettAnsatt(data: AnsattCreateData): Promise<Ansatt> {
+    await this.validerAnsattData(data);
+
+    // Hash passord
+    const passordHash = await bcrypt.hash(data.passord, 10);
+
+    const ansatt = await this.prisma.ansatt.create({
+      data: {
+        fornavn: data.fornavn,
+        etternavn: data.etternavn,
+        epost: data.epost.toLowerCase().trim(),
+        passordHash,
+        telefon: data.telefon,
+        adresse: data.adresse,
+        postnummer: data.postnummer,
+        poststed: data.poststed,
+        rolle: data.rolle || 'TRAFIKKLARER',
+        bedriftId: data.bedriftId,
+        klasser: data.klasser || [],
+        kjøretøy: data.kjøretøy || [],
+        hovedkjøretøy: data.hovedkjøretøy,
+        tilganger: ['BASIC']
+      }
+    });
+
+    auditLog(data.opprettetAv, 'CREATE_EMPLOYEE', 'Ansatt', { 
+      ansattId: ansatt.id, 
+      epost: ansatt.epost,
+      bedriftId: ansatt.bedriftId 
+    });
+
+    logger.info('Ansatt opprettet', {
+      ansattId: ansatt.id,
+      epost: ansatt.epost,
+      opprettetAv: data.opprettetAv
+    });
+
+    return ansatt;
+  }
+
+  /**
+   * Oppdater ansatt
+   */
+  async oppdaterAnsatt(
+    ansattId: number,
+    data: AnsattUpdateData,
+    oppdatertAv: number,
+    oppdatererId?: number
+  ): Promise<Ansatt> {
+    await this.validerTilgangForOppdatering(ansattId, oppdatertAv, oppdatererId);
+
+    const updateData: any = { ...data };
+
+    // Hash nytt passord hvis oppgitt
+    if (data.passord) {
+      await this.validerRolleEndring(oppdatertAv, oppdatererId);
+      updateData.passordHash = await bcrypt.hash(data.passord, 10);
+      delete updateData.passord;
+    }
+
+    // Valider e-post endring
+    if (data.epost) {
+      const eksisterende = await this.prisma.ansatt.findUnique({
+        where: { epost: data.epost.toLowerCase().trim() }
+      });
+      
+      if (eksisterende && eksisterende.id !== ansattId) {
+        throw new ConflictError('E-postadressen er allerede i bruk');
+      }
+      
+      updateData.epost = data.epost.toLowerCase().trim();
+    }
+
+    const ansatt = await this.prisma.ansatt.update({
+      where: { id: ansattId },
+      data: updateData
+    });
+
+    auditLog(oppdatertAv, 'UPDATE_EMPLOYEE', 'Ansatt', { 
+      ansattId,
+      endringer: Object.keys(data).filter(key => key !== 'passord')
+    });
+
+    logger.info('Ansatt oppdatert', {
+      ansattId,
+      oppdatertAv,
+      endringer: Object.keys(data)
+    });
+
+    return ansatt;
+  }
+
+  /**
+   * Slett ansatt (soft delete)
+   */
+  async slettAnsatt(ansattId: number, slettetAv: number, sletterId?: number): Promise<void> {
+    await this.validerTilgangForSletting(ansattId, slettetAv, sletterId);
+
+    const ansatt = await this.prisma.ansatt.findUnique({
+      where: { id: ansattId }
+    });
+
+    if (!ansatt) {
+      throw new NotFoundError('Ansatt', ansattId);
+    }
+
+    await this.prisma.ansatt.update({
+      where: { id: ansattId },
+      data: { 
+        epost: `${ansatt.epost}.deleted.${Date.now()}`
+      }
+    });
+
+    auditLog(slettetAv, 'DELETE_EMPLOYEE', 'Ansatt', { 
+      ansattId,
+      epost: ansatt.epost
+    });
+
+    logger.info('Ansatt slettet', {
+      ansattId,
+      slettetAv
+    });
+  }
+
+  /**
+   * Hent ansatte for bedrift
+   */
+  async hentAnsatteForBedrift(bedriftId: number, requesterId: number): Promise<any[]> {
+    const requester = await this.prisma.ansatt.findUnique({
+      where: { id: requesterId }
+    });
+
+    if (!requester) {
+      throw new NotFoundError('Ansatt', requesterId);
+    }
+
+    // Admin kan se alle, andre kan kun se sine egne bedrifts ansatte
+    const whereClause: any = { slettet: false };
+    if (requester.rolle !== 'ADMIN') {
+      whereClause.bedriftId = requester.bedriftId;
+    } else if (bedriftId) {
+      whereClause.bedriftId = bedriftId;
+    }
+
+    return await this.prisma.ansatt.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        rolle: true,
+        telefon: true,
+        klasser: true,
+        opprettet: true,
+        bedrift: {
+          select: {
+            id: true,
+            navn: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Søk i ansatte
+   */
+  async sokAnsatte(sokeTerm: string, filters: AnsattFilters = {}): Promise<any[]> {
+    const { bedriftId, rolle, page = 1, limit = 20 } = filters;
+    
+    const whereClause: any = {
+      slettet: false,
+      OR: [
+        { fornavn: { contains: sokeTerm, mode: 'insensitive' } },
+        { etternavn: { contains: sokeTerm, mode: 'insensitive' } },
+        { epost: { contains: sokeTerm, mode: 'insensitive' } }
+      ]
+    };
+
+    if (bedriftId) whereClause.bedriftId = bedriftId;
+    if (rolle) whereClause.rolle = rolle;
+
+    return await this.prisma.ansatt.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        rolle: true,
+        telefon: true,
+        bedrift: {
+          select: { id: true, navn: true }
+        }
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: [
+        { fornavn: 'asc' },
+        { etternavn: 'asc' }
+      ]
+    });
+  }
+
+  /**
+   * Oppdater tilganger for ansatt
+   */
+  async oppdaterTilganger(ansattId: number, tilganger: string[], oppdatertAv: number): Promise<Ansatt> {
+    // Kun admin kan endre tilganger
+    const admin = await this.prisma.ansatt.findUnique({
+      where: { id: oppdatertAv }
+    });
+
+    if (!admin || admin.rolle !== 'ADMIN') {
+      throw new ForbiddenError('Kun administratorer kan endre tilganger');
+    }
+
+    const ansatt = await this.prisma.ansatt.update({
+      where: { id: ansattId },
+      data: { tilganger }
+    });
+
+    auditLog(oppdatertAv, 'UPDATE_PERMISSIONS', 'Ansatt', { 
+      ansattId,
+      nyeTilganger: tilganger 
+    });
+
+    return ansatt;
+  }
+
+  /**
+   * Valider ansatt-data
+   */
+  private async validerAnsattData(data: AnsattCreateData): Promise<void> {
+    const bedrift = await this.prisma.bedrift.findUnique({
+      where: { id: data.bedriftId },
+      include: { ansatte: true }
+    });
+
+    if (!bedrift) {
+      throw new NotFoundError('Bedrift', data.bedriftId);
+    }
+
+    const eksisterendeAnsatt = await this.prisma.ansatt.findUnique({
+      where: { epost: data.epost.toLowerCase().trim() }
+    });
+
+    if (eksisterendeAnsatt) {
+      throw new ConflictError('En ansatt med denne e-postadressen eksisterer allerede');
+    }
+
+    // Valider passord styrke
+    if (data.passord.length < 8) {
+      throw new ValidationError('Passord må være minst 8 tegn');
+    }
+  }
+
+  /**
+   * Valider tilgang for oppdatering
+   */
+  private async validerTilgangForOppdatering(
+    ansattId: number,
+    oppdatertAv: number,
+    oppdatererId?: number
+  ): Promise<void> {
+    const actualUpdaterId = oppdatererId || oppdatertAv;
+    
+    const [ansatt, oppdaterer] = await Promise.all([
+      this.prisma.ansatt.findUnique({ where: { id: ansattId } }),
+      this.prisma.ansatt.findUnique({ where: { id: actualUpdaterId } })
+    ]);
+
+    if (!ansatt || !oppdaterer) {
+      throw new NotFoundError('Ansatt ikke funnet');
+    }
+
+    // Admin kan oppdatere alle
+    if (oppdaterer.rolle === 'ADMIN') return;
+
+    // Hovedbruker kan oppdatere innenfor sin bedrift
+    if (oppdaterer.rolle === 'HOVEDBRUKER' && ansatt.bedriftId === oppdaterer.bedriftId) return;
+
+    // Bruker kan oppdatere seg selv
+    if (ansattId === actualUpdaterId) return;
+
+    throw new ForbiddenError('Ingen tilgang til å oppdatere denne ansatte');
+  }
+
+  /**
+   * Valider tilgang for sletting
+   */
+  private async validerTilgangForSletting(
+    ansattId: number,
+    slettetAv: number,
+    sletterId?: number
+  ): Promise<void> {
+    const actualDeleterId = sletterId || slettetAv;
+    
+    const [ansatt, sletter] = await Promise.all([
+      this.prisma.ansatt.findUnique({ where: { id: ansattId } }),
+      this.prisma.ansatt.findUnique({ where: { id: actualDeleterId } })
+    ]);
+
+    if (!ansatt || !sletter) {
+      throw new NotFoundError('Ansatt ikke funnet');
+    }
+
+    // Kun admin og hovedbruker kan slette
+    if (sletter.rolle === 'ADMIN') return;
+    if (sletter.rolle === 'HOVEDBRUKER' && ansatt.bedriftId === sletter.bedriftId) return;
+
+    throw new ForbiddenError('Ingen tilgang til å slette denne ansatte');
+  }
+
+  /**
+   * Valider rolle endring
+   */
+  private async validerRolleEndring(oppdatertAv: number, oppdatererId?: number): Promise<void> {
+    const actualUpdaterId = oppdatererId || oppdatertAv;
+    
+    const oppdaterer = await this.prisma.ansatt.findUnique({
+      where: { id: actualUpdaterId }
+    });
+
+    if (!oppdaterer || !['ADMIN', 'HOVEDBRUKER'].includes(oppdaterer.rolle)) {
+      throw new ForbiddenError('Kun administratorer og hovedbrukere kan endre passord');
+    }
+  }
+} 

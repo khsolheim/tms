@@ -1,0 +1,266 @@
+import fetch from 'node-fetch';
+
+interface BrønnøysundPerson {
+  navn: string;
+}
+
+interface BrønnøysundBedrift {
+  navn: string;
+  organisasjonsnummer: string;
+  stiftelsesdato: string;
+  registreringsdatoEnhetsregisteret: string;
+  antallAnsatte: number;
+  hjemmeside: string | null;
+  organisasjonsform: {
+    kode: string;
+    beskrivelse: string;
+  };
+  naeringskode1: {
+    kode: string;
+    beskrivelse: string;
+  } | null;
+  forretningsadresse: {
+    adresse: string;
+    postnummer: string;
+    poststed: string;
+  } | null;
+  postadresse: {
+    adresse: string;
+    postnummer: string;
+    poststed: string;
+  } | null;
+}
+
+interface BrønnøysundRolle {
+  type: {
+    kode: string;
+    beskrivelse: string;
+  };
+  person?: {
+    navn: {
+      fornavn: string;
+      mellomnavn?: string;
+      etternavn: string;
+    };
+    fodselsdato: string;
+  };
+  fratraadt?: boolean;
+}
+
+interface BrønnøysundRollegruppe {
+  type: {
+    kode: string;
+    beskrivelse: string;
+  };
+  sistEndret: string;
+  roller: BrønnøysundRolle[];
+}
+
+interface BrønnøysundRollerResponse {
+  rollegrupper: Array<{
+    type: {
+      kode: string;
+      beskrivelse: string;
+    };
+    sistEndret: string;
+    roller: Array<{
+      person: BrønnøysundPerson;
+      fratraadt: boolean;
+    }>;
+  }>;
+}
+
+interface BrønnøysundResponse {
+  _embedded?: {
+    enheter: BrønnøysundBedrift[];
+  };
+}
+
+export async function hentBedriftFraBrønnøysund(organisasjonsnummer: string) {
+  try {
+    // Rens organisasjonsnummer (fjern mellomrom og bindestreker)
+    const cleanOrgNummer = organisasjonsnummer.replace(/[\s-]/g, '');
+    
+    // Valider organisasjonsnummer (skal være 9 siffer)
+    if (!/^\d{9}$/.test(cleanOrgNummer)) {
+      throw new Error('Ugyldig organisasjonsnummer. Må være 9 siffer.');
+    }
+
+    // Hent bedriftsinformasjon og roller parallelt
+    const [bedriftResponse, rollerResponse] = await Promise.all([
+      fetch(`https://data.brreg.no/enhetsregisteret/api/enheter/${cleanOrgNummer}`, {
+        headers: {
+          'User-Agent': 'TMS-App/1.0 (trafikklærersystem)',
+          'Accept': 'application/json'
+        }
+      }),
+      fetch(`https://data.brreg.no/enhetsregisteret/api/enheter/${cleanOrgNummer}/roller`, {
+        headers: {
+          'User-Agent': 'TMS-App/1.0 (trafikklærersystem)',
+          'Accept': 'application/json'
+        }
+      })
+    ]);
+
+    if (!bedriftResponse.ok) {
+      if (bedriftResponse.status === 404) {
+        return null; // Bedrift ikke funnet
+      }
+      throw new Error(`API feil: ${bedriftResponse.status} ${bedriftResponse.statusText}`);
+    }
+
+    const bedriftData = await bedriftResponse.json() as BrønnøysundBedrift;
+    
+    let rollerData: BrønnøysundRollerResponse | null = null;
+    if (rollerResponse.ok) {
+      rollerData = await rollerResponse.json() as BrønnøysundRollerResponse;
+    }
+    
+    console.log('Hentet bedriftsinformasjon:', {
+      navn: bedriftData.navn,
+      organisasjonsnummer: bedriftData.organisasjonsnummer,
+      stiftelsesdato: bedriftData.stiftelsesdato,
+      organisasjonsform: bedriftData.organisasjonsform?.beskrivelse,
+      næringskode: bedriftData.naeringskode1?.beskrivelse
+    });
+
+    return {
+      bedrift: bedriftData,
+      roller: rollerData
+    };
+    
+  } catch (error) {
+    console.error('Feil ved henting fra Brønnøysundregisteret:', error);
+    throw error;
+  }
+}
+
+function hentPersonNavn(person: any | null) {
+  if (!person || !person.navn) return null;
+
+  // Hvis navn er en streng
+  if (typeof person.navn === 'string') {
+    const navnDeler = person.navn.split(' ');
+    const etternavn = navnDeler.pop() || '';
+    const fornavn = navnDeler.join(' ');
+    return {
+      fornavn,
+      etternavn,
+      fulltNavn: person.navn
+    };
+  }
+
+  // Hvis navn er et objekt med fornavn/mellomnavn/etternavn
+  if (typeof person.navn === 'object' && person.navn.fornavn) {
+    const fornavn = [person.navn.fornavn, person.navn.mellomnavn].filter(Boolean).join(' ');
+    const etternavn = person.navn.etternavn || '';
+    const fulltNavn = [fornavn, etternavn].filter(Boolean).join(' ');
+    return {
+      fornavn,
+      etternavn,
+      fulltNavn
+    };
+  }
+
+  // Fallback hvis ukjent format
+  return {
+    fornavn: '',
+    etternavn: '',
+    fulltNavn: ''
+  };
+}
+
+function hentRolleInformasjon(rollerData: BrønnøysundRollerResponse | null) {
+  if (!rollerData?.rollegrupper) return {};
+
+  const roller: any = {};
+
+  for (const rollegruppe of rollerData.rollegrupper) {
+    // Finn aktive roller (ikke fratrådde)
+    const aktiveRoller = rollegruppe.roller.filter(rolle => !rolle.fratraadt);
+    
+    if (aktiveRoller.length > 0) {
+      const rollekode = rollegruppe.type.kode;
+      const rolleBeskrivelse = rollegruppe.type.beskrivelse;
+      
+      // Map til mer forståelige navn
+      switch (rollekode) {
+        case 'DAGL':
+          roller.dagligLeder = {
+            ...hentPersonNavn(aktiveRoller[0].person),
+            beskrivelse: rolleBeskrivelse,
+            sistEndret: rollegruppe.sistEndret
+          };
+          break;
+        case 'LEDE':
+        case 'STYL':
+          roller.styreleder = {
+            ...hentPersonNavn(aktiveRoller[0].person),
+            beskrivelse: rolleBeskrivelse,
+            sistEndret: rollegruppe.sistEndret
+          };
+          break;
+        case 'SIGN':
+          roller.signaturrett = aktiveRoller.map(rolle => ({
+            ...hentPersonNavn(rolle.person),
+            beskrivelse: rolleBeskrivelse
+          }));
+          break;
+        default:
+          // Legg til andre roller i en generell liste
+          if (!roller.andreRoller) roller.andreRoller = [];
+          roller.andreRoller.push({
+            type: rolleBeskrivelse,
+            personer: aktiveRoller.map(rolle => hentPersonNavn(rolle.person)).filter(Boolean)
+          });
+      }
+    }
+  }
+
+  return roller;
+}
+
+export function mapBrønnøysundTilBedrift(data: { bedrift: BrønnøysundBedrift; roller: BrønnøysundRollerResponse | null }) {
+  const { bedrift: brønnøysundData, roller: rollerData } = data;
+  const forretningsadresse = brønnøysundData.forretningsadresse;
+  const postadresse = brønnøysundData.postadresse;
+  
+  // Bruk forretningsadresse først, fall tilbake til postadresse
+  const adresseData = forretningsadresse || postadresse;
+  const rolleInformasjon = hentRolleInformasjon(rollerData);
+
+  // Konverter rolle-objekter til strenger for databaselagring
+  const dagligLederString = rolleInformasjon.dagligLeder?.fulltNavn || null;
+  const styrelederString = rolleInformasjon.styreleder?.fulltNavn || null;
+  const signaturrettStrings = Array.isArray(rolleInformasjon.signaturrett) 
+    ? rolleInformasjon.signaturrett.map((s: any) => s.fulltNavn || '').filter(Boolean)
+    : [];
+
+  return {
+    navn: brønnøysundData.navn,
+    organisasjonsnummer: brønnøysundData.organisasjonsnummer,
+    adresse: adresseData?.adresse || null,
+    postnummer: adresseData?.postnummer || null,
+    poststed: adresseData?.poststed || null,
+    // Vi kan ikke hente telefon og epost fra Brønnøysundregisteret
+    telefon: null,
+    epost: null,
+    // Utvidet informasjon
+    stiftelsesdato: brønnøysundData.stiftelsesdato,
+    organisasjonsform: brønnøysundData.organisasjonsform?.beskrivelse,
+    organisasjonsformKode: brønnøysundData.organisasjonsform?.kode,
+    næringskode: brønnøysundData.naeringskode1?.beskrivelse,
+    næringskodeKode: brønnøysundData.naeringskode1?.kode,
+    // Roller og ledelse - konvertert til strenger
+    dagligLeder: dagligLederString,
+    styreleder: styrelederString,
+    signaturrett: signaturrettStrings,
+    // Metadata med originale objekter
+    _metadata: {
+      antallAnsatte: brønnøysundData.antallAnsatte,
+      registrert: brønnøysundData.registreringsdatoEnhetsregisteret,
+      hjemmeside: brønnøysundData.hjemmeside,
+      roller: rolleInformasjon
+    }
+  };
+} 

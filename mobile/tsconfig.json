@@ -1,0 +1,72 @@
+{
+  "compilerOptions": {
+<<<<<<< HEAD
+    "target": "es2020",
+    "lib": ["es2020", "dom"],
+=======
+    "target": "es2017",
+    "lib": ["es2017", "es2018", "es2019", "es2020"],
+>>>>>>> 7f4aa3d (🚀 TMS Complete Implementation - Production Ready)
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+<<<<<<< HEAD
+    "moduleResolution": "bundler",
+=======
+    "moduleResolution": "node",
+>>>>>>> 7f4aa3d (🚀 TMS Complete Implementation - Production Ready)
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-native",
+<<<<<<< HEAD
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@services/*": ["src/services/*"],
+      "@utils/*": ["src/utils/*"],
+      "@types/*": ["src/types/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@screens/*": ["src/screens/*"],
+      "@navigation/*": ["src/navigation/*"],
+      "@store/*": ["src/store/*"],
+      "@assets/*": ["src/assets/*"]
+=======
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+>>>>>>> 7f4aa3d (🚀 TMS Complete Implementation - Production Ready)
+    }
+  },
+  "include": [
+    "src/**/*",
+<<<<<<< HEAD
+    "index.js",
+    "metro.config.js",
+    "babel.config.js"
+  ],
+  "typeRoots": [
+    "node_modules/@types",
+    "src/types"
+=======
+    "index.js"
+>>>>>>> 7f4aa3d (🚀 TMS Complete Implementation - Production Ready)
+  ],
+  "exclude": [
+    "node_modules",
+    "android",
+<<<<<<< HEAD
+    "ios",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+=======
+    "ios"
+>>>>>>> 7f4aa3d (🚀 TMS Complete Implementation - Production Ready)
+  ]
+} 

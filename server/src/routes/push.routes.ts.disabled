@@ -1,0 +1,358 @@
+import { Router, Request, Response } from 'express';
+import { body } from 'express-validator';
+import webpush from 'web-push';
+import { validate } from '../middleware/validation';
+import { verifyToken, AuthRequest } from '../middleware/auth';
+import { PrismaClient } from '@prisma/client';
+import logger from '../utils/logger';
+import { z } from 'zod';
+
+const prisma = new PrismaClient();
+
+const router = Router();
+
+// Configure web-push with VAPID keys
+const vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY || '',
+  privateKey: process.env.VAPID_PRIVATE_KEY || ''
+};
+
+if (vapidKeys.publicKey && vapidKeys.privateKey) {
+  webpush.setVapidDetails(
+    'mailto:admin@tms.no',
+    vapidKeys.publicKey,
+    vapidKeys.privateKey
+  );
+}
+
+/**
+ * Subscribe user to push notifications
+ */
+router.post('/subscribe', 
+  verifyToken,
+  [
+    body('endpoint').isURL().withMessage('Ugyldig endpoint URL'),
+    body('keys.p256dh').notEmpty().withMessage('p256dh nøkkel er påkrevd'),
+    body('keys.auth').notEmpty().withMessage('auth nøkkel er påkrevd')
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const { endpoint, keys } = req.body;
+      const ansattId = req.user!.ansattId;
+
+      // Store subscription in database - DISABLED: pushSubscription model not in schema
+      /* const subscription = await prisma.pushSubscription.upsert({
+        where: {
+          ansattId
+        },
+        update: {
+          endpoint,
+          p256dhKey: keys.p256dh,
+          authKey: keys.auth,
+          userAgent: req.get('User-Agent') || '',
+          updatedAt: new Date()
+        },
+        create: {
+          ansattId,
+          endpoint,
+          p256dhKey: keys.p256dh,
+          authKey: keys.auth,
+          userAgent: req.get('User-Agent') || '',
+          isActive: true
+        }
+      }); */
+
+      logger.info('Push subscription created/updated', {
+        ansattId,
+        subscriptionId: subscription.id,
+        endpoint: endpoint.substring(0, 50) + '...'
+      });
+
+      res.json({
+        success: true,
+        message: 'Push notification subscription registered',
+        subscriptionId: subscription.id
+      });
+
+    } catch (error) {
+      logger.error('Error creating push subscription:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to register push subscription'
+      });
+    }
+  }
+);
+
+/**
+ * Unsubscribe user from push notifications
+ */
+router.delete('/unsubscribe',
+  verifyToken,
+  async (req, res) => {
+    try {
+      const ansattId = req.user!.ansattId;
+
+      await prisma.pushSubscription.updateMany({
+        where: {
+          ansattId,
+          isActive: true
+        },
+        data: {
+          isActive: false,
+          updatedAt: new Date()
+        }
+      });
+
+      logger.info('Push subscription deactivated', { ansattId });
+
+      res.json({
+        success: true,
+        message: 'Push notification subscription removed'
+      });
+
+    } catch (error) {
+      logger.error('Error removing push subscription:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to remove push subscription'
+      });
+    }
+  }
+);
+
+/**
+ * Send push notification to user
+ */
+router.post('/send',
+  verifyToken,
+  [
+    body('title').notEmpty().withMessage('Tittel er påkrevd'),
+    body('body').notEmpty().withMessage('Melding er påkrevd'),
+    body('targetAnsattId').optional().isInt().withMessage('Ugyldig ansatt ID'),
+    body('icon').optional().isURL().withMessage('Ugyldig ikon URL'),
+    body('badge').optional().isURL().withMessage('Ugyldig badge URL'),
+    body('data').optional().isObject().withMessage('Data må være et objekt')
+  ],
+  validate,
+  async (req, res) => {
+    try {
+      const { title, body, targetAnsattId, icon, badge, data, actions } = req.body;
+      const senderAnsattId = req.user!.ansattId;
+
+      // Get target subscriptions
+      const whereClause = targetAnsattId 
+        ? { ansattId: parseInt(targetAnsattId), isActive: true }
+        : { isActive: true }; // Send to all if no target specified
+
+      const subscriptions = await prisma.pushSubscription.findMany({
+        where: whereClause,
+        include: {
+          ansatt: {
+            select: {
+              fornavn: true,
+              etternavn: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      if (subscriptions.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No active push subscriptions found'
+        });
+      }
+
+      // Prepare notification payload
+      const payload = JSON.stringify({
+        title,
+        body,
+        icon: icon || '/logo192.png',
+        badge: badge || '/favicon.ico',
+        data: {
+          timestamp: Date.now(),
+          senderId: senderAnsattId,
+          ...data
+        },
+        actions: actions || [
+          { action: 'view', title: 'Vis', icon: '/favicon.ico' },
+          { action: 'dismiss', title: 'Lukk' }
+        ]
+      });
+
+      const results = [];
+      
+      // Send to all subscriptions
+      for (const subscription of subscriptions) {
+        try {
+          const pushSubscription = {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.p256dhKey,
+              auth: subscription.authKey
+            }
+          };
+
+          await webpush.sendNotification(pushSubscription, payload);
+          
+          results.push({
+            ansattId: subscription.ansattId,
+            status: 'sent',
+            email: subscription.ansatt.email
+          });
+
+          logger.info('Push notification sent', {
+            ansattId: subscription.ansattId,
+            title,
+            endpoint: subscription.endpoint.substring(0, 50) + '...'
+          });
+
+        } catch (error) {
+          logger.error('Failed to send push notification', {
+            ansattId: subscription.ansattId,
+            error: error.message
+          });
+
+          results.push({
+            ansattId: subscription.ansattId,
+            status: 'failed',
+            error: error.message,
+            email: subscription.ansatt.email
+          });
+
+          // If subscription is invalid, deactivate it
+          if (error.statusCode === 410 || error.statusCode === 404) {
+            await prisma.pushSubscription.update({
+              where: { id: subscription.id },
+              data: { isActive: false }
+            });
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Push notifications sent to ${results.filter(r => r.status === 'sent').length} recipients`,
+        results,
+        total: subscriptions.length,
+        sent: results.filter(r => r.status === 'sent').length,
+        failed: results.filter(r => r.status === 'failed').length
+      });
+
+    } catch (error) {
+      logger.error('Error sending push notifications:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send push notifications'
+      });
+    }
+  }
+);
+
+/**
+ * Get user's push subscription status
+ */
+router.get('/subscription',
+  verifyToken,
+  async (req, res) => {
+    try {
+      const ansattId = req.user!.ansattId;
+
+      const subscription = await prisma.pushSubscription.findFirst({
+        where: {
+          ansattId,
+          isActive: true
+        },
+        select: {
+          id: true,
+          endpoint: true,
+          createdAt: true,
+          updatedAt: true,
+          userAgent: true,
+          isActive: true
+        }
+      });
+
+      res.json({
+        success: true,
+        subscription: subscription ? {
+          ...subscription,
+          endpoint: subscription.endpoint.substring(0, 50) + '...' // Hide full endpoint for security
+        } : null
+      });
+
+    } catch (error) {
+      logger.error('Error getting push subscription:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get push subscription'
+      });
+    }
+  }
+);
+
+/**
+ * Send test notification
+ */
+router.post('/test',
+  verifyToken,
+  async (req, res) => {
+    try {
+      const ansattId = req.user!.ansattId;
+
+      const subscription = await prisma.pushSubscription.findFirst({
+        where: {
+          ansattId,
+          isActive: true
+        }
+      });
+
+      if (!subscription) {
+        return res.status(404).json({
+          success: false,
+          message: 'No active push subscription found'
+        });
+      }
+
+      const pushSubscription = {
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.p256dhKey,
+          auth: subscription.authKey
+        }
+      };
+
+      const payload = JSON.stringify({
+        title: 'TMS Test Notification',
+        body: 'Push notifikasjoner fungerer! 🎉',
+        icon: '/logo192.png',
+        badge: '/favicon.ico',
+        data: {
+          timestamp: Date.now(),
+          type: 'test'
+        }
+      });
+
+      await webpush.sendNotification(pushSubscription, payload);
+
+      logger.info('Test push notification sent', { ansattId });
+
+      res.json({
+        success: true,
+        message: 'Test notification sent successfully'
+      });
+
+    } catch (error) {
+      logger.error('Error sending test notification:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send test notification'
+      });
+    }
+  }
+);
+
+export default router; 

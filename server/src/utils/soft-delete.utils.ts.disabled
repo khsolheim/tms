@@ -1,0 +1,486 @@
+import { PrismaClient } from '@prisma/client';
+import { AppError } from './errors';
+
+export interface SoftDeleteOptions {
+  userId: number;
+  reason?: string;
+  cascadeDelete?: boolean;
+}
+
+export interface SoftDeleteResult {
+  id: number;
+  deletedAt: Date;
+  deletedBy: number;
+  cascadedDeletes?: SoftDeleteResult[];
+}
+
+export class SoftDeleteService {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  /**
+   * Soft delete en Bedrift og potensielt relaterte data
+   */
+  async deleteBedrift(id: number, options: SoftDeleteOptions): Promise<SoftDeleteResult> {
+    const now = new Date();
+    const cascadedDeletes: SoftDeleteResult[] = [];
+
+    // Sjekk om bedrift eksisterer og ikke allerede er slettet
+    const bedrift = await this.prisma.bedrift.findFirst({
+      where: { id, isDeleted: false }
+    });
+
+    if (!bedrift) {
+      throw new AppError('Bedrift ikke funnet eller allerede slettet', 404);
+    }
+
+    // Cascade delete hvis ønsket
+    if (options.cascadeDelete) {
+      // Soft delete alle ansatte
+      const ansatte = await this.prisma.ansatt.findMany({
+        where: { bedriftId: id, isDeleted: false }
+      });
+
+      for (const ansatt of ansatte) {
+        const result = await this.deleteAnsatt(ansatt.id, options);
+        cascadedDeletes.push(result);
+      }
+
+      // Soft delete alle elever
+      const elever = await this.prisma.elev.findMany({
+        where: { bedriftId: id, isDeleted: false }
+      });
+
+      for (const elev of elever) {
+        const result = await this.deleteElev(elev.id, options);
+        cascadedDeletes.push(result);
+      }
+
+      // Soft delete alle kontrakter
+      const kontrakter = await this.prisma.kontrakt.findMany({
+        where: { bedriftId: id, isDeleted: false }
+      });
+
+      for (const kontrakt of kontrakter) {
+        const result = await this.deleteKontrakt(kontrakt.id, options);
+        cascadedDeletes.push(result);
+      }
+
+      // Soft delete alle kjøretøy
+      const kjoretoy = await this.prisma.kjoretoy.findMany({
+        where: { bedriftId: id, isDeleted: false }
+      });
+
+      for (const bil of kjoretoy) {
+        const result = await this.deleteKjoretoy(bil.id, options);
+        cascadedDeletes.push(result);
+      }
+    }
+
+    // Soft delete bedrift
+    const updatedBedrift = await this.prisma.bedrift.update({
+      where: { id },
+      data: {
+        deletedAt: now,
+        deletedBy: options.userId,
+        isDeleted: true
+      }
+    });
+
+    // Log til audit trail
+    await this.logAuditTrail('Bedrift', id, 'SOFT_DELETE', options.userId, {
+      reason: options.reason,
+      cascadeDelete: options.cascadeDelete,
+      cascadedCount: cascadedDeletes.length
+    });
+
+    return {
+      id: updatedBedrift.id,
+      deletedAt: updatedBedrift.deletedAt!,
+      deletedBy: updatedBedrift.deletedBy!,
+      cascadedDeletes: cascadedDeletes.length > 0 ? cascadedDeletes : undefined
+    };
+  }
+
+  /**
+   * Soft delete en Ansatt
+   */
+  async deleteAnsatt(id: number, options: SoftDeleteOptions): Promise<SoftDeleteResult> {
+    const now = new Date();
+
+    // Sjekk om ansatt eksisterer og ikke allerede er slettet
+    const ansatt = await this.prisma.ansatt.findFirst({
+      where: { id, isDeleted: false }
+    });
+
+    if (!ansatt) {
+      throw new AppError('Ansatt ikke funnet eller allerede slettet', 404);
+    }
+
+    // Sjekk om dette er hovedbruker for en bedrift
+    const erHovedbruker = await this.prisma.bedrift.findFirst({
+      where: { hovedbrukerId: id }
+    });
+
+    if (erHovedbruker) {
+      throw new AppError('Kan ikke slette hovedbruker. Assign ny hovedbruker først.', 400);
+    }
+
+    const updatedAnsatt = await this.prisma.ansatt.update({
+      where: { id },
+      data: {
+        deletedAt: now,
+        deletedBy: options.userId,
+        isDeleted: true
+      }
+    });
+
+    await this.logAuditTrail('Ansatt', id, 'SOFT_DELETE', options.userId, {
+      reason: options.reason
+    });
+
+    return {
+      id: updatedAnsatt.id,
+      deletedAt: updatedAnsatt.deletedAt!,
+      deletedBy: updatedAnsatt.deletedBy!
+    };
+  }
+
+  /**
+   * Soft delete en Elev
+   */
+  async deleteElev(id: number, options: SoftDeleteOptions): Promise<SoftDeleteResult> {
+    const now = new Date();
+
+    const elev = await this.prisma.elev.findFirst({
+      where: { id, isDeleted: false }
+    });
+
+    if (!elev) {
+      throw new AppError('Elev ikke funnet eller allerede slettet', 404);
+    }
+
+    // Cascade delete kontrakter hvis ønsket
+    const cascadedDeletes: SoftDeleteResult[] = [];
+    if (options.cascadeDelete) {
+      const kontrakter = await this.prisma.kontrakt.findMany({
+        where: { elevId: id, isDeleted: false }
+      });
+
+      for (const kontrakt of kontrakter) {
+        const result = await this.deleteKontrakt(kontrakt.id, options);
+        cascadedDeletes.push(result);
+      }
+    }
+
+    const updatedElev = await this.prisma.elev.update({
+      where: { id },
+      data: {
+        deletedAt: now,
+        deletedBy: options.userId,
+        isDeleted: true
+      }
+    });
+
+    await this.logAuditTrail('Elev', id, 'SOFT_DELETE', options.userId, {
+      reason: options.reason,
+      cascadeDelete: options.cascadeDelete,
+      cascadedCount: cascadedDeletes.length
+    });
+
+    return {
+      id: updatedElev.id,
+      deletedAt: updatedElev.deletedAt!,
+      deletedBy: updatedElev.deletedBy!,
+      cascadedDeletes: cascadedDeletes.length > 0 ? cascadedDeletes : undefined
+    };
+  }
+
+  /**
+   * Soft delete en Kontrakt
+   */
+  async deleteKontrakt(id: number, options: SoftDeleteOptions): Promise<SoftDeleteResult> {
+    const now = new Date();
+
+    const kontrakt = await this.prisma.kontrakt.findFirst({
+      where: { id, isDeleted: false }
+    });
+
+    if (!kontrakt) {
+      throw new AppError('Kontrakt ikke funnet eller allerede slettet', 404);
+    }
+
+    // Valider at kontrakt kan slettes (business rules)
+    if (kontrakt.status === 'AKTIV') {
+      throw new AppError('Kan ikke slette aktiv kontrakt. Avslutt kontrakt først.', 400);
+    }
+
+    const updatedKontrakt = await this.prisma.kontrakt.update({
+      where: { id },
+      data: {
+        deletedAt: now,
+        deletedBy: options.userId,
+        isDeleted: true
+      }
+    });
+
+    await this.logAuditTrail('Kontrakt', id, 'SOFT_DELETE', options.userId, {
+      reason: options.reason,
+      previousStatus: kontrakt.status
+    });
+
+    return {
+      id: updatedKontrakt.id,
+      deletedAt: updatedKontrakt.deletedAt!,
+      deletedBy: updatedKontrakt.deletedBy!
+    };
+  }
+
+  /**
+   * Soft delete et Kjøretøy
+   */
+  async deleteKjoretoy(id: number, options: SoftDeleteOptions): Promise<SoftDeleteResult> {
+    const now = new Date();
+
+    const kjoretoy = await this.prisma.kjoretoy.findFirst({
+      where: { id, isDeleted: false }
+    });
+
+    if (!kjoretoy) {
+      throw new AppError('Kjøretøy ikke funnet eller allerede slettet', 404);
+    }
+
+    const updatedKjoretoy = await this.prisma.kjoretoy.update({
+      where: { id },
+      data: {
+        deletedAt: now,
+        deletedBy: options.userId,
+        isDeleted: true
+      }
+    });
+
+    await this.logAuditTrail('Kjoretoy', id, 'SOFT_DELETE', options.userId, {
+      reason: options.reason,
+      registreringsnummer: kjoretoy.registreringsnummer
+    });
+
+    return {
+      id: updatedKjoretoy.id,
+      deletedAt: updatedKjoretoy.deletedAt!,
+      deletedBy: updatedKjoretoy.deletedBy!
+    };
+  }
+
+  /**
+   * Restore en soft-deleted record
+   */
+  async restore(tableName: string, id: number, userId: number): Promise<any> {
+    const validTables = ['Bedrift', 'Ansatt', 'Elev', 'Kontrakt', 'Kjoretoy', 'BildeLibrary', 'QuizKategori', 'QuizSporsmal', 'EmailTemplate'];
+    
+    if (!validTables.includes(tableName)) {
+      throw new AppError('Ugyldig tabellnavn for restore operasjon', 400);
+    }
+
+    const model = (this.prisma as any)[tableName.toLowerCase()];
+    
+    const record = await model.findFirst({
+      where: { id, isDeleted: true }
+    });
+
+    if (!record) {
+      throw new AppError(`${tableName} ikke funnet eller ikke slettet`, 404);
+    }
+
+    const restoredRecord = await model.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        deletedBy: null,
+        isDeleted: false
+      }
+    });
+
+    await this.logAuditTrail(tableName, id, 'RESTORE', userId, {
+      originalDeletedBy: record.deletedBy,
+      originalDeletedAt: record.deletedAt
+    });
+
+    return restoredRecord;
+  }
+
+  /**
+   * Permanently delete records that have been soft-deleted for more than X days
+   */
+  async permanentDeleteOldRecords(tableName: string, daysOld: number = 90): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    const validTables = ['Bedrift', 'Ansatt', 'Elev', 'Kontrakt', 'Kjoretoy', 'BildeLibrary', 'QuizKategori', 'QuizSporsmal', 'EmailTemplate'];
+    
+    if (!validTables.includes(tableName)) {
+      throw new AppError('Ugyldig tabellnavn for permanent sletting', 400);
+    }
+
+    const model = (this.prisma as any)[tableName.toLowerCase()];
+    
+    const { count } = await model.deleteMany({
+      where: {
+        isDeleted: true,
+        deletedAt: {
+          lt: cutoffDate
+        }
+      }
+    });
+
+    await this.logAuditTrail(tableName, 0, 'PERMANENT_DELETE', 0, {
+      recordsDeleted: count,
+      cutoffDate,
+      daysOld
+    });
+
+    return count;
+  }
+
+  /**
+   * Get soft delete statistics
+   */
+  async getSoftDeleteStats(): Promise<Record<string, any>> {
+    const [
+      bedrifter,
+      ansatte, 
+      elever,
+      kontrakter,
+      kjoretoy,
+      bildeLibrary,
+      quizKategorier,
+      quizSporsmal,
+      emailTemplates
+    ] = await Promise.all([
+      this.prisma.bedrift.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.ansatt.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.elev.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.kontrakt.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.kjoretoy.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.bildeLibrary.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.quizKategori.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.quizSporsmal.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      }),
+      this.prisma.emailTemplate.groupBy({
+        by: ['isDeleted'],
+        _count: true
+      })
+    ]);
+
+    return {
+      bedrifter: this.formatGroupStats(bedrifter),
+      ansatte: this.formatGroupStats(ansatte),
+      elever: this.formatGroupStats(elever),
+      kontrakter: this.formatGroupStats(kontrakter),
+      kjoretoy: this.formatGroupStats(kjoretoy),
+      bildeLibrary: this.formatGroupStats(bildeLibrary),
+      quizKategorier: this.formatGroupStats(quizKategorier),
+      quizSporsmal: this.formatGroupStats(quizSporsmal),
+      emailTemplates: this.formatGroupStats(emailTemplates)
+    };
+  }
+
+  private formatGroupStats(stats: any[]): { active: number; deleted: number; total: number } {
+    const active = stats.find(s => s.isDeleted === false)?._count || 0;
+    const deleted = stats.find(s => s.isDeleted === true)?._count || 0;
+    return {
+      active,
+      deleted,
+      total: active + deleted
+    };
+  }
+
+  private async logAuditTrail(tableName: string, recordId: number, action: string, userId: number, metadata: any): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          tableName,
+          recordId,
+          action,
+          userId: userId || null,
+          changes: {},
+          metadata
+        }
+      });
+    } catch (error) {
+      console.error('Failed to log audit trail:', error);
+      // Don't throw error to avoid breaking the main operation
+    }
+  }
+}
+
+/**
+ * Utility functions for adding soft delete WHERE clauses
+ */
+export const softDeleteFilters = {
+  active: { isDeleted: false },
+  deleted: { isDeleted: true },
+  all: {}, // No filter
+  
+  // Helper for including soft deleted records in development
+  includeDeleted: (includeDeleted: boolean = false) => 
+    includeDeleted ? {} : { isDeleted: false }
+};
+
+/**
+ * Middleware for automatically filtering soft deleted records
+ */
+export function createSoftDeleteMiddleware() {
+  return (req: any, res: any, next: any) => {
+    const originalFindMany = req.prisma?.findMany;
+    const originalFindFirst = req.prisma?.findFirst;
+    const originalFindUnique = req.prisma?.findUnique;
+
+    if (originalFindMany) {
+      req.prisma.findMany = function(args: any) {
+        if (!args.where) args.where = {};
+        if (args.where.isDeleted === undefined) {
+          args.where.isDeleted = false;
+        }
+        return originalFindMany.call(this, args);
+      };
+    }
+
+    if (originalFindFirst) {
+      req.prisma.findFirst = function(args: any) {
+        if (!args.where) args.where = {};
+        if (args.where.isDeleted === undefined) {
+          args.where.isDeleted = false;
+        }
+        return originalFindFirst.call(this, args);
+      };
+    }
+
+    next();
+  };
+} 

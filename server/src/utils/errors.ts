@@ -1,0 +1,111 @@
+// Base error class
+export class AppError extends Error {
+  public readonly statusCode: number;
+  public readonly code: string;
+  public readonly isOperational: boolean;
+  public readonly details?: any;
+
+  constructor(
+    message: string,
+    statusCode: number,
+    code: string,
+    isOperational = true,
+    details?: any
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, new.target.prototype);
+
+    this.statusCode = statusCode;
+    this.code = code;
+    this.isOperational = isOperational;
+    this.details = details;
+
+    Error.captureStackTrace(this);
+  }
+}
+
+// Validation error
+export class ValidationError extends AppError {
+  constructor(message: string, details?: any) {
+    super(message, 400, 'VALIDATION_ERROR', true, details);
+  }
+}
+
+// Authentication error
+export class AuthError extends AppError {
+  constructor(message = 'Ikke autentisert') {
+    super(message, 401, 'AUTH_ERROR', true);
+  }
+}
+
+// Authorization error
+export class ForbiddenError extends AppError {
+  constructor(message = 'Ikke tilgang') {
+    super(message, 403, 'FORBIDDEN_ERROR', true);
+  }
+}
+
+// Not found error
+export class NotFoundError extends AppError {
+  constructor(resource: string, id?: string | number) {
+    const message = id 
+      ? `${resource} med ID ${id} ikke funnet`
+      : `${resource} ikke funnet`;
+    super(message, 404, 'NOT_FOUND', true);
+  }
+}
+
+// Conflict error (e.g., duplicate entry)
+export class ConflictError extends AppError {
+  constructor(message: string) {
+    super(message, 409, 'CONFLICT_ERROR', true);
+  }
+}
+
+// Internal server error
+export class InternalError extends AppError {
+  constructor(message = 'Intern serverfeil', details?: any) {
+    super(message, 500, 'INTERNAL_ERROR', false, details);
+  }
+}
+
+// Database error
+export class DatabaseError extends AppError {
+  constructor(message = 'Databasefeil', details?: any) {
+    super(message, 500, 'DATABASE_ERROR', false, details);
+  }
+}
+
+// External service error
+export class ExternalServiceError extends AppError {
+  constructor(service: string, message?: string) {
+    super(
+      message || `Feil ved kommunikasjon med ${service}`,
+      503,
+      'EXTERNAL_SERVICE_ERROR',
+      true,
+      { service }
+    );
+  }
+}
+
+// Rate limit error
+export class RateLimitError extends AppError {
+  constructor(retryAfter?: number) {
+    super(
+      'For mange forespørsler. Prøv igjen senere.',
+      429,
+      'RATE_LIMIT_ERROR',
+      true,
+      { retryAfter }
+    );
+  }
+}
+
+// Utility function to check if error is operational
+export const isOperationalError = (error: Error): boolean => {
+  if (error instanceof AppError) {
+    return error.isOperational;
+  }
+  return false;
+}; 

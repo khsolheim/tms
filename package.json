@@ -1,0 +1,36 @@
+{
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@types/babel__core": "^7.20.5",
+    "@types/node": "^22.15.30",
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.80.6",
+    "@tanstack/react-query-devtools": "^5.80.6",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/redis": "^4.0.10",
+    "bcryptjs": "^3.0.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "react-icons": "4.10.1",
+    "redis": "^5.5.6",
+    "zod": "^3.25.56"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix=server\" \"npm run dev --prefix=client\"",
+    "start": "concurrently \"npm start --prefix=server\" \"npm start --prefix=client\"",
+    "build": "npm run build --prefix=client && npm run build --prefix=server",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report",
+    "client": "npm run dev --prefix=client",
+    "server": "npm run dev --prefix=server",
+    "install:all": "npm ci && npm ci --prefix=client && npm ci --prefix=server"
+  }
+}
