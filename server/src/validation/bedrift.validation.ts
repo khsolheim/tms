@@ -15,7 +15,10 @@ export const createBedriftSchema = z.object({
     organisasjonsnummer: z.string()
       .optional()
       .default("")
-      .transform(val => val?.trim() || "")
+      .transform(val => {
+        const trimmed = val?.trim() || "";
+        return trimmed; // Organisasjonsnummer kan være tom streng
+      })
       .refine(val => val === "" || organisasjonsnummerRegex.test(val), {
         message: "Organisasjonsnummer må være 9 siffer"
       }),
@@ -24,8 +27,11 @@ export const createBedriftSchema = z.object({
       .optional(),
     postnummer: z.string()
       .optional()
-      .transform(val => val?.trim() || "")
-      .refine(val => val === "" || postnummerRegex.test(val), {
+      .transform(val => {
+        const trimmed = val?.trim();
+        return trimmed && trimmed.length > 0 ? trimmed : null;
+      })
+      .refine(val => val === null || postnummerRegex.test(val), {
         message: "Postnummer må være 4 siffer"
       }),
     poststed: z.string()
@@ -33,14 +39,20 @@ export const createBedriftSchema = z.object({
       .optional(),
     telefon: z.string()
       .optional()
-      .transform(val => val?.trim() || "")
-      .refine(val => val === "" || telefonRegex.test(val), {
+      .transform(val => {
+        const trimmed = val?.trim();
+        return trimmed && trimmed.length > 0 ? trimmed : null;
+      })
+      .refine(val => val === null || telefonRegex.test(val), {
         message: "Ugyldig telefonnummer format"
       }),
     epost: z.string()
       .optional()
-      .transform(val => val?.trim() || "")
-      .refine(val => val === "" || z.string().email().safeParse(val).success, {
+      .transform(val => {
+        const trimmed = val?.trim();
+        return trimmed && trimmed.length > 0 ? trimmed : null;
+      })
+      .refine(val => val === null || z.string().email().safeParse(val).success, {
         message: "Ugyldig e-postadresse"
       }),
     // Utvidet informasjon fra Brønnøysundregisteret

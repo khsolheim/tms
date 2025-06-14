@@ -25,6 +25,7 @@ import docsRoutes from "../routes/docs.routes";
 import regnskapsIntegrasjonsRoutes from "../routes/regnskaps-integrasjon.routes";
 import tenantsRoutes from "../routes/tenants.routes";
 import referenceRoutes from "../routes/reference.routes";
+import sikkerhetskontrollLaeringRouter from "../routes/sikkerhetskontroll-laering.routes";
 
 export function configureRoutes(app: Express): void {
   // Debug logging
@@ -61,6 +62,7 @@ export function configureRoutes(app: Express): void {
   app.use('/api/reference', referenceRoutes);
   app.use('/api/v1/docs', docsRoutes);
   app.use('/api', miscRoutes);
+  app.use('/api/sikkerhetskontroll-laering', sikkerhetskontrollLaeringRouter);
 
   // Admin routes
   configureAdminRoutes(app);

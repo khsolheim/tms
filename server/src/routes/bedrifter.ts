@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { verifyToken, sjekkRolle, AuthRequest } from "../middleware/auth";
 import logger, { auditLog } from "../utils/logger";
-import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from "../utils/errors";
+import { ApiError } from "../utils/ApiError";
 import { asyncHandler } from "../middleware/errorHandler";
 import { validate } from "../middleware/validation";
 import {
@@ -33,6 +33,9 @@ router.get("/", verifyToken, sjekkRolle(['ADMIN']), asyncHandler(async (_req: Re
   logger.info('Henter alle bedrifter');
   
   const bedrifter = await prisma.bedrift.findMany({
+    where: {
+      isDeleted: false
+    },
     include: {
       ansatte: true,
       hovedbruker: true,
@@ -56,7 +59,8 @@ router.get("/by-name/:navn",
       navn: {
         equals: bedriftNavn,
         mode: 'insensitive'
-      }
+      },
+      isDeleted: false
     },
     include: {
       ansatte: {
@@ -83,12 +87,12 @@ router.get("/by-name/:navn",
   });
 
   if (!bedrift) {
-    throw new NotFoundError('Bedrift', bedriftNavn);
+    throw ApiError.notFound(`Bedrift med navn '${bedriftNavn}' ble ikke funnet`);
   }
 
   // Sjekk tilgang
   if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedrift.id) {
-    throw new ForbiddenError('Ikke tilgang til denne bedriften');
+    throw ApiError.forbidden('Ikke tilgang til denne bedriften');
   }
 
   res.json(bedrift);
@@ -101,11 +105,14 @@ router.get("/:id",
   asyncHandler(async (req: AuthRequest, res: Response) => {
   const bedriftId = Number(req.params.id);
   if (!bedriftId) {
-    throw new ValidationError('Ugyldig bedrift-id');
+    throw ApiError.badRequest('Ugyldig bedrift-id');
   }
 
-  const bedrift = await prisma.bedrift.findUnique({
-    where: { id: bedriftId },
+  const bedrift = await prisma.bedrift.findFirst({
+    where: { 
+      id: bedriftId,
+      isDeleted: false
+    },
     include: {
       ansatte: {
         select: {
@@ -131,12 +138,12 @@ router.get("/:id",
   });
 
   if (!bedrift) {
-    throw new NotFoundError('Bedrift', bedriftId);
+    throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
   }
 
   // Sjekk tilgang
   if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedrift.id) {
-    throw new ForbiddenError('Ikke tilgang til denne bedriften');
+    throw ApiError.forbidden('Ikke tilgang til denne bedriften');
   }
 
   res.json(bedrift);
@@ -219,7 +226,7 @@ router.post("/:id/ansatte",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å opprette ansatt for denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til å opprette ansatt for denne bedriften');
     }
 
     // Sjekk om bedrift eksisterer
@@ -228,7 +235,7 @@ router.post("/:id/ansatte",
     });
 
     if (!bedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     // Sjekk om e-post allerede er i bruk
@@ -237,7 +244,7 @@ router.post("/:id/ansatte",
     });
 
     if (eksisterendeAnsatt) {
-      throw new ConflictError('En ansatt med denne e-postadressen eksisterer allerede');
+      throw ApiError.conflict('En ansatt med denne e-postadressen eksisterer allerede');
     }
 
     const saltRounds = 10;
@@ -299,7 +306,7 @@ router.put("/:id",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å oppdatere denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til å oppdatere denne bedriften');
     }
 
     // Hent eksisterende data for audit log
@@ -308,7 +315,7 @@ router.put("/:id",
     });
 
     if (!eksisterendeBedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     const bedrift = await prisma.bedrift.update({
@@ -366,7 +373,7 @@ router.put("/:id/hovedbruker",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å endre hovedbruker');
+      throw ApiError.forbidden('Ikke tilgang til å endre hovedbruker');
     }
 
     // Sjekk om bedrift eksisterer
@@ -375,7 +382,7 @@ router.put("/:id/hovedbruker",
     });
 
     if (!eksisterendeBedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     // Sjekk om hovedbruker eksisterer og tilhører bedriften
@@ -387,7 +394,7 @@ router.put("/:id/hovedbruker",
     });
 
     if (!hovedbruker) {
-      throw new ValidationError('Hovedbruker må tilhøre samme bedrift');
+      throw ApiError.validation('Hovedbruker må tilhøre samme bedrift');
     }
 
     const bedrift = await prisma.bedrift.update({
@@ -420,7 +427,7 @@ router.post("/:id/klasser",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å endre klasser for denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til å endre klasser for denne bedriften');
     }
 
     // Sjekk om bedrift eksisterer
@@ -429,7 +436,7 @@ router.post("/:id/klasser",
     });
 
     if (!bedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     // Slett eksisterende klasser for bedriften
@@ -463,7 +470,7 @@ router.get("/:id/ansatte",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til ansatte for denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til ansatte for denne bedriften');
     }
 
     // Sjekk om bedrift eksisterer
@@ -472,7 +479,7 @@ router.get("/:id/ansatte",
     });
 
     if (!bedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     const ansatte = await prisma.ansatt.findMany({
@@ -500,7 +507,7 @@ router.get("/:id/kjoretoy",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til denne bedriftens kjøretøy');
+      throw ApiError.forbidden('Ikke tilgang til denne bedriftens kjøretøy');
     }
 
     // Sjekk om bedrift eksisterer
@@ -509,7 +516,7 @@ router.get("/:id/kjoretoy",
     });
 
     if (!bedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     const kjoretoy = await prisma.kjoretoy.findMany({
@@ -531,7 +538,7 @@ router.post("/:id/kjoretoy",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å opprette kjøretøy for denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til å opprette kjøretøy for denne bedriften');
     }
 
     // Sjekk om bedrift eksisterer
@@ -540,7 +547,7 @@ router.post("/:id/kjoretoy",
     });
 
     if (!bedrift) {
-      throw new NotFoundError('Bedrift', bedriftId);
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
     }
 
     try {
@@ -577,7 +584,7 @@ router.post("/:id/kjoretoy",
       res.status(201).json(kjoretoy);
     } catch (e: any) {
       if (e.code === 'P2002') {
-        throw new ConflictError('Registreringsnummer finnes allerede');
+        throw ApiError.conflict('Registreringsnummer finnes allerede');
       }
       throw e;
     }
@@ -595,7 +602,7 @@ router.put("/:bedriftId/kjoretoy/:id",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å oppdatere kjøretøy for denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til å oppdatere kjøretøy for denne bedriften');
     }
 
     // Sjekk om kjøretøy eksisterer
@@ -604,7 +611,7 @@ router.put("/:bedriftId/kjoretoy/:id",
     });
 
     if (!eksisterendeKjoretoy) {
-      throw new NotFoundError('Kjøretøy', kjoretoyId);
+      throw ApiError.notFound(`'Kjøretøy' med ID ${String(kjoretoyId)} ble ikke funnet`);
     }
 
     try {
@@ -641,7 +648,7 @@ router.put("/:bedriftId/kjoretoy/:id",
       res.json(kjoretoy);
     } catch (e: any) {
       if (e.code === 'P2002') {
-        throw new ConflictError('Registreringsnummer finnes allerede');
+        throw ApiError.conflict('Registreringsnummer finnes allerede');
       }
       throw e;
     }
@@ -658,7 +665,7 @@ router.delete("/:bedriftId/kjoretoy/:id",
 
     // Sjekk tilgang
     if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
-      throw new ForbiddenError('Ikke tilgang til å slette kjøretøy for denne bedriften');
+      throw ApiError.forbidden('Ikke tilgang til å slette kjøretøy for denne bedriften');
     }
 
     // Sjekk om kjøretøy eksisterer
@@ -667,7 +674,7 @@ router.delete("/:bedriftId/kjoretoy/:id",
     });
 
     if (!eksisterendeKjoretoy) {
-      throw new NotFoundError('Kjøretøy', kjoretoyId);
+      throw ApiError.notFound(`'Kjøretøy' med ID ${String(kjoretoyId)} ble ikke funnet`);
     }
 
     await prisma.kjoretoy.delete({
@@ -700,7 +707,7 @@ router.delete("/:id", verifyToken, sjekkRolle(['ADMIN']), asyncHandler(async (re
   const bedriftId = parseInt(req.params.id);
   
   if (!bedriftId) {
-    throw new ValidationError('Ugyldig bedrift-id');
+    throw ApiError.validation('Ugyldig bedrift-id');
   }
 
   logger.info(`Starter sletting av bedrift ${bedriftId}`, {
@@ -709,85 +716,29 @@ router.delete("/:id", verifyToken, sjekkRolle(['ADMIN']), asyncHandler(async (re
   });
 
   // Hent bedrift info før sletting for audit log
-  const bedrift = await prisma.bedrift.findUnique({
-    where: { id: bedriftId },
+  const bedrift = await prisma.bedrift.findFirst({
+    where: { 
+      id: bedriftId,
+      isDeleted: false
+    },
     select: { navn: true, organisasjonsnummer: true }
   });
 
   if (!bedrift) {
-    throw new NotFoundError('Bedrift', bedriftId);
+    throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
   }
 
-  // Slett alle relaterte poster først
-  await prisma.$transaction(async (tx) => {
-    logger.debug(`Starter transaksjon for sletting av bedrift ${bedriftId}`);
-    
-    // Først fjern hovedbruker-referansen
-    logger.debug('Fjerner hovedbruker-referanse');
-    await tx.bedrift.update({
-      where: { id: bedriftId },
-      data: { hovedbrukerId: null }
-    });
-
-    // Slett elever
-    logger.debug('Sletter elever');
-    const elevCount = await tx.elev.deleteMany({
-      where: { bedriftId }
-    });
-    logger.debug(`Slettet ${elevCount.count} elever`);
-
-    // Slett elevsøknader
-    logger.debug('Sletter elevsøknader');
-    const soknadCount = await tx.elevSoknad.deleteMany({
-      where: { bedriftId }
-    });
-    logger.debug(`Slettet ${soknadCount.count} elevsøknader`);
-
-    // Slett sikkerhetskontroller (punkter slettes automatisk med cascade)
-    logger.debug('Sletter sikkerhetskontroller');
-    const kontrollCount = await tx.sikkerhetskontroll.deleteMany({
-      where: { bedriftId }
-    });
-    logger.debug(`Slettet ${kontrollCount.count} sikkerhetskontroller`);
-
-    // Slett kjøretøy
-    logger.debug('Sletter kjøretøy');
-    const kjoretoyCount = await tx.kjoretoy.deleteMany({
-      where: { bedriftId }
-    });
-    logger.debug(`Slettet ${kjoretoyCount.count} kjøretøy`);
-
-    // Slett bedriftsklasser
-    logger.debug('Sletter bedriftsklasser');
-    const klasseCount = await tx.bedriftsKlasse.deleteMany({
-      where: { bedriftId }
-    });
-    logger.debug(`Slettet ${klasseCount.count} bedriftsklasser`);
-
-    // Slett kontrollmaler opprettet av ansatte i bedriften
-    logger.debug('Sletter kontrollmaler opprettet av ansatte i bedriften');
-    const kontrollMalCount = await tx.kontrollMal.deleteMany({
-      where: {
-        opprettetAv: {
-          bedriftId: bedriftId
-        }
-      }
-    });
-    logger.debug(`Slettet ${kontrollMalCount.count} kontrollmaler`);
-
-    // Slett ansatte
-    logger.debug('Sletter ansatte');
-    const ansattCount = await tx.ansatt.deleteMany({
-      where: { bedriftId }
-    });
-    logger.debug(`Slettet ${ansattCount.count} ansatte`);
-
-    // Til slutt, slett bedriften
-    logger.debug('Sletter bedrift');
-    await tx.bedrift.delete({
-      where: { id: bedriftId }
-    });
+  // Soft delete bedriften
+  await prisma.bedrift.update({
+    where: { id: bedriftId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: req.bruker!.id
+    }
   });
+
+  logger.debug(`Bedrift ${bedriftId} markert som slettet (soft delete)`);
 
   // Audit log for sletting
   auditLog(

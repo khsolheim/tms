@@ -1531,7 +1531,7 @@ model RessursBooking {
 // Help system
 model HjelpKategori {
   id                Int        @id @default(autoincrement())
-  navn              String
+  navn              String     @unique
   beskrivelse       String?
   ikon              String?
   rekkefølge        Int        @default(0)

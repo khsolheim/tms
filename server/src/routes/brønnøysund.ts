@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { hentBedriftFraBrønnøysund, mapBrønnøysundTilBedrift } from '../services/brønnøysund';
-import { verifyToken } from '../middleware/auth';
 
 const router = Router();
 
 // Hent bedriftsinformasjon fra Brønnøysundregisteret
-router.get('/bedrift/:organisasjonsnummer', verifyToken, async (req: Request, res: Response): Promise<void> => {
+// Dette endepunktet er offentlig tilgjengelig for bedrift-registrering
+router.get('/bedrift/:organisasjonsnummer', async (req: Request, res: Response): Promise<void> => {
   try {
     const { organisasjonsnummer } = req.params;
     

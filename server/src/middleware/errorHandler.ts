@@ -1,137 +1,121 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma } from '@prisma/client';
+import { ApiError, isApiError } from '../utils/ApiError';
 import logger from '../utils/logger';
-import { AppError, isOperationalError, DatabaseError, ConflictError, ValidationError } from '../utils/errors';
 
-// Error response interface
-interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    statusCode: number;
-    requestId: string;
-    timestamp: string;
-    details?: any;
-  };
-}
-
-// Convert Prisma errors to our custom errors
-const handlePrismaError = (error: Prisma.PrismaClientKnownRequestError): AppError => {
-  switch (error.code) {
-    case 'P2002':
-      // Unique constraint violation
-      const field = error.meta?.target as string[];
-      return new ConflictError(`Duplikat verdi for ${field?.join(', ') || 'ukjent felt'}`);
-    
-    case 'P2025':
-      // Record not found
-      return new AppError('Post ikke funnet', 404, 'NOT_FOUND');
-    
-    case 'P2003':
-      // Foreign key constraint failed
-      return new ValidationError('Relatert post finnes ikke');
-    
-    case 'P2014':
-      // Required relation violation
-      return new ValidationError('Påkrevd relasjon mangler');
-    
-    default:
-      return new DatabaseError('Database operasjon feilet', { code: error.code });
-  }
-};
-
-// Main error handler middleware
-export const errorHandler = (
+export function errorHandler(
   error: Error,
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
-  // Default error values
-  let statusCode = 500;
-  let code = 'INTERNAL_ERROR';
-  let message = 'En uventet feil oppstod';
-  let details: any = undefined;
-  let isOperational = false;
-
-  // Handle different error types
-  if (error instanceof AppError) {
-    statusCode = error.statusCode;
-    code = error.code;
-    message = error.message;
-    details = error.details;
-    isOperational = error.isOperational;
-  } else if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    const appError = handlePrismaError(error);
-    statusCode = appError.statusCode;
-    code = appError.code;
-    message = appError.message;
-    details = appError.details;
-    isOperational = appError.isOperational;
-  } else if (error instanceof Prisma.PrismaClientValidationError) {
-    statusCode = 400;
-    code = 'VALIDATION_ERROR';
-    message = 'Ugyldig data format';
-    isOperational = true;
-  } else if (error.name === 'JsonWebTokenError') {
-    statusCode = 401;
-    code = 'AUTH_ERROR';
-    message = 'Ugyldig token';
-    isOperational = true;
-  } else if (error.name === 'TokenExpiredError') {
-    statusCode = 401;
-    code = 'AUTH_ERROR';
-    message = 'Token utløpt';
-    isOperational = true;
-  }
-
-  // Log error
-  const errorLog = {
-    requestId: req.requestId,
-    method: req.method,
-    url: req.originalUrl,
-    statusCode,
-    code,
-    message,
+): void {
+  // Log feilen
+  logger.error('Error occurred:', {
+    error: error.message,
     stack: error.stack,
-    userId: (req as any).bruker?.id,
+    url: req.url,
+    method: req.method,
     ip: req.ip,
-    userAgent: req.get('user-agent'),
-    details,
-  };
+    userAgent: req.get('User-Agent'),
+    userId: (req as any).bruker?.id
+  });
 
-  if (isOperational) {
-    logger.warn('Operational error', errorLog);
-  } else {
-    logger.error('Non-operational error', errorLog);
+  // Hvis det er en ApiError, bruk den direkte
+  if (isApiError(error)) {
+    res.status(error.statusCode).json(error.toJSON());
+    return;
   }
 
-  // Don't leak error details in production
-  if (process.env.NODE_ENV === 'production' && !isOperational) {
-    message = 'En uventet feil oppstod';
-    details = undefined;
+  // Håndter Prisma-feil
+  if (error.name === 'PrismaClientKnownRequestError') {
+    const prismaError = error as any;
+    
+    switch (prismaError.code) {
+      case 'P2002':
+        res.status(409).json({
+          error: {
+            message: 'Duplikat: Denne verdien eksisterer allerede',
+            code: 'DUPLICATE_ENTRY',
+            statusCode: 409
+          }
+        });
+        return;
+        
+      case 'P2025':
+        res.status(404).json({
+          error: {
+            message: 'Ressursen ble ikke funnet',
+            code: 'NOT_FOUND',
+            statusCode: 404
+          }
+        });
+        return;
+        
+      case 'P2003':
+        res.status(400).json({
+          error: {
+            message: 'Ugyldig referanse til relatert data',
+            code: 'FOREIGN_KEY_CONSTRAINT',
+            statusCode: 400
+          }
+        });
+        return;
+    }
   }
 
-  // Send error response
-  const errorResponse: ErrorResponse = {
+  // Håndter Zod validation-feil
+  if (error.name === 'ZodError') {
+    const zodError = error as any;
+    const firstError = zodError.errors[0];
+    
+    res.status(422).json({
+      error: {
+        message: `Valideringsfeil: ${firstError.message}`,
+        code: 'VALIDATION_ERROR',
+        statusCode: 422,
+        details: zodError.errors
+      }
+    });
+    return;
+  }
+
+  // Håndter JWT-feil
+  if (error.name === 'JsonWebTokenError') {
+    res.status(401).json({
+      error: {
+        message: 'Ugyldig token',
+        code: 'INVALID_TOKEN',
+        statusCode: 401
+      }
+    });
+    return;
+  }
+
+  if (error.name === 'TokenExpiredError') {
+    res.status(401).json({
+      error: {
+        message: 'Token er utløpt',
+        code: 'TOKEN_EXPIRED',
+        statusCode: 401
+      }
+    });
+    return;
+  }
+
+  // Standard 500-feil for ukjente feil
+  res.status(500).json({
     error: {
-      code,
-      message,
-      statusCode,
-      requestId: req.requestId,
-      timestamp: new Date().toISOString(),
-      ...(details && { details }),
-    },
-  };
+      message: process.env.NODE_ENV === 'production' 
+        ? 'En uventet feil oppstod' 
+        : error.message,
+      code: 'INTERNAL_SERVER_ERROR',
+      statusCode: 500
+    }
+  });
+}
 
-  res.status(statusCode).json(errorResponse);
-};
-
-// Async error wrapper to catch async errors
-export const asyncHandler = (
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
-) => {
+// Async error wrapper for å fange opp async-feil
+export function asyncHandler(fn: Function) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
-}; 
+} 

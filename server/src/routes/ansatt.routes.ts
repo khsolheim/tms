@@ -100,6 +100,7 @@ router.get("/", verifyToken, (req: Request, res: Response) => {
     message: "Ansatt API",
     endpoints: [
       "GET /profile - Get current user profile",
+      "GET /:id - Get employee by ID", 
       "POST /create - Create new employee",
       "POST /change-password - Change password",
       "PUT /:id - Update employee",
@@ -107,6 +108,53 @@ router.get("/", verifyToken, (req: Request, res: Response) => {
     ]
   });
 });
+
+// Hent ansatt etter ID
+router.get("/:id", 
+  verifyToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ansattId = Number(req.params.id);
+    
+    if (!ansattId || isNaN(ansattId)) {
+      throw new ValidationError('Ugyldig ansatt-ID');
+    }
+
+    // Hent ansatt
+    const ansatt = await prisma.ansatt.findUnique({
+      where: { id: ansattId },
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        telefon: true,
+        adresse: true,
+        postnummer: true,
+        poststed: true,
+        rolle: true,
+        bedriftId: true,
+        klasser: true,
+        kjøretøy: true,
+        hovedkjøretøy: true,
+        opprettet: true,
+        oppdatert: true
+      }
+    });
+
+    if (!ansatt) {
+      throw new NotFoundError('Ansatt', ansattId);
+    }
+
+    // Sjekk tilgang - kun admin, samme bedrift, eller seg selv
+    if (req.bruker!.rolle !== 'ADMIN' && 
+        req.bruker!.id !== ansattId &&
+        req.bruker!.bedriftId !== ansatt.bedriftId) {
+      throw new ForbiddenError('Ikke tilgang til denne ansatten');
+    }
+
+    res.json(ansatt);
+  })
+);
 
 // Opprett ny ansatt
 router.post("/create", 

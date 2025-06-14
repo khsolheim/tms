@@ -201,7 +201,30 @@ export const adminOppdaterAnsattSchema = z.object({
       .toLowerCase()
       .trim()
       .optional(),
-    rolle: z.enum(['ADMIN', 'TRAFIKKLARER', 'SENSOR']).optional(),
+    telefon: z.string()
+      .regex(telefonRegex, "Ugyldig telefonnummer format")
+      .optional()
+      .nullable(),
+    adresse: z.string()
+      .max(200, "Adresse kan ikke være lengre enn 200 tegn")
+      .optional()
+      .nullable(),
+    postnummer: z.string()
+      .regex(/^\d{4}$/, "Postnummer må være 4 siffer")
+      .optional()
+      .nullable(),
+    poststed: z.string()
+      .max(100, "Poststed kan ikke være lengre enn 100 tegn")
+      .optional()
+      .nullable(),
+    rolle: z.enum(['ADMIN', 'TRAFIKKLARER', 'HOVEDBRUKER']).optional(),
+    passord: z.string()
+      .min(8, "Passord må være minst 8 tegn")
+      .max(100, "Passord kan ikke være lengre enn 100 tegn")
+      .optional(),
+    klasser: z.array(z.string()).optional(),
+    kjøretøy: z.array(z.number()).optional(),
+    hovedkjøretøy: z.number().optional().nullable(),
     aktiv: z.boolean().optional(),
     bedriftId: z.number()
       .positive("Bedrift ID må være et positivt tall")

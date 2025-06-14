@@ -7,7 +7,7 @@ import { verifyToken, sjekkRolle, AuthRequest } from "../middleware/auth";
 import { validate } from "../middleware/validation";
 import { asyncHandler } from "../middleware/errorHandler";
 import logger, { auditLog } from "../utils/logger";
-import { AuthError, NotFoundError, ValidationError } from "../utils/errors";
+import { ApiError } from "../utils/ApiError";
 import {
   loggInnSchema,
   impersonerBrukerSchema,
@@ -140,7 +140,7 @@ router.post("/logg-inn",
 
     if (!ansatt) {
       logger.warn('Innloggingsforsøk med ukjent e-post', { epost });
-      throw new AuthError('Ugyldig påloggingsinformasjon');
+      throw ApiError.unauthorized('Ugyldig påloggingsinformasjon');
     }
 
     const gyldigPassord = await bcrypt.compare(passord, ansatt.passordHash);
@@ -149,7 +149,7 @@ router.post("/logg-inn",
         userId: ansatt.id,
         epost: ansatt.epost 
       });
-      throw new AuthError('Ugyldig påloggingsinformasjon');
+      throw ApiError.unauthorized('Ugyldig påloggingsinformasjon');
     }
 
     // Generer JWT token
@@ -206,7 +206,7 @@ router.post("/impersonate/:id",
     });
 
     if (!targetUser) {
-      throw new NotFoundError('Bruker', targetUserId);
+      throw ApiError.notFound('Bruker', targetUserId);
     }
 
     // Lagre admin brukerens ID i token for senere tilbakekobling
@@ -255,7 +255,7 @@ router.post("/stop-impersonate",
   validate(stoppImpersoneringSchema),
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     if (!req.bruker?.originalUserId) {
-      throw new ValidationError('Ikke i impersoneringsmodus');
+      throw ApiError.validation('Ikke i impersoneringsmodus');
     }
 
     logger.info('Stopper impersonering', {
@@ -270,7 +270,7 @@ router.post("/stop-impersonate",
     });
 
     if (!originalAdmin) {
-      throw new NotFoundError('Original bruker', req.bruker.originalUserId);
+      throw ApiError.notFound('Original bruker', req.bruker.originalUserId);
     }
 
     // Lag ny token for admin brukeren (uten impersonering)

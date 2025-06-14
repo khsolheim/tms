@@ -111,6 +111,14 @@ const førerkortKlasser = [
     minimumsalder: 18,
     krav: ['Klasse B', 'Praktisk prøve', 'Obligatorisk opplæring']
   },
+  {
+    kode: 'B96',
+    navn: 'Personbil med tung tilhenger',
+    beskrivelse: 'Bil klasse B med tilhenger der kombinasjonens totalvekt er mellom 3500 kg og 4250 kg',
+    kategori: 'Bil',
+    minimumsalder: 18,
+    krav: ['Klasse B', 'Obligatorisk opplæring', 'Praktisk øving']
+  },
   
   // Lastebil lette
   {

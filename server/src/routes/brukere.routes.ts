@@ -36,10 +36,23 @@ router.get("/",
         poststed: true,
         klasser: true,
         kjøretøy: true,
-        hovedkjøretøy: true
+        hovedkjøretøy: true,
+        bedrift: {
+          select: {
+            id: true,
+            navn: true
+          }
+        }
       }
     });
-    res.json(users);
+
+    // Transform data to match frontend expectations
+    const transformedUsers = users.map(user => ({
+      ...user,
+      navn: `${user.fornavn} ${user.etternavn}`
+    }));
+
+    res.json(transformedUsers);
   })
 );
 
@@ -87,7 +100,13 @@ router.put("/:id/tilganger",
         poststed: true,
         klasser: true,
         kjøretøy: true,
-        hovedkjøretøy: true
+        hovedkjøretøy: true,
+        bedrift: {
+          select: {
+            id: true,
+            navn: true
+          }
+        }
       }
     });
 
@@ -102,7 +121,13 @@ router.put("/:id/tilganger",
       }
     );
 
-    res.json(user);
+    // Transform data to match frontend expectations
+    const transformedUser = {
+      ...user,
+      navn: `${user.fornavn} ${user.etternavn}`
+    };
+
+    res.json(transformedUser);
   })
 );
 
