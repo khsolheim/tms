@@ -1,0 +1,389 @@
+import { Router } from 'express';
+import { verifyToken, sjekkRolle, AuthRequest } from '../../middleware/auth';
+import { securityManager } from '../../middleware/security';
+import logger from '../../utils/logger';
+
+const router = Router();
+
+// Apply authentication and admin role middleware
+router.use(verifyToken);
+router.use(sjekkRolle(['ADMIN', 'SUPER_ADMIN']));
+
+// Middleware configuration state
+interface MiddlewareConfig {
+  security: {
+    enabled: boolean;
+    ipBlocking: boolean;
+    threatDetection: boolean;
+    rateLimiting: boolean;
+    corsEnabled: boolean;
+    helmetEnabled: boolean;
+  };
+  authentication: {
+    jwtEnabled: boolean;
+    sessionTimeout: number;
+    maxLoginAttempts: number;
+    lockoutDuration: number;
+  };
+  logging: {
+    level: string;
+    requestLogging: boolean;
+    errorLogging: boolean;
+    auditLogging: boolean;
+  };
+  performance: {
+    compressionEnabled: boolean;
+    cachingEnabled: boolean;
+    requestSizeLimit: string;
+  };
+}
+
+// Current middleware configuration (in production, this would be stored in database)
+let currentConfig: MiddlewareConfig = {
+  security: {
+    enabled: false, // Currently disabled for development
+    ipBlocking: false,
+    threatDetection: false,
+    rateLimiting: true,
+    corsEnabled: true,
+    helmetEnabled: true,
+  },
+  authentication: {
+    jwtEnabled: true,
+    sessionTimeout: 24 * 60 * 60 * 1000, // 24 hours
+    maxLoginAttempts: 10,
+    lockoutDuration: 15 * 60 * 1000, // 15 minutes
+  },
+  logging: {
+    level: 'info',
+    requestLogging: true,
+    errorLogging: true,
+    auditLogging: true,
+  },
+  performance: {
+    compressionEnabled: true,
+    cachingEnabled: true,
+    requestSizeLimit: '10mb',
+  },
+};
+
+// GET /admin/middleware/config - Hent middleware-konfigurasjon
+router.get('/config', (req: AuthRequest, res) => {
+  try {
+    res.json({
+      success: true,
+      data: currentConfig
+    });
+  } catch (error) {
+    logger.error('Error fetching middleware config:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved henting av middleware-konfigurasjon' 
+    });
+  }
+});
+
+// PUT /admin/middleware/config - Oppdater middleware-konfigurasjon
+router.put('/config', (req: AuthRequest, res) => {
+  try {
+    const newConfig = req.body as Partial<MiddlewareConfig>;
+    
+    // Merge with current config
+    currentConfig = {
+      ...currentConfig,
+      ...newConfig,
+      security: { ...currentConfig.security, ...newConfig.security },
+      authentication: { ...currentConfig.authentication, ...newConfig.authentication },
+      logging: { ...currentConfig.logging, ...newConfig.logging },
+      performance: { ...currentConfig.performance, ...newConfig.performance },
+    };
+
+    logger.info('Middleware configuration updated', {
+      updatedBy: req.bruker?.id,
+      newConfig: currentConfig
+    });
+
+    res.json({
+      success: true,
+      message: 'Middleware-konfigurasjon oppdatert',
+      data: currentConfig
+    });
+  } catch (error) {
+    logger.error('Error updating middleware config:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved oppdatering av middleware-konfigurasjon' 
+    });
+  }
+});
+
+// GET /admin/middleware/status - Hent status for alle middleware-tjenester
+router.get('/status', (req: AuthRequest, res) => {
+  try {
+    const securityStatus = securityManager.getSecurityStatus();
+    
+    const middlewareStatus = {
+      security: {
+        name: 'Security Middleware',
+        status: currentConfig.security.enabled ? 'active' : 'disabled',
+        description: 'Sikkerhetsmiddleware for trusseldeteksjon og IP-blokkering',
+        metrics: {
+          blockedIPs: securityStatus.blockedIPs,
+          activeThreats: securityStatus.activeThreats,
+          totalIncidents: securityStatus.totalIncidents,
+          recentIncidents: securityStatus.recentIncidents
+        },
+        config: currentConfig.security
+      },
+      authentication: {
+        name: 'Authentication Middleware',
+        status: currentConfig.authentication.jwtEnabled ? 'active' : 'disabled',
+        description: 'JWT-basert autentisering og autorisasjon',
+        metrics: {
+          sessionTimeout: currentConfig.authentication.sessionTimeout,
+          maxLoginAttempts: currentConfig.authentication.maxLoginAttempts,
+          lockoutDuration: currentConfig.authentication.lockoutDuration
+        },
+        config: currentConfig.authentication
+      },
+      rateLimiting: {
+        name: 'Rate Limiting',
+        status: currentConfig.security.rateLimiting ? 'active' : 'disabled',
+        description: 'Begrenser antall forespørsler per IP/bruker',
+        metrics: {
+          authLimit: '100 requests/minute',
+          adminLimit: '200 requests/minute',
+          generalLimit: '1000 requests/hour'
+        },
+        config: { enabled: currentConfig.security.rateLimiting }
+      },
+      cors: {
+        name: 'CORS Middleware',
+        status: currentConfig.security.corsEnabled ? 'active' : 'disabled',
+        description: 'Cross-Origin Resource Sharing konfigurasjon',
+        metrics: {
+          allowedOrigins: ['http://localhost:3000', 'http://localhost:3001'],
+          allowedMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+          allowCredentials: true
+        },
+        config: { enabled: currentConfig.security.corsEnabled }
+      },
+      helmet: {
+        name: 'Helmet Security',
+        status: currentConfig.security.helmetEnabled ? 'active' : 'disabled',
+        description: 'HTTP-sikkerhetshoder for beskyttelse',
+        metrics: {
+          contentSecurityPolicy: 'enabled',
+          xssProtection: 'enabled',
+          frameOptions: 'SAMEORIGIN',
+          hsts: 'enabled'
+        },
+        config: { enabled: currentConfig.security.helmetEnabled }
+      },
+      logging: {
+        name: 'Request Logging',
+        status: currentConfig.logging.requestLogging ? 'active' : 'disabled',
+        description: 'Logger alle HTTP-forespørsler og svar',
+        metrics: {
+          level: currentConfig.logging.level,
+          requestLogging: currentConfig.logging.requestLogging,
+          errorLogging: currentConfig.logging.errorLogging,
+          auditLogging: currentConfig.logging.auditLogging
+        },
+        config: currentConfig.logging
+      },
+      compression: {
+        name: 'Response Compression',
+        status: currentConfig.performance.compressionEnabled ? 'active' : 'disabled',
+        description: 'Komprimerer HTTP-responser for bedre ytelse',
+        metrics: {
+          algorithm: 'gzip',
+          threshold: '1kb',
+          level: 6
+        },
+        config: { enabled: currentConfig.performance.compressionEnabled }
+      }
+    };
+
+    res.json({
+      success: true,
+      data: middlewareStatus
+    });
+  } catch (error) {
+    logger.error('Error fetching middleware status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved henting av middleware-status' 
+    });
+  }
+});
+
+// POST /admin/middleware/security/toggle - Toggle sikkerhetsmiddleware
+router.post('/security/toggle', (req: AuthRequest, res) => {
+  try {
+    const { enabled } = req.body;
+    currentConfig.security.enabled = enabled;
+
+    logger.warn(`Security middleware ${enabled ? 'enabled' : 'disabled'}`, {
+      changedBy: req.bruker?.id,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: `Sikkerhetsmiddleware ${enabled ? 'aktivert' : 'deaktivert'}`,
+      data: { enabled }
+    });
+  } catch (error) {
+    logger.error('Error toggling security middleware:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved endring av sikkerhetsmiddleware' 
+    });
+  }
+});
+
+// POST /admin/middleware/security/clear-blocks - Fjern alle IP-blokkeringer
+router.post('/security/clear-blocks', (req: AuthRequest, res) => {
+  try {
+    const clearedCount = securityManager['blockedIPs'].size;
+    securityManager['blockedIPs'].clear();
+    securityManager['threatCounts'].clear();
+    securityManager['incidents'].length = 0;
+
+    logger.warn('All security blocks cleared by admin', {
+      clearedCount,
+      clearedBy: req.bruker?.id,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: `${clearedCount} IP-blokkeringer fjernet`,
+      data: { clearedCount }
+    });
+  } catch (error) {
+    logger.error('Error clearing security blocks:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved fjerning av sikkerhetsblokkering' 
+    });
+  }
+});
+
+// GET /admin/middleware/security/blocked-ips - Hent blokkerte IP-adresser
+router.get('/security/blocked-ips', (req: AuthRequest, res) => {
+  try {
+    const blockedIPs = Array.from(securityManager['blockedIPs'].entries()).map(([ip, info]) => ({
+      ip,
+      reason: info.reason,
+      count: info.count,
+      blockedUntil: info.until.toISOString(),
+      isExpired: new Date() > info.until
+    }));
+
+    res.json({
+      success: true,
+      data: blockedIPs
+    });
+  } catch (error) {
+    logger.error('Error fetching blocked IPs:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved henting av blokkerte IP-adresser' 
+    });
+  }
+});
+
+// DELETE /admin/middleware/security/blocked-ips/:ip - Fjern spesifikk IP-blokkering
+router.delete('/security/blocked-ips/:ip', (req: AuthRequest, res) => {
+  try {
+    const { ip } = req.params;
+    const wasBlocked = securityManager.unblockIP(ip);
+
+    logger.info('IP unblocked by admin', {
+      ip,
+      wasBlocked,
+      unblockedBy: req.bruker?.id
+    });
+
+    res.json({
+      success: true,
+      message: wasBlocked ? `IP ${ip} er ikke lenger blokkert` : `IP ${ip} var ikke blokkert`,
+      data: { ip, wasBlocked }
+    });
+  } catch (error) {
+    logger.error('Error unblocking IP:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved fjerning av IP-blokkering' 
+    });
+  }
+});
+
+// GET /admin/middleware/logs - Hent middleware-logger
+router.get('/logs', (req: AuthRequest, res) => {
+  try {
+    const { level = 'info', limit = 100 } = req.query;
+    
+    // Mock log data (in production, this would fetch from actual log files)
+    const logs = Array.from({ length: parseInt(limit as string) }, (_, i) => ({
+      id: `log_${i + 1}`,
+      timestamp: new Date(Date.now() - i * 60000).toISOString(),
+      level: ['info', 'warn', 'error'][Math.floor(Math.random() * 3)],
+      message: [
+        'Security middleware processed request',
+        'Rate limit applied to IP',
+        'Authentication successful',
+        'CORS preflight handled',
+        'Request compression applied'
+      ][Math.floor(Math.random() * 5)],
+      middleware: ['security', 'auth', 'cors', 'helmet', 'compression'][Math.floor(Math.random() * 5)],
+      ip: `192.168.1.${Math.floor(Math.random() * 255)}`,
+      userAgent: 'Mozilla/5.0 (compatible; Admin/1.0)'
+    }));
+
+    res.json({
+      success: true,
+      data: logs.filter(log => level === 'all' || log.level === level)
+    });
+  } catch (error) {
+    logger.error('Error fetching middleware logs:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved henting av middleware-logger' 
+    });
+  }
+});
+
+// POST /admin/middleware/restart - Restart alle middleware-tjenester
+router.post('/restart', (req: AuthRequest, res) => {
+  try {
+    // In production, this would actually restart middleware services
+    logger.warn('Middleware services restart requested', {
+      requestedBy: req.bruker?.id,
+      timestamp: new Date().toISOString()
+    });
+
+    // Simulate restart by clearing caches and resetting counters
+    securityManager['blockedIPs'].clear();
+    securityManager['threatCounts'].clear();
+
+    res.json({
+      success: true,
+      message: 'Alle middleware-tjenester startet på nytt',
+      data: {
+        restartedAt: new Date().toISOString(),
+        services: ['security', 'authentication', 'rateLimiting', 'cors', 'helmet', 'logging', 'compression']
+      }
+    });
+  } catch (error) {
+    logger.error('Error restarting middleware services:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Feil ved omstart av middleware-tjenester' 
+    });
+  }
+});
+
+export default router; 

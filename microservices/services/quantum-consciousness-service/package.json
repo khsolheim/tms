@@ -1,0 +1,45 @@
+{
+  "name": "tms-quantum-consciousness-service",
+  "version": "1.0.0",
+  "description": "TMS quantum-consciousness-service Microservice",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "test": "jest",
+    "docker:build": "docker build -t tms-quantum-consciousness-service .",
+    "docker:run": "docker run -p 8021:8021 tms-quantum-consciousness-service"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.13",
+    "@types/express": "^4.17.23",
+    "@types/jest": "^29.5.3",
+    "@types/jsonwebtoken": "^9.0.2",
+    "@types/node": "^20.5.0",
+    "jest": "^29.6.2",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  },
+  "keywords": [
+    "tms",
+    "microservice",
+    "quantum-consciousness-service",
+    "typescript",
+    "express"
+  ],
+  "author": "TMS Team",
+  "license": "ISC"
+}

@@ -1,0 +1,329 @@
+groups:
+- name: tms.critical
+  rules:
+    - alert: TMSServiceDown
+      expr: up{job="tms-backend"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: tms-backend
+      annotations:
+        summary: "TMS Backend Service is down"
+        description: "TMS Backend service has been down for more than 1 minute"
+        runbook_url: "https://docs.tms.example.com/runbooks/service-down"
+
+    - alert: TMSDatabaseDown
+      expr: up{job="postgres"} == 0
+      for: 30s
+      labels:
+        severity: critical
+        service: database
+      annotations:
+        summary: "TMS Database is down"
+        description: "PostgreSQL database is not responding"
+        runbook_url: "https://docs.tms.example.com/runbooks/database-down"
+
+    - alert: TMSRedisDown
+      expr: up{job="redis"} == 0
+      for: 30s
+      labels:
+        severity: critical
+        service: cache
+      annotations:
+        summary: "TMS Redis Cache is down"
+        description: "Redis cache service is not responding"
+        runbook_url: "https://docs.tms.example.com/runbooks/redis-down"
+
+- name: tms.performance
+  rules:
+    - alert: TMSHighResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="tms-backend"}[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+        service: tms-backend
+      annotations:
+        summary: "TMS High Response Time"
+        description: "95th percentile response time is {{ $value }}s for 5 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/high-response-time"
+
+    - alert: TMSHighErrorRate
+      expr: rate(http_requests_total{job="tms-backend",status=~"5.."}[5m]) / rate(http_requests_total{job="tms-backend"}[5m]) > 0.05
+      for: 2m
+      labels:
+        severity: warning
+        service: tms-backend
+      annotations:
+        summary: "TMS High Error Rate"
+        description: "Error rate is {{ $value | humanizePercentage }} for 2 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/high-error-rate"
+
+    - alert: TMSHighMemoryUsage
+      expr: (container_memory_usage_bytes{name="tms-backend"} / container_spec_memory_limit_bytes{name="tms-backend"}) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: tms-backend
+      annotations:
+        summary: "TMS High Memory Usage"
+        description: "Memory usage is {{ $value | humanizePercentage }} for 5 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/high-memory-usage"
+
+    - alert: TMSHighCPUUsage
+      expr: rate(container_cpu_usage_seconds_total{name="tms-backend"}[5m]) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: tms-backend
+      annotations:
+        summary: "TMS High CPU Usage"
+        description: "CPU usage is {{ $value | humanizePercentage }} for 5 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/high-cpu-usage"
+
+- name: tms.database
+  rules:
+    - alert: TMSDatabaseConnectionsHigh
+      expr: pg_stat_database_numbackends{datname="tms"} > 80
+      for: 5m
+      labels:
+        severity: warning
+        service: database
+      annotations:
+        summary: "TMS Database High Connections"
+        description: "Database has {{ $value }} active connections"
+        runbook_url: "https://docs.tms.example.com/runbooks/high-db-connections"
+
+    - alert: TMSDatabaseSlowQueries
+      expr: rate(pg_stat_database_tup_returned{datname="tms"}[5m]) / rate(pg_stat_database_tup_fetched{datname="tms"}[5m]) < 0.1
+      for: 10m
+      labels:
+        severity: warning
+        service: database
+      annotations:
+        summary: "TMS Database Slow Queries"
+        description: "Database query efficiency is low: {{ $value | humanizePercentage }}"
+        runbook_url: "https://docs.tms.example.com/runbooks/slow-queries"
+
+    - alert: TMSDatabaseDiskSpaceHigh
+      expr: (pg_database_size_bytes{datname="tms"} / (1024*1024*1024)) > 5
+      for: 1m
+      labels:
+        severity: warning
+        service: database
+      annotations:
+        summary: "TMS Database Disk Space High"
+        description: "Database size is {{ $value }}GB"
+        runbook_url: "https://docs.tms.example.com/runbooks/high-disk-usage"
+
+- name: tms.security
+  rules:
+    - alert: TMSSecurityThreatDetected
+      expr: increase(security_events_total{type="threat"}[5m]) > 10
+      for: 1m
+      labels:
+        severity: critical
+        service: security
+      annotations:
+        summary: "TMS Security Threat Detected"
+        description: "{{ $value }} security threats detected in 5 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/security-threat"
+
+    - alert: TMSRateLimitExceeded
+      expr: increase(rate_limit_exceeded_total[5m]) > 100
+      for: 2m
+      labels:
+        severity: warning
+        service: security
+      annotations:
+        summary: "TMS Rate Limit Exceeded"
+        description: "Rate limit exceeded {{ $value }} times in 5 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/rate-limit"
+
+    - alert: TMSFailedLogins
+      expr: increase(failed_login_attempts_total[5m]) > 50
+      for: 2m
+      labels:
+        severity: warning
+        service: security
+      annotations:
+        summary: "TMS High Failed Login Attempts"
+        description: "{{ $value }} failed login attempts in 5 minutes"
+        runbook_url: "https://docs.tms.example.com/runbooks/failed-logins"
+
+- name: tms.business
+  rules:
+    - alert: TMSLowUserActivity
+      expr: rate(user_activity_total[1h]) < 10
+      for: 10m
+      labels:
+        severity: warning
+        service: business
+      annotations:
+        summary: "TMS Low User Activity"
+        description: "User activity is only {{ $value }} events per hour"
+        runbook_url: "https://docs.tms.example.com/runbooks/low-user-activity"
+
+- name: tms.service.health  
+  rules:
+  # Service Health Alerts
+  - alert: TMSBackendDown
+    expr: up{job="tms-backend"} == 0
+    for: 30s
+    labels:
+      severity: critical
+      service: tms-backend
+    annotations:
+      summary: "TMS Backend er nede"
+      description: "TMS Backend har vært nede i mer enn 30 sekunder."
+
+  - alert: TMSHighErrorRate
+    expr: rate(http_requests_total{job="tms-backend",status=~"5.."}[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: critical
+      service: tms-backend
+    annotations:
+      summary: "Høy feilrate i TMS Backend"
+      description: "TMS Backend har en feilrate på {{ $value }} forespørsler per sekund."
+
+  # Performance Alerts
+  - alert: TMSHighResponseTime
+    expr: histogram_quantile(0.95, rate(http_request_duration_ms_bucket{job="tms-backend"}[5m])) > 1000
+    for: 5m
+    labels:
+      severity: warning
+      service: tms-backend
+    annotations:
+      summary: "Høy responstid i TMS Backend"
+      description: "95. persentil responstid er {{ $value }}ms, som er over 1000ms."
+
+  - alert: TMSHighRequestRate
+    expr: rate(http_requests_total{job="tms-backend"}[5m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+      service: tms-backend
+    annotations:
+      summary: "Høy forespørselsrate i TMS Backend"
+      description: "TMS Backend mottar {{ $value }} forespørsler per sekund."
+
+  # Database Alerts
+  - alert: TMSDatabaseConnectionsHigh
+    expr: database_connections_active{job="tms-backend"} > 8
+    for: 2m
+    labels:
+      severity: warning
+      service: database
+    annotations:
+      summary: "Høyt antall database-tilkoblinger"
+      description: "Antall aktive database-tilkoblinger er {{ $value }}, som er nær maksimum."
+
+  - alert: TMSSlowQueries
+    expr: rate(database_slow_queries_total{job="tms-backend"}[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+      service: database
+    annotations:
+      summary: "Mange trege database-spørringer"
+      description: "{{ $value }} trege spørringer per sekund detektert."
+
+  # Security Alerts
+  - alert: TMSSecurityIncidents
+    expr: increase(security_incidents_total{job="tms-backend",severity="CRITICAL"}[1h]) > 5
+    for: 0s
+    labels:
+      severity: critical
+      service: security
+    annotations:
+      summary: "Kritiske sikkerhetshendelser detektert"
+      description: "{{ $value }} kritiske sikkerhetshendelser siste time."
+
+  - alert: TMSHighRateLimitHits
+    expr: rate(rate_limit_hits_total{job="tms-backend"}[5m]) > 10
+    for: 2m
+    labels:
+      severity: warning
+      service: security
+    annotations:
+      summary: "Høy rate limiting aktivitet"
+      description: "{{ $value }} rate limit hits per sekund."
+
+  # Cache Alerts
+  - alert: TMSLowCacheHitRate
+    expr: cache_hit_rate{job="tms-backend"} < 50
+    for: 5m
+    labels:
+      severity: warning
+      service: cache
+    annotations:
+      summary: "Lav cache hit rate"
+      description: "Cache hit rate er {{ $value }}%, som er under 50%."
+
+  # Memory Alerts
+  - alert: TMSHighMemoryUsage
+    expr: (nodejs_heap_size_used_bytes{job="tms-backend"} / nodejs_heap_size_total_bytes{job="tms-backend"}) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: tms-backend
+    annotations:
+      summary: "Høy minnebruk i TMS Backend"
+      description: "Heap minnebruk er {{ $value }}%, som er over 80%."
+
+- name: infrastructure-alerts
+  rules:
+  # System Resource Alerts
+  - alert: HighCPUUsage
+    expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: system
+    annotations:
+      summary: "Høy CPU-bruk"
+      description: "CPU-bruk er {{ $value }}% på {{ $labels.instance }}."
+
+  - alert: HighMemoryUsage
+    expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: system
+    annotations:
+      summary: "Høy minnebruk"
+      description: "Minnebruk er {{ $value }}% på {{ $labels.instance }}."
+
+  - alert: DiskSpaceLow
+    expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: system
+    annotations:
+      summary: "Lite diskplass"
+      description: "Diskbruk er {{ $value }}% på {{ $labels.instance }}:{{ $labels.mountpoint }}."
+
+- name: database-alerts
+  rules:
+  - alert: PostgreSQLDown
+    expr: up{job="postgres-exporter"} == 0
+    for: 30s
+    labels:
+      severity: critical
+      service: database
+    annotations:
+      summary: "PostgreSQL er nede"
+      description: "PostgreSQL database er ikke tilgjengelig."
+
+- name: redis-alerts
+  rules:
+  - alert: RedisDown
+    expr: up{job="redis-exporter"} == 0
+    for: 30s
+    labels:
+      severity: critical
+      service: cache
+    annotations:
+      summary: "Redis er nede"
+      description: "Redis cache server er ikke tilgjengelig." 

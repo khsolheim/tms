@@ -1,0 +1,113 @@
+API-nøkkel for kjøretøyopplysninger
+API-nøkkelen kan brukes til å søke på registreringsnummer eller understellnummer for å få tilgang til tekniske kjøretøyopplysninger.
+
+API-nøkkelens eier:
+
+KARSTEN SOLHEIM
+
+API-nøkkel:
+
+
+Dokumentasjon:
+const fs = require('fs');
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+async function oppslag(kjennemerke) {
+	let kjoretoy = null;
+	let url = 'https://www.vegvesen.no/ws/no/vegvesen/kjoretoy/felles/datautlevering/enkeltoppslag/kjoretoydata?kjennemerke=' + kjennemerke;
+	// Bytt {key} med din API-nÃ¸kkel
+	let headers = {
+			"SVV-Authorization": "Apikey {key}"
+		};
+	;
+
+    console.log('Kaller REST-tjeneste: ' + url);
+	let response = await fetch(url, { method: "GET", headers: headers });
+
+	console.log('HTTP Status: ' + response.status + ' (' + response.statusText + ')');
+
+	if (response.status === 200) {
+		kjoretoy = await response.json();
+	}
+
+	return kjoretoy;
+}
+
+async function Main() {
+    var args = process.argv.slice(2);
+
+    let kjennemerke = args[0];
+	if(kjennemerke == null) {
+		console.log('Bruk: node enkeltoppslag <kjennemerke>');
+		return;
+	}
+
+    console.log('Enkeltoppslag pÃ¥ kjennemerke: ' + kjennemerke);
+    let kjoretoy = await oppslag(kjennemerke);
+	let kjoretoyData = kjoretoy.kjoretoydataListe[0];
+
+	// Registreringsdata
+	console.log('KjÃ¸retÃ¸yets status: ' + kjoretoyData.registrering.registreringsstatus.kodeBeskrivelse);
+    console.log('Registreringsnummer: ' + kjoretoyData.kjoretoyId.kjennemerke);
+	console.log('Understells-/chassisnr. (VIN): ' + kjoretoyData.kjoretoyId.understellsnummer);
+	
+	// Tekniske data
+	let tekniskeData = kjoretoyData.godkjenning.tekniskGodkjenning.tekniskeData;
+	console.log('Merke og modell: ' + tekniskeData.generelt.merke[0].merke + ' ' + tekniskeData.generelt.handelsbetegnelse[0]);
+	console.log('KjÃ¸retÃ¸ygruppe: ' + kjoretoyData.godkjenning.tekniskGodkjenning.kjoretoyklassifisering.beskrivelse);
+	console.log('Antall seter: ' + tekniskeData.persontall.sitteplasserTotalt);
+	console.log('Farge: ' + tekniskeData.karosseriOgLasteplan.rFarge[0].kodeNavn);
+	console.log('Drivstoff: ' + tekniskeData.miljodata.euroKlasse.kodeNavn);
+	console.log('Drivstoff: ' + tekniskeData.miljodata.miljoOgdrivstoffGruppe[0].drivstoffKodeMiljodata.kodeNavn);
+	
+	// Periodisk kjÃ¸retÃ¸ykontroll
+	console.log('Neste frist for godkjent EU-kontroll: ' + kjoretoyData.periodiskKjoretoyKontroll.kontrollfrist);
+
+	// Skriver ut kjÃ¸retÃ¸y ut til fil (json-format)
+    fs.writeFileSync(kjennemerke + '.json', JSON.stringify(kjoretoy, null, 4));
+}
+
+Main();
+
+Mer:
+
+
+API - Enkeltoppslag
+Statens vegvesen tilbyr et API for oppslag på tekniske kjøretøydata. For å bruke APIet trenger du programmeringskunnskaper. Du kan slå opp med kjøretøyets understellsnummer eller kjennemerke. Oppslaget gir et tilnærmet komplett og oppdatert datasett om kjøretøyet (i JSON-format), men du får ikke eierinformasjon eller informasjon som kan identifisere eiere av kjøretøy. Tjenesten har en grense på maksimalt 50 000 kall per API-nøkkel per døgn.
+
+Du kan lese mer om tjenesten her
+
+Hvem kan benytte tjenesten?
+Tjenesten er i utgangspunktet tilgjengelig for alle privatpersoner og organisasjoner. Kravene for å få innvilget en API-nøkkel er at du som bruker ikke allerede har en tilsvarende, aktiv API-nøkkel og at du ikke er utestengt fra tjenesten.
+
+For å søke om API-nøkkel gå hit
+
+Teknisk dokumentasjon
+Tjenesten som tilbys er en REST-tjeneste hvor svaret returneres som en JSON-respons. Tjenesten lar bruker få utlevert kjøretøydata ved oppslag på et kjennemerke (ordinært, veteran eller personlig kjennemerke mellom 2-7 tegn) eller et understellsnummer (mellom 1-19 tegn).
+
+Lenke til spesifikasjon: Swagger-UI
+
+Her er et eksempel på enkeltoppslag på kjennemerke med bruk av API-nøkkel. API-nøkkelen legges ved i SVV-Authorization Header til REST-forespørselen med prefix lik 'Apikey ', etterfulgt av selve API-nøkkelen. Selve API-nøkkelen du får i respons i det du gjennomfører en API-søknad.
+
+GET	https://akfell-datautlevering.atlas.vegvesen.no/enkeltoppslag/kjoretoydata?kjennemerke=EB11111	PROD
+Http Header
+
+Nøkkel	Verdi
+SVV-Authorization	Apikey {key}
+HTTP Statuskoder
+
+Statuskode	Beskrivelse
+200	OK
+400	Mer enn ett av feltene er fylt ut i forespørselen (både understellsnummer og kjennemerke)
+403	API-nøkkelen eksisterer ikke i databasen, har status aktiv og/eller bruker er sperret
+429	Bruker har brukt opp kvoten i inneværende periode
+feilmelding (i body)	OPPLYSNINGER_IKKE_TILGJENGELIGE
+Her er ett enkelt JavaScript kodeeksempel for enkeltoppslag basert på Node.js og pakkene node-fetch og fs. Skriptet tar ett argument kjnnemerket og skriver ut enkelte utvalgte felter av kjøretøyopplysninger til console.log og lagrer hele responsen til fil (json-format). Oppdater skriptet med din egen API-nøkkel i linje 10. Skript: enkeltoppslag.js
+
+Kodeverk
+Følgende kodeverk brukes i respons som utleveres fra tjenesten: Kodeverk
+
+
+
+

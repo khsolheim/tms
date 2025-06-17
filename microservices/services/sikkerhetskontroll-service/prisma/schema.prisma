@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sikkerhetskontroll {
+  id                String   @id @default(cuid())
+  tittel            String
+  beskrivelse       String?
+  type              String   // DAGLIG, UKENTLIG, MÅNEDLIG, ÅRLIG
+  bedriftId         String
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  sjekkPunkter      SjekkPunkt[]
+  kontrollResultater KontrollResultat[]
+
+  @@map("sikkerhetskontroller")
+}
+
+model SjekkPunkt {
+  id                    String   @id @default(cuid())
+  beskrivelse           String
+  type                  String   // CHECKBOX, TEXT, NUMBER, PHOTO
+  required              Boolean  @default(true)
+  order                 Int
+  sikkerhetskontroll    Sikkerhetskontroll @relation(fields: [sikkerhetskontrollId], references: [id], onDelete: Cascade)
+  sikkerhetskontrollId  String
+  sjekkPunktResultater  SjekkPunktResultat[]
+  createdAt             DateTime @default(now())
+
+  @@map("sjekk_punkter")
+}
+
+model KontrollResultat {
+  id                    String   @id @default(cuid())
+  sikkerhetskontroll    Sikkerhetskontroll @relation(fields: [sikkerhetskontrollId], references: [id])
+  sikkerhetskontrollId  String
+  ansattId              String
+  status                String   // UNDER_ARBEID, BESTÅTT, IKKE_BESTÅTT
+  startedAt             DateTime
+  completedAt           DateTime?
+  kommentarer           String?
+  sjekkPunktResultater  SjekkPunktResultat[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("kontroll_resultater")
+}
+
+model SjekkPunktResultat {
+  id                String   @id @default(cuid())
+  sjekkPunkt        SjekkPunkt @relation(fields: [sjekkPunktId], references: [id])
+  sjekkPunktId      String
+  kontrollResultat  KontrollResultat @relation(fields: [kontrollResultatId], references: [id], onDelete: Cascade)
+  kontrollResultatId String
+  response          String?  // Boolean, text, or measurement value
+  photoUrl          String?  // Photo file path/URL
+  createdAt         DateTime @default(now())
+
+  @@unique([kontrollResultatId, sjekkPunktId])
+  @@map("sjekk_punkt_resultater")
+} 

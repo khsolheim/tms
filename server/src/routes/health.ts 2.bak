@@ -1,0 +1,233 @@
+import { Router, Request, Response } from 'express';
+import { getDatabaseHealth } from '../config/database';
+import { getEnvironment } from '../config/environment';
+import { asyncHandler } from '../middleware/errorHandler';
+import logger from '../utils/logger';
+
+const router = Router();
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: System health check
+ *     description: Returns the health status of the application and its dependencies
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: System is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "healthy"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 uptime:
+ *                   type: number
+ *                   description: Server uptime in seconds
+ *                 environment:
+ *                   type: string
+ *                   example: "development"
+ *                 version:
+ *                   type: string
+ *                   example: "1.0.0"
+ *                 database:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: "connected"
+ *                     metrics:
+ *                       type: object
+ *       503:
+ *         description: System is unhealthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "unhealthy"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const env = getEnvironment();
+  
+  try {
+    // Sjekk database health
+    const dbHealth = getDatabaseHealth();
+    
+    const healthData = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: env.NODE_ENV,
+      version: process.env.npm_package_version || '1.0.0',
+      responseTime: Date.now() - startTime,
+      database: {
+        status: dbHealth.isHealthy ? 'connected' : 'disconnected',
+        metrics: dbHealth.metrics,
+        config: dbHealth.config
+      },
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        external: Math.round(process.memoryUsage().external / 1024 / 1024)
+      },
+      system: {
+        platform: process.platform,
+        nodeVersion: process.version,
+        pid: process.pid
+      }
+    };
+
+    // Hvis database ikke er sunn, returner 503
+    if (!dbHealth.isHealthy) {
+      logger.warn('Health check failed - database unhealthy');
+      return res.status(503).json({
+        ...healthData,
+        status: 'unhealthy',
+        errors: ['Database connection failed']
+      });
+    }
+
+    logger.debug('Health check successful', {
+      responseTime: healthData.responseTime,
+      dbMetrics: dbHealth.metrics
+    });
+
+    res.json(healthData);
+
+  } catch (error) {
+    logger.error('Health check error', {
+      error: error instanceof Error ? error.message : error
+    });
+
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: env.NODE_ENV,
+      responseTime: Date.now() - startTime,
+      errors: [error instanceof Error ? error.message : 'Unknown error']
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /health/database:
+ *   get:
+ *     summary: Database health check
+ *     description: Returns detailed database health information and metrics
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Database is healthy
+ *       503:
+ *         description: Database is unhealthy
+ */
+router.get('/database', asyncHandler(async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  
+  try {
+    const dbHealth = getDatabaseHealth();
+    
+    const response = {
+      status: dbHealth.isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      responseTime: Date.now() - startTime,
+      ...dbHealth
+    };
+
+    if (!dbHealth.isHealthy) {
+      return res.status(503).json(response);
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    logger.error('Database health check error', {
+      error: error instanceof Error ? error.message : error
+    });
+
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      responseTime: Date.now() - startTime,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /health/ready:
+ *   get:
+ *     summary: Readiness probe
+ *     description: Kubernetes readiness probe endpoint
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Application is ready to serve traffic
+ *       503:
+ *         description: Application is not ready
+ */
+router.get('/ready', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const dbHealth = getDatabaseHealth();
+    
+    if (!dbHealth.isHealthy) {
+      return res.status(503).json({
+        status: 'not ready',
+        reason: 'Database not connected'
+      });
+    }
+
+    res.json({
+      status: 'ready',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    res.status(503).json({
+      status: 'not ready',
+      reason: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /health/live:
+ *   get:
+ *     summary: Liveness probe
+ *     description: Kubernetes liveness probe endpoint
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Application is alive
+ */
+router.get('/live', asyncHandler(async (req: Request, res: Response) => {
+  res.json({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+}));
+
+export default router; 

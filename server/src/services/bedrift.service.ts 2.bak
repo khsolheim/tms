@@ -1,0 +1,497 @@
+import { PrismaClient, Bedrift, Prisma } from '@prisma/client';
+import { ValidationError, NotFoundError, ConflictError } from '../utils/errors';
+import logger from '../utils/logger';
+import { BaseService } from './base.service';
+import { eventBus, EventType } from '../events/eventBus';
+
+// Type definitions
+export interface BedriftCreateData {
+  navn: string;
+  organisasjonsnummer: string;
+  adresse?: string;
+  postnummer?: string;
+  poststed?: string;
+  telefon?: string;
+  epost?: string;
+  stiftelsesdato?: string;
+  organisasjonsform?: string;
+  organisasjonsformKode?: string;
+  naeringskode?: string;
+  naeringskodeKode?: string;
+  dagligLeder?: string;
+  styreleder?: string;
+  signaturrett?: any;
+  brregMetadata?: any;
+}
+
+export interface BedriftUpdateData {
+  navn?: string;
+  adresse?: string;
+  postnummer?: string;
+  poststed?: string;
+  telefon?: string;
+  epost?: string;
+  stiftelsesdato?: string;
+  organisasjonsform?: string;
+  organisasjonsformKode?: string;
+  naeringskode?: string;
+  naeringskodeKode?: string;
+  dagligLeder?: string;
+  styreleder?: string;
+  signaturrett?: any;
+  brregMetadata?: any;
+}
+
+export interface BedriftFilters {
+  søk?: string;
+  page?: number;
+  limit?: number;
+}
+
+interface BrønnøysundData {
+  navn: string;
+  organisasjonsnummer: string;
+  organisasjonsform: {
+    kode: string;
+    beskrivelse: string;
+  };
+  adresse?: {
+    adresse: string;
+    postnummer: string;
+    poststed: string;
+    kommune: string;
+    fylke: string;
+  };
+  hjemmeside?: string;
+  status?: string;
+}
+
+export class BedriftService extends BaseService {
+  constructor(prisma: PrismaClient) {
+    super();
+  }
+
+  /**
+   * Valider organisasjonsnummer
+   */
+  private validerOrganisasjonsnummer(organisasjonsnummer: string): boolean {
+    const cleanOrgNr = organisasjonsnummer.replace(/\s/g, '');
+    if (!/^\d{9}$/.test(cleanOrgNr)) return false;
+    
+    const weights = [3, 2, 7, 6, 5, 4, 3, 2];
+    const digits = cleanOrgNr.split('').map(Number);
+    
+    let sum = 0;
+    for (let i = 0; i < 8; i++) {
+      sum += digits[i] * weights[i];
+    }
+    
+    const remainder = sum % 11;
+    const checkDigit = remainder === 0 ? 0 : 11 - remainder;
+    
+    return digits[8] === checkDigit;
+  }
+
+  /**
+   * Hent data fra Brønnøysundregisteret
+   */
+  async hentBrønnøysundData(organisasjonsnummer: string): Promise<BrønnøysundData | null> {
+    const cleanOrgNr = organisasjonsnummer.replace(/\s/g, '');
+    
+    try {
+      logger.info('Henter data fra Brønnøysundregisteret', { organisasjonsnummer: cleanOrgNr });
+      
+      // Her ville vi normalt gjort et API-kall til Brønnøysundregisteret
+      // For nå returnerer vi mock data
+      const mockData: BrønnøysundData = {
+        navn: `Trafikkskole ${cleanOrgNr}`,
+        organisasjonsnummer: cleanOrgNr,
+        organisasjonsform: {
+          kode: 'AS',
+          beskrivelse: 'Aksjeselskap'
+        },
+        adresse: {
+          adresse: 'Testveien 1',
+          postnummer: '0001',
+          poststed: 'Oslo',
+          kommune: 'Oslo',
+          fylke: 'Oslo'
+        },
+        status: 'Aktiv'
+      };
+      
+      return mockData;
+    } catch (error) {
+      logger.error('Feil ved henting av Brønnøysund-data', { 
+        organisasjonsnummer: cleanOrgNr, 
+        error: error instanceof Error ? error.message : 'Ukjent feil' 
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Valider bedriftsdata før opprettelse/oppdatering
+   */
+  private async validerBedrift(data: BedriftCreateData): Promise<void> {
+    const errors: Record<string, string[]> = {};
+
+    // Valider organisasjonsnummer
+    if (!this.validerOrganisasjonsnummer(data.organisasjonsnummer)) {
+      errors.organisasjonsnummer = ['Ugyldig organisasjonsnummer'];
+    }
+
+    // Sjekk om organisasjonsnummer allerede eksisterer
+    const eksisterendeBedrift = await this.prisma.bedrift.findUnique({
+      where: { organisasjonsnummer: data.organisasjonsnummer.replace(/\s/g, '') }
+    });
+
+    if (eksisterendeBedrift) {
+      errors.organisasjonsnummer = ['Organisasjonsnummer er allerede registrert'];
+    }
+
+    // Valider e-post hvis oppgitt
+    if (data.epost && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.epost)) {
+      errors.epost = ['Ugyldig e-postadresse'];
+    }
+
+    // Valider postnummer hvis oppgitt
+    if (data.postnummer && !/^\d{4}$/.test(data.postnummer)) {
+      errors.postnummer = ['Postnummer må være 4 siffer'];
+    }
+
+    if (Object.keys(errors).length > 0) {
+      throw new ValidationError('Ugyldig bedriftsdata', errors);
+    }
+  }
+
+  /**
+   * Opprett ny bedrift
+   */
+  async opprettBedrift(data: BedriftCreateData): Promise<Bedrift> {
+    logger.info('Oppretter ny bedrift', { 
+      navn: data.navn, 
+      organisasjonsnummer: data.organisasjonsnummer 
+    });
+
+    await this.validerBedrift(data);
+
+    const bedrift = await this.prisma.bedrift.create({
+      data: {
+        ...data,
+        organisasjonsnummer: data.organisasjonsnummer.replace(/\s/g, ''),
+        opprettet: new Date(),
+        oppdatert: new Date(),
+      },
+      include: {
+        _count: {
+          select: {
+            ansatte: true,
+            elever: true,
+            kontrakter: true,
+          }
+        }
+      }
+    });
+
+    logger.info('Bedrift opprettet', { bedriftId: bedrift.id, organisasjonsnummer: bedrift.organisasjonsnummer });
+    
+    // Publish event
+    await eventBus.publish(EventType.BEDRIFT_CREATED, {
+      bedrift,
+      metadata: {
+        timestamp: new Date(),
+        source: 'bedrift.service'
+      }
+    });
+    
+    return bedrift;
+  }
+
+  /**
+   * Hent bedrift med ID
+   */
+  async hentBedrift(id: number): Promise<Bedrift> {
+    const bedrift = await this.prisma.bedrift.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            ansatte: true,
+            elever: true,
+            kontrakter: true,
+          }
+        }
+      }
+    });
+
+    if (!bedrift) {
+      throw new NotFoundError('Bedrift', id);
+    }
+
+    return bedrift;
+  }
+
+  /**
+   * Hent bedrifter med filtrering
+   */
+  async hentBedrifter(filters: BedriftFilters): Promise<{
+    bedrifter: Bedrift[];
+    totalAntall: number;
+    side: number;
+    antallSider: number;
+  }> {
+    const { søk, page = 1, limit = 20 } = filters;
+
+    // Bygg where clause
+    const where: Prisma.BedriftWhereInput = {
+      ...(søk && {
+        OR: [
+          { navn: { contains: søk, mode: 'insensitive' } },
+          { organisasjonsnummer: { contains: søk.replace(/\s/g, '') } },
+          { poststed: { contains: søk, mode: 'insensitive' } }
+        ]
+      })
+    };
+
+    // Hent total antall
+    const totalAntall = await this.prisma.bedrift.count({ where });
+
+    // Hent bedrifter med paginering
+    const bedrifter = await this.prisma.bedrift.findMany({
+      where,
+      include: {
+        _count: {
+          select: {
+            ansatte: true,
+            elever: true,
+            kontrakter: true,
+          }
+        }
+      },
+      orderBy: [
+        { navn: 'asc' }
+      ],
+      skip: (page - 1) * limit,
+      take: limit
+    });
+
+    const antallSider = Math.ceil(totalAntall / limit);
+
+    return {
+      bedrifter,
+      totalAntall,
+      side: page,
+      antallSider
+    };
+  }
+
+  /**
+   * Oppdater bedrift
+   */
+  async oppdaterBedrift(id: number, data: BedriftUpdateData): Promise<Bedrift> {
+    logger.info('Oppdaterer bedrift', { bedriftId: id, oppdateringer: Object.keys(data) });
+
+    // Sjekk at bedrift eksisterer
+    const eksisterendeBedrift = await this.hentBedrift(id);
+
+    // Valider e-post hvis endret
+    if (data.epost && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.epost)) {
+      throw new ValidationError(
+        'Ugyldig e-postadresse',
+        { epost: ['E-postadresse har ugyldig format'] }
+      );
+    }
+
+    // Valider postnummer hvis endret
+    if (data.postnummer && !/^\d{4}$/.test(data.postnummer)) {
+      throw new ValidationError(
+        'Postnummer må være 4 siffer',
+        { postnummer: ['Postnummer må være 4 siffer'] }
+      );
+    }
+
+    // Oppdater bedrift
+    const oppdatertBedrift = await this.prisma.bedrift.update({
+      where: { id },
+      data: {
+        ...data,
+        oppdatert: new Date(),
+      },
+      include: {
+        _count: {
+          select: {
+            ansatte: true,
+            elever: true,
+            kontrakter: true,
+          }
+        }
+      }
+    });
+
+    logger.info('Bedrift oppdatert', { bedriftId: id });
+    
+    // Publish event
+    await eventBus.publish(EventType.BEDRIFT_UPDATED, {
+      bedrift: oppdatertBedrift,
+      changes: data,
+      previousData: eksisterendeBedrift,
+      metadata: {
+        timestamp: new Date(),
+        source: 'bedrift.service'
+      }
+    });
+    
+    return oppdatertBedrift;
+  }
+
+  /**
+   * Slett bedrift (kun hvis ingen relaterte data)
+   */
+  async slettBedrift(id: number): Promise<void> {
+    logger.info('Sletter bedrift', { bedriftId: id });
+
+    // Sjekk at bedrift eksisterer
+    const bedrift = await this.hentBedrift(id);
+
+    // Sjekk om bedrift har relaterte data
+    const [ansatte, elever, kontrakter] = await Promise.all([
+      this.prisma.ansatt.count({ where: { bedriftId: id } }),
+      this.prisma.elev.count({ where: { bedriftId: id } }),
+      this.prisma.kontrakt.count({ where: { bedriftId: id } })
+    ]);
+
+    if (ansatte > 0 || elever > 0 || kontrakter > 0) {
+      throw new ValidationError(
+        'Kan ikke slette bedrift med relaterte data',
+        { 
+          bedrift: [
+            `Bedriften har ${ansatte} ansatte, ${elever} elever og ${kontrakter} kontrakter`
+          ] 
+        }
+      );
+    }
+
+    // Slett bedrift
+    await this.prisma.bedrift.delete({
+      where: { id }
+    });
+
+    logger.info('Bedrift slettet', { bedriftId: id });
+    
+    // Publish event
+    await eventBus.publish(EventType.BEDRIFT_DELETED, {
+      bedrift,
+      metadata: {
+        timestamp: new Date(),
+        source: 'bedrift.service',
+        deletionReason: 'manual'
+      }
+    });
+  }
+
+  /**
+   * Hent bedriftsstatistikk
+   */
+  async hentBedriftsstatistikk(): Promise<{
+    totalAntall: number;
+    nyeIDenneMåned: number;
+    topBedrifterEtterAnsatte: Array<{
+      id: number;
+      navn: string;
+      antallAnsatte: number;
+    }>;
+  }> {
+    const startAvMåned = new Date();
+    startAvMåned.setDate(1);
+    startAvMåned.setHours(0, 0, 0, 0);
+
+    const [
+      totalAntall,
+      nyeIDenneMåned,
+      topBedrifter
+    ] = await Promise.all([
+      this.prisma.bedrift.count(),
+      this.prisma.bedrift.count({
+        where: {
+          opprettet: {
+            gte: startAvMåned
+          }
+        }
+      }),
+      this.prisma.bedrift.findMany({
+        select: {
+          id: true,
+          navn: true,
+          _count: {
+            select: {
+              ansatte: true
+            }
+          }
+        },
+        orderBy: {
+          ansatte: {
+            _count: 'desc'
+          }
+        },
+        take: 5
+      })
+    ]);
+
+    const topBedrifterEtterAnsatte = topBedrifter.map(bedrift => ({
+      id: bedrift.id,
+      navn: bedrift.navn,
+      antallAnsatte: bedrift._count.ansatte
+    }));
+
+    return {
+      totalAntall,
+      nyeIDenneMåned,
+      topBedrifterEtterAnsatte
+    };
+  }
+
+  /**
+   * Synkroniser med Brønnøysundregisteret
+   */
+  async synkroniserMedBrønnøysund(id: number): Promise<Bedrift> {
+    logger.info('Synkroniserer bedrift med Brønnøysund', { bedriftId: id });
+
+    const bedrift = await this.hentBedrift(id);
+    const brregData = await this.hentBrønnøysundData(bedrift.organisasjonsnummer);
+
+    if (!brregData) {
+      throw new ValidationError(
+        'Kunne ikke hente data fra Brønnøysundregisteret',
+        { organisasjonsnummer: ['Organisasjonsnummer ikke funnet i registeret'] }
+      );
+    }
+
+    // Oppdater bedrift med data fra Brønnøysund
+    const oppdatertBedrift = await this.prisma.bedrift.update({
+      where: { id },
+      data: {
+        navn: brregData.navn,
+        adresse: brregData.adresse?.adresse,
+        postnummer: brregData.adresse?.postnummer,
+        poststed: brregData.adresse?.poststed,
+        organisasjonsform: brregData.organisasjonsform.beskrivelse,
+        organisasjonsformKode: brregData.organisasjonsform.kode,
+                 brregMetadata: brregData as any,
+        oppdatert: new Date()
+      },
+      include: {
+        _count: {
+          select: {
+            ansatte: true,
+            elever: true,
+            kontrakter: true,
+          }
+        }
+      }
+    });
+
+    logger.info('Bedrift synkronisert med Brønnøysund', { bedriftId: id });
+    return oppdatertBedrift;
+  }
+} 

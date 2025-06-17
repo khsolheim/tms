@@ -1,0 +1,312 @@
+import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { verifyToken } from '../../middleware/auth';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Middleware for admin-only access
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (!req.bruker || req.bruker.rolle !== 'ADMIN') {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Kun administratorer har tilgang til denne funksjonen' 
+    });
+  }
+  next();
+};
+
+// GET /api/admin/bedrifter - Hent alle bedrifter
+router.get('/', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const where: any = {
+      isDeleted: false
+    };
+
+    if (search) {
+      where.OR = [
+        { navn: { contains: search, mode: 'insensitive' } },
+        { organisasjonsnummer: { contains: search } },
+        { epost: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const [bedrifter, total] = await Promise.all([
+      prisma.bedrift.findMany({
+        where,
+        include: {
+          hovedbruker: {
+            select: {
+              id: true,
+              fornavn: true,
+              etternavn: true,
+              epost: true
+            }
+          },
+          bedriftServices: {
+            where: { isActive: true },
+            include: {
+              service: {
+                select: { navn: true, type: true }
+              }
+            }
+          },
+          _count: {
+            select: {
+              ansatte: { where: { isDeleted: false } },
+              elever: { where: { isDeleted: false } }
+            }
+          }
+        },
+        skip,
+        take: Number(limit),
+        orderBy: { opprettet: 'desc' }
+      }),
+      prisma.bedrift.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: bedrifter,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Feil ved henting av bedrifter:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente bedrifter'
+    });
+  }
+});
+
+// GET /api/admin/bedrifter/:id - Hent spesifikk bedrift
+router.get('/:id', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: Number(id) },
+      include: {
+        hovedbruker: {
+          select: {
+            id: true,
+            fornavn: true,
+            etternavn: true,
+            epost: true,
+            telefon: true
+          }
+        },
+        ansatte: {
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            fornavn: true,
+            etternavn: true,
+            epost: true,
+            rolle: true,
+            aktiv: true
+          }
+        },
+        elever: {
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            fornavn: true,
+            etternavn: true,
+            epost: true,
+            status: true
+          }
+        },
+        bedriftServices: {
+          include: {
+            service: true,
+            activatedByUser: {
+              select: {
+                fornavn: true,
+                etternavn: true
+              }
+            }
+          }
+        },
+        systemConfig: true
+      }
+    });
+
+    if (!bedrift) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bedrift ikke funnet'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: bedrift
+    });
+  } catch (error) {
+    console.error('Feil ved henting av bedrift:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente bedrift'
+    });
+  }
+});
+
+// PUT /api/admin/bedrifter/:id - Oppdater bedrift
+router.put('/:id', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { navn, organisasjonsnummer, epost, telefon, adresse, postnummer, poststed } = req.body;
+
+    const bedrift = await prisma.bedrift.update({
+      where: { id: Number(id) },
+      data: {
+        navn,
+        organisasjonsnummer,
+        epost,
+        telefon,
+        adresse,
+        postnummer,
+        poststed
+      }
+    });
+
+    res.json({
+      success: true,
+      data: bedrift
+    });
+  } catch (error) {
+    console.error('Feil ved oppdatering av bedrift:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke oppdatere bedrift'
+    });
+  }
+});
+
+// DELETE /api/admin/bedrifter/:id - Slett bedrift (soft delete)
+router.delete('/:id', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+
+    const bedrift = await prisma.bedrift.update({
+      where: { id: Number(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: req.bruker.id
+      }
+    });
+
+    res.json({
+      success: true,
+      data: bedrift
+    });
+  } catch (error) {
+    console.error('Feil ved sletting av bedrift:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke slette bedrift'
+    });
+  }
+});
+
+// GET /api/admin/bedrifter/:id/services - Hent tjenester for bedrift
+router.get('/:id/services', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+
+    const bedriftServices = await prisma.bedriftService.findMany({
+      where: { bedriftId: Number(id) },
+      include: {
+        service: true,
+        activatedByUser: {
+          select: {
+            fornavn: true,
+            etternavn: true
+          }
+        },
+        deactivatedByUser: {
+          select: {
+            fornavn: true,
+            etternavn: true
+          }
+        }
+      },
+      orderBy: { activatedAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: bedriftServices
+    });
+  } catch (error) {
+    console.error('Feil ved henting av bedriftstjenester:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente tjenester'
+    });
+  }
+});
+
+// GET /api/admin/stats - Hent admin statistikk
+router.get('/stats/overview', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const [
+      totalBedrifter,
+      activeBedrifter,
+      totalBrukere,
+      activeServices,
+      recentActivity
+    ] = await Promise.all([
+      prisma.bedrift.count({ where: { isDeleted: false } }),
+      prisma.bedrift.count({ 
+        where: { 
+          isDeleted: false,
+          bedriftServices: {
+            some: { isActive: true }
+          }
+        } 
+      }),
+      prisma.ansatt.count({ where: { isDeleted: false } }),
+      prisma.service.count({ where: { status: 'ACTIVE' } }),
+      prisma.bedrift.findMany({
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          navn: true,
+          opprettet: true
+        },
+        orderBy: { opprettet: 'desc' },
+        take: 5
+      })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalBedrifter,
+        activeBedrifter,
+        totalBrukere,
+        activeServices,
+        recentActivity
+      }
+    });
+  } catch (error) {
+    console.error('Feil ved henting av statistikk:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente statistikk'
+    });
+  }
+});
+
+export default router; 

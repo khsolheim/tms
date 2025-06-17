@@ -1,0 +1,92 @@
+import { eventBus, EventType } from './eventBus';
+import { UserEventHandler } from './handlers/userEventHandler';
+import { BedriftEventHandler } from './handlers/bedriftEventHandler';
+import { SikkerhetskontrollEventHandler } from './handlers/sikkerhetskontrollEventHandler';
+import { SystemEventHandler } from './handlers/systemEventHandler';
+
+export class EventRegistry {
+  private static instance: EventRegistry;
+  private handlers: Map<string, any> = new Map();
+
+  private constructor() {}
+
+  public static getInstance(): EventRegistry {
+    if (!EventRegistry.instance) {
+      EventRegistry.instance = new EventRegistry();
+    }
+    return EventRegistry.instance;
+  }
+
+  public registerAllHandlers(): void {
+    console.log('🎯 Registering Event-Driven Architecture handlers...');
+
+    // Create handler instances
+    const userHandler = new UserEventHandler();
+    const bedriftHandler = new BedriftEventHandler();
+    const sikkerhetskontrollHandler = new SikkerhetskontrollEventHandler();
+    const systemHandler = new SystemEventHandler();
+
+    // Register user event handlers
+    eventBus.subscribe(EventType.USER_REGISTERED, userHandler);
+    eventBus.subscribe(EventType.USER_LOGIN, userHandler);
+    eventBus.subscribe(EventType.USER_LOGOUT, userHandler);
+    eventBus.subscribe(EventType.USER_PROFILE_UPDATED, userHandler);
+
+    // Register bedrift event handlers
+    eventBus.subscribe(EventType.BEDRIFT_CREATED, bedriftHandler);
+    eventBus.subscribe(EventType.BEDRIFT_UPDATED, bedriftHandler);
+    eventBus.subscribe(EventType.BEDRIFT_DELETED, bedriftHandler);
+    eventBus.subscribe(EventType.BEDRIFT_STATUS_CHANGED, bedriftHandler);
+
+    // Register sikkerhetskontroll event handlers
+    eventBus.subscribe(EventType.SIKKERHETSKONTROLL_CREATED, sikkerhetskontrollHandler);
+    eventBus.subscribe(EventType.SIKKERHETSKONTROLL_UPDATED, sikkerhetskontrollHandler);
+    eventBus.subscribe(EventType.SIKKERHETSKONTROLL_COMPLETED, sikkerhetskontrollHandler);
+    eventBus.subscribe(EventType.SIKKERHETSKONTROLL_FAILED, sikkerhetskontrollHandler);
+
+    // Register system event handlers
+    eventBus.subscribe(EventType.SYSTEM_STARTUP, systemHandler);
+    eventBus.subscribe(EventType.SYSTEM_SHUTDOWN, systemHandler);
+    eventBus.subscribe(EventType.SYSTEM_ERROR, systemHandler);
+    eventBus.subscribe(EventType.SYSTEM_HEALTH_CHECK, systemHandler);
+    eventBus.subscribe(EventType.SECURITY_THREAT_DETECTED, systemHandler);
+    eventBus.subscribe(EventType.SECURITY_LOGIN_FAILED, systemHandler);
+    eventBus.subscribe(EventType.SECURITY_RATE_LIMIT_EXCEEDED, systemHandler);
+
+    // Register quiz event handlers (using system handler for now)
+    eventBus.subscribe(EventType.QUIZ_STARTED, systemHandler);
+    eventBus.subscribe(EventType.QUIZ_COMPLETED, systemHandler);
+    eventBus.subscribe(EventType.QUIZ_QUESTION_ANSWERED, systemHandler);
+
+    // Store handler references
+    this.handlers.set('user', userHandler);
+    this.handlers.set('bedrift', bedriftHandler);
+    this.handlers.set('sikkerhetskontroll', sikkerhetskontrollHandler);
+    this.handlers.set('system', systemHandler);
+
+    console.log('✅ Event-Driven Architecture handlers registered successfully!');
+  }
+
+  public getHandler(name: string): any {
+    return this.handlers.get(name);
+  }
+
+  public getAllHandlers(): Map<string, any> {
+    return new Map(this.handlers);
+  }
+
+  public unregisterAllHandlers(): void {
+    console.log('🔄 Unregistering all event handlers...');
+    
+    // Clear all handlers from event bus
+    eventBus.removeAllListeners();
+    
+    // Clear handler references
+    this.handlers.clear();
+    
+    console.log('✅ All event handlers unregistered');
+  }
+}
+
+// Export singleton instance
+export const eventRegistry = EventRegistry.getInstance(); 

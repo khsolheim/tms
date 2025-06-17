@@ -106,9 +106,9 @@ model KontrollMalPunkt {
   id              Int         @id @default(autoincrement())
   kontrollMalId   Int
   sjekkpunktId    Int
-  rekkefølge     Int
+  rekkefolge     Int
   kanGodkjennesAv GodkjentAv  @default(LAERER)
-  påkrevd        Boolean     @default(true)
+  pakrevd        Boolean     @default(true)
   opprettet       DateTime    @default(now())
   kontrollMal     KontrollMal @relation(fields: [kontrollMalId], references: [id], onDelete: Cascade)
   sjekkpunkt      Sjekkpunkt  @relation(fields: [sjekkpunktId], references: [id])
@@ -125,13 +125,13 @@ model Sikkerhetskontroll {
   aktiv          Boolean                   @default(true)
   opprettet      DateTime                  @default(now())
   oppdatert      DateTime                  @default(now()) @updatedAt
-  basertPåMalId Int?
+  basertPaMalId Int?
   // Soft delete fields
   deletedAt      DateTime?
   deletedBy      Int?
   isDeleted      Boolean                   @default(false)
   
-  basertPåMal   KontrollMal?              @relation(fields: [basertPåMalId], references: [id])
+  basertPaMal   KontrollMal?              @relation(fields: [basertPaMalId], references: [id])
   bedrift        Bedrift                   @relation(fields: [bedriftId], references: [id])
   opprettetAv    Ansatt                    @relation(fields: [opprettetAvId], references: [id])
   punkter        SikkerhetskontrollPunkt[]
@@ -141,7 +141,7 @@ model Sikkerhetskontroll {
   @@index([bedriftId, aktiv])
   @@index([opprettet])
   @@index([opprettetAvId])
-  @@index([basertPåMalId])
+  @@index([basertPaMalId])
   @@index([isDeleted])
   @@index([deletedAt])
 }
@@ -150,9 +150,9 @@ model SikkerhetskontrollPunkt {
   id                   Int                @id @default(autoincrement())
   sikkerhetskontrollId Int
   sjekkpunktId         Int
-  rekkefølge          Int
+  rekkefolge          Int
   kanGodkjennesAv      GodkjentAv         @default(LAERER)
-  påkrevd             Boolean            @default(true)
+  pakrevd             Boolean            @default(true)
   opprettet            DateTime           @default(now())
   sikkerhetskontroll   Sikkerhetskontroll @relation(fields: [sikkerhetskontrollId], references: [id], onDelete: Cascade)
   sjekkpunkt           Sjekkpunkt         @relation(fields: [sjekkpunktId], references: [id])
@@ -175,8 +175,8 @@ model Bedrift {
   stiftelsesdato       String?              // Format: YYYY-MM-DD
   organisasjonsform    String?              // "Aksjeselskap", "Enkeltpersonforetak", etc.
   organisasjonsformKode String?             // "AS", "ENK", etc.
-  næringskode          String?              // "Trafikkskoleundervisning"
-  næringskodeKode      String?              // "85.530"
+  naeringskode          String?              // "Trafikkskoleundervisning"
+  naeringskodeKode      String?              // "85.530"
   dagligLeder          String?              // Fullt navn
   styreleder           String?              // Fullt navn
   signaturrett         Json?                @default("[]") // Array med personer som har signaturrett
@@ -207,7 +207,10 @@ model Bedrift {
   prosjekter           Prosjekt[]
   ressurser            Ressurs[]
   ressursBookinger     RessursBooking[]
-  økonomiposter        Økonomipost[]
+  okonomiPoster        Okonomipost[]
+  
+  // Service management relations
+  bedriftServices      BedriftService[]
 
   @@index([navn])
   @@index([opprettet])
@@ -234,8 +237,8 @@ model Ansatt {
   poststed                       String?
   rolle                           AnsattRolle          @default(TRAFIKKLARER)
   klasser                        String[]             @default([])
-  kjøretøy                        Int[]                @default([])
-  hovedkjøretøy                   Int?
+  kjoretoy                        Int[]                @default([])
+  hovedkjoretoy                   Int?
   aktiv                          Boolean              @default(true)
   sisteInnlogging                DateTime?
   bedrift                         Bedrift?             @relation(fields: [bedriftId], references: [id])
@@ -282,8 +285,12 @@ model Ansatt {
   ressursBookingerGodkjent         RessursBooking[]     @relation("RessursBookingGodkjentAv")
   hjelpArtiklerOpprettet           HjelpArtikkel[]      @relation("HjelpArtikkelOpprettetAv")
   deletedHjelpArtikler             HjelpArtikkel[]      @relation("HjelpArtikkelDeletedBy")
-  økonomipostRegistrert            Økonomipost[]        @relation("ØkonomipostRegistrertAv")
-  deletedØkonomiposter             Økonomipost[]        @relation("ØkonomipostDeletedBy")
+  okonomipostRegistrert            Okonomipost[]        @relation("OkonomipostRegistrertAv")
+  deletedOkonomiposter             Okonomipost[]        @relation("OkonomipostDeletedBy")
+  
+  // Service management relations
+  activatedBedriftServices         BedriftService[]     @relation("BedriftServiceActivatedBy")
+  deactivatedBedriftServices       BedriftService[]     @relation("BedriftServiceDeactivatedBy")
 
   @@index([bedriftId, rolle])
   @@index([epost])
@@ -551,7 +558,7 @@ model Kontrakt {
   
   // Låneinformasjon
   lan               Int
-  lopetid           Int     // måneder
+  lopetid           Int     // maneder
   rente             Float   // prosent
   etableringsgebyr  Int
   termingebyr       Int
@@ -647,7 +654,7 @@ model SystemConfig {
   kreverGodkjenningElevSoknad  Boolean  @default(true)
   maksAntallElever             Int?
   maksAntallAnsatte            Int?
-  loginUtløpstid               Int      @default(24)
+  loginUtlopstid               Int      @default(24)
   epost                        String?
   organisasjonsnummer          String?
   postnummer                   String?
@@ -1084,7 +1091,7 @@ model SikkerhetskontrollKlasse {
   beskrivelse        String                      // "Personbil opptil 3500 kg"
   ikonUrl            String?                     // URL til klasse-ikon
   aktiv              Boolean                     @default(true)
-  rekkefølge         Int                         @default(0) // For sortering
+  rekkefolge         Int                         @default(0) // For sortering
   opprettet          DateTime                    @default(now())
   oppdatert          DateTime                    @default(now()) @updatedAt
   
@@ -1092,7 +1099,7 @@ model SikkerhetskontrollKlasse {
   elevProgresjon     SikkerhetskontrollElevProgresjon[]
   
   @@index([aktiv])
-  @@index([rekkefølge])
+  @@index([rekkefolge])
 }
 
 model SikkerhetskontrollKategori {
@@ -1102,7 +1109,7 @@ model SikkerhetskontrollKategori {
   ikonUrl            String?                     // URL til kategori-ikon
   farge              String?                     // HEX-farge for kategorien
   klasseId           Int
-  rekkefølge         Int                         @default(0) // For sortering innenfor klasse
+  rekkefolge         Int                         @default(0) // For sortering innenfor klasse
   aktiv              Boolean                     @default(true)
   opprettet          DateTime                    @default(now())
   oppdatert          DateTime                    @default(now()) @updatedAt
@@ -1112,7 +1119,7 @@ model SikkerhetskontrollKategori {
   elevProgresjon     SikkerhetskontrollElevProgresjon[]
   
   @@index([klasseId, aktiv])
-  @@index([rekkefølge])
+  @@index([rekkefolge])
   @@unique([navn, klasseId], name: "unique_kategori_per_klasse")
 }
 
@@ -1124,7 +1131,7 @@ model SikkerhetskontrollSporsmal {
   hvorforderVikreligTekst String                 // Forklarer hvorfor denne sjekken er viktig
   kategoriId         Int
   vanskelighetsgrad  SikkerhetskontrollVanskelighetsgrad @default(MIDDELS)
-  rekkefølge         Int                         @default(0) // For sortering innenfor kategori
+  rekkefolge         Int                         @default(0) // For sortering innenfor kategori
   aktiv              Boolean                     @default(true)
   opprettet          DateTime                    @default(now())
   oppdatert          DateTime                    @default(now()) @updatedAt
@@ -1135,7 +1142,7 @@ model SikkerhetskontrollSporsmal {
   
   @@index([kategoriId, aktiv])
   @@index([vanskelighetsgrad])
-  @@index([rekkefølge])
+  @@index([rekkefolge])
 }
 
 model SikkerhetskontrollMedia {
@@ -1149,14 +1156,14 @@ model SikkerhetskontrollMedia {
   varighet           Int?                        // For video/lyd i sekunder
   bredde             Int?                        // For bilder/video
   hoyde              Int?                        // For bilder/video
-  rekkefølge         Int                         @default(0) // For sortering
+  rekkefolge         Int                         @default(0) // For sortering
   opprettet          DateTime                    @default(now())
   
   sporsmal           SikkerhetskontrollSporsmal  @relation(fields: [sporsmalId], references: [id], onDelete: Cascade)
   
   @@index([sporsmalId])
   @@index([mediaType])
-  @@index([rekkefølge])
+  @@index([rekkefolge])
 }
 
 model SikkerhetskontrollElevProgresjon {
@@ -1280,18 +1287,18 @@ model SjekkpunktSystem {
   beskrivelse String?
   ikon        String?
   aktiv       Boolean  @default(true)
-  rekkefølge  Int?
+  rekkefolge  Int?
   opprettet   DateTime @default(now())
   oppdatert   DateTime @default(now()) @updatedAt
   
   sjekkpunkter Sjekkpunkt[]
   
   @@index([aktiv])
-  @@index([rekkefølge])
+  @@index([rekkefolge])
   @@map("SjekkpunktSystemer")
 }
 
-model FørerkortKlasse {
+model ForerkortKlasse {
   id             Int      @id @default(autoincrement())
   kode           String   @unique
   navn           String
@@ -1305,7 +1312,7 @@ model FørerkortKlasse {
   
   @@index([aktiv])
   @@index([kategori])
-  @@map("FørerkortKlasser")
+  @@map("ForerkortKlasser")
 }
 
 model SeedDataConfig {
@@ -1534,14 +1541,14 @@ model HjelpKategori {
   navn              String     @unique
   beskrivelse       String?
   ikon              String?
-  rekkefølge        Int        @default(0)
+  rekkefolge        Int        @default(0)
   aktiv             Boolean    @default(true)
   opprettet         DateTime   @default(now())
   
   artikler          HjelpArtikkel[]
   
   @@index([aktiv])
-  @@index([rekkefølge])
+  @@index([rekkefolge])
 }
 
 model HjelpArtikkel {
@@ -1551,9 +1558,9 @@ model HjelpArtikkel {
   kategori               String
   underkategori          String?
   tags                   String[]      @default([])
-  visningsrekkefølge     Int           @default(0)
+  visningsrekkefolge     Int           @default(0)
   publisert              Boolean       @default(false)
-  søkeord                String[]      @default([])
+  sokeord                String[]      @default([])
   opprettetAv            Int
   opprettet              DateTime      @default(now())
   oppdatert              DateTime      @default(now()) @updatedAt
@@ -1572,7 +1579,7 @@ model HjelpArtikkel {
 }
 
 // Economic posts (extension of existing financial system)
-model Økonomipost {
+model Okonomipost {
   id                Int        @id @default(autoincrement())
   beskrivelse       String
   belop             Int        // øre
@@ -1595,8 +1602,8 @@ model Økonomipost {
   isDeleted         Boolean    @default(false)
   
   bedrift           Bedrift    @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
-  registrertAvAnsatt Ansatt    @relation("ØkonomipostRegistrertAv", fields: [registrertAv], references: [id], onDelete: Cascade)
-  deletedByUser     Ansatt?    @relation("ØkonomipostDeletedBy", fields: [deletedBy], references: [id])
+  registrertAvAnsatt Ansatt    @relation("OkonomipostRegistrertAv", fields: [registrertAv], references: [id], onDelete: Cascade)
+  deletedByUser     Ansatt?    @relation("OkonomipostDeletedBy", fields: [deletedBy], references: [id])
   
   @@index([bedriftId])
   @@index([type])
@@ -1605,4 +1612,73 @@ model Økonomipost {
   @@index([status])
   @@index([registrertAv])
   @@index([isDeleted])
+}
+
+// ============================================================================
+// SERVICE MANAGEMENT MODELS - FOR MODULAR MONOLITH ARCHITECTURE
+// ============================================================================
+
+// Service Management Models
+model Service {
+  id           Int           @id @default(autoincrement())
+  navn         String        @unique
+  type         ServiceType
+  beskrivelse  String
+  status       ServiceStatus @default(ACTIVE)
+  versjon      String        @default("1.0.0")
+  konfiguration Json?        @default("{}")
+  opprettet    DateTime      @default(now())
+  oppdatert    DateTime      @default(now()) @updatedAt
+  
+  // Relations
+  bedriftServices BedriftService[]
+  
+  @@index([type])
+  @@index([status])
+  @@index([navn])
+}
+
+model BedriftService {
+  id            Int      @id @default(autoincrement())
+  bedriftId     Int
+  serviceId     Int
+  isActive      Boolean  @default(true)
+  activatedAt   DateTime @default(now())
+  deactivatedAt DateTime?
+  activatedBy   Int
+  deactivatedBy Int?
+  konfiguration Json?    @default("{}")
+  opprettet     DateTime @default(now())
+  oppdatert     DateTime @default(now()) @updatedAt
+  
+  // Relations
+  bedrift       Bedrift  @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  service       Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  activatedByUser Ansatt @relation("BedriftServiceActivatedBy", fields: [activatedBy], references: [id])
+  deactivatedByUser Ansatt? @relation("BedriftServiceDeactivatedBy", fields: [deactivatedBy], references: [id])
+  
+  @@unique([bedriftId, serviceId])
+  @@index([bedriftId])
+  @@index([serviceId])
+  @@index([isActive])
+  @@index([activatedAt])
+  @@index([bedriftId, isActive])
+}
+
+enum ServiceType {
+  HR
+  ECONOMY
+  QUIZ
+  SIKKERHETSKONTROLL
+  FORERKORT
+  KURS
+  RAPPORTER
+  INTEGRASJONER
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  DEPRECATED
 }

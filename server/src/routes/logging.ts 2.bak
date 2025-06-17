@@ -1,0 +1,329 @@
+import { Router, Request, Response } from 'express';
+import logger from '../utils/logger';
+import { verifyToken } from '../middleware/auth';
+import { ApiError } from '../utils/ApiError';
+import fs from 'fs/promises';
+import path from 'path';
+
+const router = Router();
+
+// ============================================================================
+// LOGGING METRICS ENDPOINT
+// ============================================================================
+
+/**
+ * GET /api/logging/metrics
+ * Hent logging-statistikk og metrics
+ */
+router.get('/metrics', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const metrics = logger.getMetrics();
+    
+    // Beregn ytterligere statistikk
+    const errorRate = metrics.totalLogs > 0 ? (metrics.errorCount / metrics.totalLogs * 100).toFixed(2) : '0.00';
+    const slowOperationRate = metrics.performanceCount > 0 ? (metrics.slowOperations / metrics.performanceCount * 100).toFixed(2) : '0.00';
+    
+    const response = {
+      status: 'success',
+      data: {
+        ...metrics,
+        calculatedMetrics: {
+          errorRate: `${errorRate}%`,
+          slowOperationRate: `${slowOperationRate}%`,
+          averageLogsPerMinute: Math.round(metrics.totalLogs / ((Date.now() - metrics.lastReset.getTime()) / 60000)),
+          uptimeSinceLastReset: Math.round((Date.now() - metrics.lastReset.getTime()) / 1000)
+        },
+        logLevels: {
+          error: metrics.errorCount,
+          warn: metrics.warnCount,
+          info: metrics.infoCount,
+          debug: metrics.debugCount,
+          audit: metrics.auditCount,
+          security: metrics.securityCount,
+          performance: metrics.performanceCount
+        }
+      }
+    };
+
+    res.json(response);
+  } catch (error) {
+    logger.error('Feil ved henting av logging metrics', { error: (error as Error).message });
+    throw ApiError.internal('Kunne ikke hente logging metrics');
+  }
+});
+
+// ============================================================================
+// LOG FILES ENDPOINT
+// ============================================================================
+
+/**
+ * GET /api/logging/files
+ * List tilgjengelige log-filer
+ */
+router.get('/files', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const logDir = path.join(__dirname, '../../logs');
+    
+    try {
+      const files = await fs.readdir(logDir);
+      const logFiles = files.filter(file => file.endsWith('.log'));
+      
+      const fileDetails = await Promise.all(
+        logFiles.map(async (file) => {
+          const filePath = path.join(logDir, file);
+          const stats = await fs.stat(filePath);
+          
+          return {
+            name: file,
+            size: stats.size,
+            sizeFormatted: formatBytes(stats.size),
+            modified: stats.mtime,
+            type: getLogType(file)
+          };
+        })
+      );
+
+      // Sorter etter modifiseringsdato (nyeste først)
+      fileDetails.sort((a, b) => b.modified.getTime() - a.modified.getTime());
+
+      res.json({
+        status: 'success',
+        data: {
+          logDirectory: logDir,
+          totalFiles: fileDetails.length,
+          totalSize: fileDetails.reduce((sum, file) => sum + file.size, 0),
+          files: fileDetails
+        }
+      });
+    } catch (dirError) {
+      // Log-mappen eksisterer ikke ennå
+      res.json({
+        status: 'success',
+        data: {
+          logDirectory: logDir,
+          totalFiles: 0,
+          totalSize: 0,
+          files: [],
+          message: 'Log-mappen er ikke opprettet ennå'
+        }
+      });
+    }
+  } catch (error) {
+    logger.error('Feil ved listing av log-filer', { error: (error as Error).message });
+    throw ApiError.internal('Kunne ikke liste log-filer');
+  }
+});
+
+// ============================================================================
+// LOG FILE CONTENT ENDPOINT
+// ============================================================================
+
+/**
+ * GET /api/logging/files/:filename
+ * Hent innhold fra en spesifikk log-fil
+ */
+router.get('/files/:filename', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const { lines = '100', search, level } = req.query;
+    
+    // Sikkerhetsjekk for filnavn
+    if (!filename.endsWith('.log') || filename.includes('..') || filename.includes('/')) {
+      throw ApiError.badRequest('Ugyldig filnavn');
+    }
+
+    const logDir = path.join(__dirname, '../../logs');
+    const filePath = path.join(logDir, filename);
+
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      let logLines = content.split('\n').filter(line => line.trim());
+
+      // Filtrer basert på log level hvis spesifisert
+      if (level && typeof level === 'string') {
+        logLines = logLines.filter(line => {
+          try {
+            const logEntry = JSON.parse(line);
+            return logEntry.level === level;
+          } catch {
+            return line.toLowerCase().includes(level.toLowerCase());
+          }
+        });
+      }
+
+      // Søk i log-innhold hvis spesifisert
+      if (search && typeof search === 'string') {
+        logLines = logLines.filter(line => 
+          line.toLowerCase().includes(search.toLowerCase())
+        );
+      }
+
+      // Begrens antall linjer
+      const maxLines = Math.min(parseInt(lines as string) || 100, 1000);
+      const resultLines = logLines.slice(-maxLines); // Siste N linjer
+
+      res.json({
+        status: 'success',
+        data: {
+          filename,
+          totalLines: logLines.length,
+          returnedLines: resultLines.length,
+          maxLines,
+          filters: {
+            search: search || null,
+            level: level || null
+          },
+          lines: resultLines
+        }
+      });
+    } catch (fileError) {
+      throw ApiError.notFound(`Log-fil '${filename}' ikke funnet`);
+    }
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    logger.error('Feil ved lesing av log-fil', { 
+      filename: req.params.filename,
+      error: (error as Error).message 
+    });
+    throw ApiError.internal('Kunne ikke lese log-fil');
+  }
+});
+
+// ============================================================================
+// LOG CONFIGURATION ENDPOINT
+// ============================================================================
+
+/**
+ * GET /api/logging/config
+ * Hent gjeldende logging-konfigurasjon
+ */
+router.get('/config', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const config = {
+      logLevel: process.env.LOG_LEVEL || 'info',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      logDirectory: path.join(__dirname, '../../logs'),
+      features: {
+        fileRotation: true,
+        auditLogging: true,
+        securityLogging: true,
+        performanceLogging: true,
+        errorTracking: true,
+        metricsCollection: true
+      },
+      retention: {
+        application: '30 dager',
+        error: '90 dager',
+        audit: '365 dager',
+        security: '180 dager',
+        performance: '30 dager',
+        access: '30 dager'
+      },
+      alertThresholds: {
+        errorRate: '10%',
+        slowOperationThreshold: '2000ms',
+        securityEventThreshold: '10 per time'
+      }
+    };
+
+    res.json({
+      status: 'success',
+      data: config
+    });
+  } catch (error) {
+    logger.error('Feil ved henting av logging-konfigurasjon', { error: (error as Error).message });
+    throw ApiError.internal('Kunne ikke hente logging-konfigurasjon');
+  }
+});
+
+// ============================================================================
+// LOG ALERT THRESHOLDS ENDPOINT
+// ============================================================================
+
+/**
+ * PUT /api/logging/thresholds
+ * Oppdater alert thresholds for logging-systemet
+ */
+router.put('/thresholds', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const { errorRate, slowOperationThreshold, securityEventThreshold } = req.body;
+
+    const thresholds: any = {};
+    
+    if (errorRate !== undefined) {
+      const rate = parseFloat(errorRate);
+      if (rate >= 0 && rate <= 1) {
+        thresholds.errorRate = rate;
+      } else {
+        throw ApiError.badRequest('errorRate må være mellom 0 og 1');
+      }
+    }
+
+    if (slowOperationThreshold !== undefined) {
+      const threshold = parseInt(slowOperationThreshold);
+      if (threshold > 0) {
+        thresholds.slowOperationThreshold = threshold;
+      } else {
+        throw ApiError.badRequest('slowOperationThreshold må være større enn 0');
+      }
+    }
+
+    if (securityEventThreshold !== undefined) {
+      const threshold = parseInt(securityEventThreshold);
+      if (threshold > 0) {
+        thresholds.securityEventThreshold = threshold;
+      } else {
+        throw ApiError.badRequest('securityEventThreshold må være større enn 0');
+      }
+    }
+
+    // Oppdater thresholds
+    logger.setAlertThresholds(thresholds);
+
+    logger.info('Alert thresholds oppdatert', {
+      updatedBy: (req as any).bruker?.id,
+      newThresholds: thresholds
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Alert thresholds oppdatert',
+      data: thresholds
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    logger.error('Feil ved oppdatering av alert thresholds', { error: (error as Error).message });
+    throw ApiError.internal('Kunne ikke oppdatere alert thresholds');
+  }
+});
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getLogType(filename: string): string {
+  if (filename.includes('error')) return 'error';
+  if (filename.includes('audit')) return 'audit';
+  if (filename.includes('security')) return 'security';
+  if (filename.includes('performance')) return 'performance';
+  if (filename.includes('access')) return 'access';
+  if (filename.includes('exception')) return 'exception';
+  if (filename.includes('rejection')) return 'rejection';
+  return 'application';
+}
+
+export default router; 

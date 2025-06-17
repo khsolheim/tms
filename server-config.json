@@ -1,0 +1,354 @@
+{
+  "name": "TMS Server Configuration",
+  "version": "1.0.0",
+  "updated": "2024-01-10",
+  "description": "Sentral konfigurasjon for alle servere og tjenester i TMS-applikasjonen",
+  
+  "environments": {
+    "development": {
+      "mainApp": {
+        "frontend": {
+          "url": "http://localhost:3000",
+          "port": 3000,
+          "description": "React frontend applikasjon"
+        },
+        "admin": {
+          "url": "http://localhost:3001",
+          "port": 3001,
+          "description": "Admin portal"
+        },
+        "backend": {
+          "url": "http://localhost:4000",
+          "port": 4000,
+          "baseApiPath": "/api",
+          "description": "Hoved backend API"
+        },
+        "database": {
+          "host": "localhost",
+          "port": 5432,
+          "type": "PostgreSQL",
+          "name": "tms_db",
+          "description": "Hoveddatabase for applikasjonen"
+        },
+        "cache": {
+          "host": "localhost",
+          "port": 6379,
+          "type": "Redis",
+          "description": "Redis cache for session og data caching"
+        }
+      },
+      
+      "microservices": {
+        "infrastructure": {
+          "database": {
+            "host": "localhost",
+            "port": 5435,
+            "type": "PostgreSQL",
+            "name": "microservices_db",
+            "description": "Database for microservices"
+          },
+          "cache": {
+            "host": "localhost",
+            "port": 6382,
+            "type": "Redis",
+            "description": "Redis cache for microservices"
+          }
+        },
+        
+        "services": {
+          "apiGateway": {
+            "name": "API Gateway",
+            "url": "http://localhost:8000",
+            "port": 8000,
+            "healthEndpoint": "/health",
+            "description": "API Gateway for microservices"
+          },
+          "auth": {
+            "name": "Auth Service",
+            "url": "http://localhost:8001",
+            "port": 8001,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "login": "/auth/login",
+              "logout": "/auth/logout",
+              "refresh": "/auth/refresh",
+              "verify": "/auth/verify"
+            },
+            "description": "Autentisering og autorisasjon"
+          },
+          "user": {
+            "name": "User Service",
+            "url": "http://localhost:8002",
+            "port": 8002,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "users": "/users",
+              "profile": "/users/profile",
+              "update": "/users/update"
+            },
+            "description": "Brukerhåndtering"
+          },
+          "quiz": {
+            "name": "Quiz Service",
+            "url": "http://localhost:8003",
+            "port": 8003,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "quizzes": "/quizzes",
+              "submit": "/quizzes/submit",
+              "results": "/quizzes/results"
+            },
+            "description": "Quiz-funksjonalitet"
+          },
+          "sikkerhetskontroll": {
+            "name": "Sikkerhetskontroll Service",
+            "url": "http://localhost:8004",
+            "port": 8004,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "kontroller": "/sikkerhetskontroller",
+              "rapport": "/sikkerhetskontroller/rapport",
+              "statistikk": "/sikkerhetskontroller/statistikk"
+            },
+            "description": "Sikkerhetskontroll-system"
+          },
+          "hr": {
+            "name": "HR Service",
+            "url": "http://localhost:8005",
+            "port": 8005,
+            "healthEndpoint": "/health",
+            "description": "HR-tjenester"
+          },
+          "economy": {
+            "name": "Economy Service",
+            "url": "http://localhost:8006",
+            "port": 8006,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "invoices": "/invoices",
+              "payments": "/payments",
+              "reports": "/reports"
+            },
+            "description": "Økonomi og fakturering"
+          },
+          "graphql": {
+            "name": "GraphQL Service",
+            "url": "http://localhost:8007",
+            "port": 8007,
+            "healthEndpoint": "/health",
+            "graphqlEndpoint": "/graphql",
+            "playgroundEndpoint": "/playground",
+            "description": "GraphQL API"
+          },
+          "notification": {
+            "name": "Notification Service",
+            "url": "http://localhost:8008",
+            "port": 8008,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "send": "/notifications/send",
+              "templates": "/notifications/templates",
+              "history": "/notifications/history"
+            },
+            "description": "Varslingstjeneste (Email, SMS, Push)"
+          },
+          "ml": {
+            "name": "ML Service",
+            "url": "http://localhost:8009",
+            "port": 8009,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "predict": "/ml/predict",
+              "train": "/ml/train",
+              "models": "/ml/models"
+            },
+            "description": "Machine Learning tjenester"
+          },
+          "observability": {
+            "name": "Observability Service",
+            "url": "http://localhost:8010",
+            "port": 8010,
+            "healthEndpoint": "/health",
+            "endpoints": {
+              "metrics": "/metrics",
+              "traces": "/traces",
+              "logs": "/logs"
+            },
+            "description": "Overvåkning og logging"
+          },
+          "blockchain": {
+            "name": "Blockchain Service",
+            "url": "http://localhost:8011",
+            "port": 8011,
+            "healthEndpoint": "/health",
+            "description": "Blockchain-integrasjon"
+          },
+          "performanceOptimizer": {
+            "name": "Performance Optimizer",
+            "url": "http://localhost:8012",
+            "port": 8012,
+            "healthEndpoint": "/health",
+            "description": "Ytelsesoptimalisering"
+          },
+          "selfHealing": {
+            "name": "Self-Healing Service",
+            "url": "http://localhost:8013",
+            "port": 8013,
+            "healthEndpoint": "/health",
+            "description": "Selvhelbredende system"
+          },
+          "aiAutoscaler": {
+            "name": "AI Autoscaler",
+            "url": "http://localhost:8014",
+            "port": 8014,
+            "healthEndpoint": "/health",
+            "description": "AI-basert autoskalering"
+          },
+          "chaosEngineering": {
+            "name": "Chaos Engineering",
+            "url": "http://localhost:8015",
+            "port": 8015,
+            "healthEndpoint": "/health",
+            "description": "Chaos testing"
+          },
+          "edgeComputing": {
+            "name": "Edge Computing",
+            "url": "http://localhost:8016",
+            "port": 8016,
+            "healthEndpoint": "/health",
+            "description": "Edge computing tjenester"
+          },
+          "quantumSecurity": {
+            "name": "Quantum Security",
+            "url": "http://localhost:8017",
+            "port": 8017,
+            "healthEndpoint": "/health",
+            "description": "Quantum-sikker kryptering"
+          },
+          "quantumConsciousness": {
+            "name": "Quantum Consciousness",
+            "url": "http://localhost:8021",
+            "port": 8021,
+            "healthEndpoint": "/health",
+            "description": "Quantum AI consciousness"
+          },
+          "sentientConsciousness": {
+            "name": "Sentient Consciousness",
+            "url": "http://localhost:8019",
+            "port": 8019,
+            "healthEndpoint": "/health",
+            "description": "Sentient AI system"
+          },
+          "autonomousOrchestrator": {
+            "name": "Autonomous Orchestrator",
+            "url": "http://localhost:8020",
+            "port": 8020,
+            "healthEndpoint": "/health",
+            "description": "Autonom orkestrering"
+          },
+          "intelligentLearning": {
+            "name": "Intelligent Learning",
+            "url": "http://localhost:8022",
+            "port": 8022,
+            "healthEndpoint": "/health",
+            "description": "Intelligent læringssystem"
+          },
+          "transcendentIntelligence": {
+            "name": "Transcendent Intelligence",
+            "url": "http://localhost:8023",
+            "port": 8023,
+            "healthEndpoint": "/health",
+            "description": "Transcendent AI"
+          },
+          "multiversalCommunication": {
+            "name": "Multiversal Communication",
+            "url": "http://localhost:8024",
+            "port": 8024,
+            "healthEndpoint": "/health",
+            "description": "Multiversal kommunikasjon"
+          },
+          "universeCreation": {
+            "name": "Universe Creation",
+            "url": "http://localhost:8025",
+            "port": 8025,
+            "healthEndpoint": "/health",
+            "description": "Universe creation engine"
+          },
+          "realityManipulation": {
+            "name": "Reality Manipulation",
+            "url": "http://localhost:8026",
+            "port": 8026,
+            "healthEndpoint": "/health",
+            "description": "Reality manipulation system"
+          },
+          "absoluteTranscendence": {
+            "name": "Absolute Transcendence",
+            "url": "http://localhost:8027",
+            "port": 8027,
+            "healthEndpoint": "/health",
+            "description": "Absolute transcendence engine"
+          },
+          "omnipotentReality": {
+            "name": "Omnipotent Reality",
+            "url": "http://localhost:8028",
+            "port": 8028,
+            "healthEndpoint": "/health",
+            "description": "Omnipotent reality control"
+          },
+          "interdimensionalTravel": {
+            "name": "Interdimensional Travel",
+            "url": "http://localhost:8029",
+            "port": 8029,
+            "healthEndpoint": "/health",
+            "description": "Interdimensional travel system"
+          }
+        }
+      }
+    },
+    
+    "production": {
+      "mainApp": {
+        "frontend": {
+          "url": "https://tms.example.com",
+          "port": 443,
+          "description": "Production frontend"
+        },
+        "admin": {
+          "url": "https://admin.tms.example.com",
+          "port": 443,
+          "description": "Production admin portal"
+        },
+        "backend": {
+          "url": "https://api.tms.example.com",
+          "port": 443,
+          "baseApiPath": "/api",
+          "description": "Production API"
+        }
+      }
+    }
+  },
+  
+  "serviceDiscovery": {
+    "enabled": true,
+    "consul": {
+      "host": "localhost",
+      "port": 8500
+    }
+  },
+  
+  "loadBalancing": {
+    "enabled": true,
+    "strategy": "round-robin"
+  },
+  
+  "monitoring": {
+    "prometheus": {
+      "url": "http://localhost:9090",
+      "port": 9090
+    },
+    "grafana": {
+      "url": "http://localhost:3002",
+      "port": 3002
+    }
+  }
+}

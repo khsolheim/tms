@@ -2,8 +2,11 @@
   "devDependencies": {
     "@playwright/test": "^1.52.0",
     "@types/babel__core": "^7.20.5",
-    "@types/node": "^22.15.30",
-    "concurrently": "^8.2.2"
+    "@types/node": "^22.15.32",
+    "axios": "^1.10.0",
+    "chalk": "^5.4.1",
+    "concurrently": "^8.2.2",
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.80.6",
@@ -20,6 +23,8 @@
     "jsonwebtoken": "^9.0.2",
     "react-icons": "4.10.1",
     "redis": "^5.5.6",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "zod": "^3.25.56"
   },
   "scripts": {
@@ -32,6 +37,7 @@
     "test:report": "playwright show-report",
     "client": "npm run dev --prefix=client",
     "server": "npm run dev --prefix=server",
-    "install:all": "npm ci && npm ci --prefix=client && npm ci --prefix=server"
+    "install:all": "npm ci && npm ci --prefix=client && npm ci --prefix=server",
+    "check-servers": "ts-node scripts/check-server-connections.ts"
   }
 }

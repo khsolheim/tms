@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  postgres-microservices:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tms_db
+      POSTGRES_USER: tms_user
+      POSTGRES_PASSWORD: tms_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_microservices_data:/var/lib/postgresql/data
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms_user -d tms_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis-microservices:
+    image: redis:7-alpine
+    ports:
+      - "6382:6379"
+    volumes:
+      - redis_microservices_data:/data
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./microservices/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+      - REDIS_URL=redis://redis-microservices:6379
+    networks:
+      - tms-microservices-network
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+      redis-microservices:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Core Microservices
+  notification-service:
+    build:
+      context: ./microservices/services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      - NODE_ENV=development
+      - PORT=8008
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+      - REDIS_URL=redis://redis-microservices:6379
+    networks:
+      - tms-microservices-network
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+      redis-microservices:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8008/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  economy-service:
+    build:
+      context: ./microservices/services/economy-service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - NODE_ENV=development
+      - PORT=8006
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+      - REDIS_URL=redis://redis-microservices:6379
+    networks:
+      - tms-microservices-network
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+      redis-microservices:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8006/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_microservices_data:
+  redis_microservices_data:
+
+networks:
+  tms-microservices-network:
+    driver: bridge 

@@ -1,0 +1,581 @@
+version: '3.8'
+
+services:
+  # Infrastructure for Microservices
+  postgres-microservices:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tms_db
+      POSTGRES_USER: tms_user
+      POSTGRES_PASSWORD: tms_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_microservices_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms_user -d tms_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis-microservices:
+    image: redis:7-alpine
+    ports:
+      - "6382:6379"
+    volumes:
+      - redis_microservices_data:/data
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./microservices/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=development
+      - PORT=8000
+      - REDIS_URL=redis://redis-microservices:6379
+    depends_on:
+      redis-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Core Services
+  auth-service:
+    build:
+      context: ./microservices/services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ENV=development
+      - PORT=8001
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+      - JWT_SECRET=microservices-secret
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  user-service:
+    build:
+      context: ./microservices/services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - NODE_ENV=development
+      - PORT=8002
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+      - AUTH_SERVICE_URL=http://auth-service:8001
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  quiz-service:
+    build:
+      context: ./microservices/services/quiz-service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - NODE_ENV=development
+      - PORT=8003
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  sikkerhetskontroll-service:
+    build:
+      context: ./microservices/services/sikkerhetskontroll-service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - NODE_ENV=development
+      - PORT=8004
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  hr-service:
+    build:
+      context: ./microservices/services/hr-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - NODE_ENV=development
+      - PORT=8005
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  economy-service:
+    build:
+      context: ./microservices/services/economy-service
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - NODE_ENV=development
+      - PORT=8006
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  graphql-service:
+    build:
+      context: ./microservices/services/graphql-service
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - NODE_ENV=development
+      - PORT=8007
+      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-microservices:5432/tms_db
+    depends_on:
+      postgres-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-service:
+    build:
+      context: ./microservices/services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      - NODE_ENV=development
+      - PORT=8008
+      - REDIS_URL=redis://redis-microservices:6379
+    depends_on:
+      redis-microservices:
+        condition: service_healthy
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ml-service:
+    build:
+      context: ./microservices/services/ml-service
+      dockerfile: Dockerfile
+    ports:
+      - "8009:8009"
+    environment:
+      - NODE_ENV=development
+      - PORT=8009
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  observability-service:
+    build:
+      context: ./microservices/services/observability-service
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      - NODE_ENV=development
+      - PORT=8010
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8010/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Advanced Services
+  blockchain-service:
+    build:
+      context: ./microservices/services/blockchain-service
+      dockerfile: Dockerfile
+    ports:
+      - "8011:8011"
+    environment:
+      - NODE_ENV=development
+      - PORT=8011
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  quantum-consciousness-service:
+    build:
+      context: ./microservices/services/quantum-consciousness-service
+      dockerfile: Dockerfile
+    ports:
+      - "8021:8021"
+    environment:
+      - NODE_ENV=development
+      - PORT=8021
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8021/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ai-autoscaler-service:
+    build:
+      context: ./microservices/services/ai-autoscaler-service
+      dockerfile: Dockerfile
+    ports:
+      - "8030:8030"
+    environment:
+      - NODE_ENV=development
+      - PORT=8030
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8030/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  autonomous-orchestrator-service:
+    build:
+      context: ./microservices/services/autonomous-orchestrator-service
+      dockerfile: Dockerfile
+    ports:
+      - "8031:8031"
+    environment:
+      - NODE_ENV=development
+      - PORT=8031
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8031/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  chaos-engineering-service:
+    build:
+      context: ./microservices/services/chaos-engineering-service
+      dockerfile: Dockerfile
+    ports:
+      - "8032:8032"
+    environment:
+      - NODE_ENV=development
+      - PORT=8032
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8032/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  edge-computing-service:
+    build:
+      context: ./microservices/services/edge-computing-service
+      dockerfile: Dockerfile
+    ports:
+      - "8033:8033"
+    environment:
+      - NODE_ENV=development
+      - PORT=8033
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8033/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  intelligent-learning-service:
+    build:
+      context: ./microservices/services/intelligent-learning-service
+      dockerfile: Dockerfile
+    ports:
+      - "8034:8034"
+    environment:
+      - NODE_ENV=development
+      - PORT=8034
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8034/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  performance-optimizer-service:
+    build:
+      context: ./microservices/services/performance-optimizer-service
+      dockerfile: Dockerfile
+    ports:
+      - "8035:8035"
+    environment:
+      - NODE_ENV=development
+      - PORT=8035
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8035/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  quantum-security-service:
+    build:
+      context: ./microservices/services/quantum-security-service
+      dockerfile: Dockerfile
+    ports:
+      - "8036:8036"
+    environment:
+      - NODE_ENV=development
+      - PORT=8036
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8036/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  self-healing-service:
+    build:
+      context: ./microservices/services/self-healing-service
+      dockerfile: Dockerfile
+    ports:
+      - "8037:8037"
+    environment:
+      - NODE_ENV=development
+      - PORT=8037
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8037/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Ultimate Services
+  sentient-consciousness-service:
+    build:
+      context: ./microservices/services/sentient-consciousness-service
+      dockerfile: Dockerfile
+    ports:
+      - "8040:8040"
+    environment:
+      - NODE_ENV=development
+      - PORT=8040
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8040/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  transcendent-intelligence-service:
+    build:
+      context: ./microservices/services/transcendent-intelligence-service
+      dockerfile: Dockerfile
+    ports:
+      - "8041:8041"
+    environment:
+      - NODE_ENV=development
+      - PORT=8041
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8041/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  absolute-transcendence-service:
+    build:
+      context: ./microservices/services/absolute-transcendence-service
+      dockerfile: Dockerfile
+    ports:
+      - "8042:8042"
+    environment:
+      - NODE_ENV=development
+      - PORT=8042
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8042/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  universe-creation-service:
+    build:
+      context: ./microservices/services/universe-creation-service
+      dockerfile: Dockerfile
+    ports:
+      - "8050:8050"
+    environment:
+      - NODE_ENV=development
+      - PORT=8050
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  omnipotent-reality-service:
+    build:
+      context: ./microservices/services/omnipotent-reality-service
+      dockerfile: Dockerfile
+    ports:
+      - "8051:8051"
+    environment:
+      - NODE_ENV=development
+      - PORT=8051
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8051/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  reality-manipulation-service:
+    build:
+      context: ./microservices/services/reality-manipulation-service
+      dockerfile: Dockerfile
+    ports:
+      - "8052:8052"
+    environment:
+      - NODE_ENV=development
+      - PORT=8052
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8052/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  interdimensional-travel-service:
+    build:
+      context: ./microservices/services/interdimensional-travel-service
+      dockerfile: Dockerfile
+    ports:
+      - "8053:8053"
+    environment:
+      - NODE_ENV=development
+      - PORT=8053
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  multiversal-communication-service:
+    build:
+      context: ./microservices/services/multiversal-communication-service
+      dockerfile: Dockerfile
+    ports:
+      - "8054:8054"
+    environment:
+      - NODE_ENV=development
+      - PORT=8054
+    networks:
+      - tms-microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8054/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  tms-microservices-network:
+    driver: bridge
+
+volumes:
+  postgres_microservices_data:
+  redis_microservices_data: 

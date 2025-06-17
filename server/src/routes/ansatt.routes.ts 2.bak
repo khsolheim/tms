@@ -1,0 +1,618 @@
+import { Router, Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { verifyToken, sjekkRolle, AuthRequest } from '../middleware/auth';
+import logger, { auditLog } from '../utils/logger';
+import { NotFoundError, ConflictError, ValidationError, ForbiddenError, AuthError } from '../utils/errors';
+import { asyncHandler } from '../middleware/errorHandler';
+import { validate } from '../middleware/validation';
+import {
+  ansattRegistrerSchema,
+  endrePassordSchema,
+  oppdaterAnsattProfilSchema,
+  adminOppdaterAnsattSchema,
+  slettAnsattSchema,
+  hentAnsatteBedriftSchema,
+  adminOppdaterTilgangerSchema,
+  impersonerBrukerSchema
+} from '../validation/ansatt.validation';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Hent brukerens egne data
+router.get("/profile", verifyToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const bruker = await prisma.ansatt.findUnique({
+    where: { id: req.bruker!.id },
+    include: { bedrift: true }
+  });
+
+  if (!bruker) {
+    throw new NotFoundError('Bruker', req.bruker!.id);
+  }
+
+  res.json({
+    id: bruker.id,
+    fornavn: bruker.fornavn,
+    etternavn: bruker.etternavn,
+    epost: bruker.epost,
+    rolle: bruker.rolle,
+    tilganger: bruker.tilganger,
+    bedrift: bruker.bedrift,
+    bedriftId: bruker.bedriftId,
+    telefon: bruker.telefon,
+    adresse: bruker.adresse,
+    postnummer: bruker.postnummer,
+    poststed: bruker.poststed
+  });
+}));
+
+// Endre passord
+router.post("/change-password", 
+  verifyToken,
+  validate(endrePassordSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { gammeltPassord, nyttPassord } = req.body;
+
+    const bruker = await prisma.ansatt.findUnique({
+      where: { id: req.bruker!.id }
+    });
+
+    if (!bruker) {
+      throw new NotFoundError('Bruker', req.bruker!.id);
+    }
+
+    // Verifiser gammelt passord
+    const passordMatch = await bcrypt.compare(gammeltPassord, bruker.passordHash);
+    if (!passordMatch) {
+      throw new AuthError('Feil passord');
+    }
+
+    // Hash nytt passord
+    const nyttPassordHash = await bcrypt.hash(nyttPassord, 10);
+
+    // Oppdater passord
+    await prisma.ansatt.update({
+      where: { id: req.bruker!.id },
+      data: { passordHash: nyttPassordHash }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'CHANGE_PASSWORD',
+      'Ansatt',
+      { ansattId: req.bruker!.id }
+    );
+
+    logger.info('Passord endret', {
+      userId: req.bruker!.id
+    });
+
+    res.json({ success: true, message: "Passord endret" });
+  })
+);
+
+// List available endpoints
+router.get("/", verifyToken, (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: "Ansatt API",
+    endpoints: [
+      "GET /profile - Get current user profile",
+      "GET /:id - Get employee by ID", 
+      "POST /create - Create new employee",
+      "POST /change-password - Change password",
+      "PUT /:id - Update employee",
+      "GET /bedrift/:id - Get employees for company"
+    ]
+  });
+});
+
+// Hent ansatt etter ID
+router.get("/:id", 
+  verifyToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ansattId = Number(req.params.id);
+    
+    if (!ansattId || isNaN(ansattId)) {
+      throw new ValidationError('Ugyldig ansatt-ID');
+    }
+
+    // Hent ansatt
+    const ansatt = await prisma.ansatt.findUnique({
+      where: { id: ansattId },
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        telefon: true,
+        adresse: true,
+        postnummer: true,
+        poststed: true,
+        rolle: true,
+        bedriftId: true,
+        klasser: true,
+        kjoretoy: true,
+                  hovedkjoretoy: true,
+        opprettet: true,
+        oppdatert: true
+      }
+    });
+
+    if (!ansatt) {
+      throw new NotFoundError('Ansatt', ansattId);
+    }
+
+    // Sjekk tilgang - kun admin, samme bedrift, eller seg selv
+    if (req.bruker!.rolle !== 'ADMIN' && 
+        req.bruker!.id !== ansattId &&
+        req.bruker!.bedriftId !== ansatt.bedriftId) {
+      throw new ForbiddenError('Ikke tilgang til denne ansatten');
+    }
+
+    res.json(ansatt);
+  })
+);
+
+// Opprett ny ansatt
+router.post("/create", 
+  verifyToken, 
+  validate(ansattRegistrerSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { fornavn, etternavn, epost, telefon, bedriftId, passord, rolle, adresse, postnummer, poststed, klasser, kjoretoy, hovedkjoretoy } = req.body;
+    
+    logger.info('Oppretter ny ansatt', {
+      epost,
+      bedriftId,
+      userId: req.bruker!.id
+    });
+
+    // Sjekk om dette er første ansatt for bedriften (blir hovedbruker)
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: Number(bedriftId) },
+      include: {
+        ansatte: true,
+        hovedbruker: true,
+        klasser: true
+      }
+    });
+
+    if (!bedrift) {
+      throw new NotFoundError('Bedrift', bedriftId);
+    }
+
+    // Sjekk om e-post allerede eksisterer
+    const eksisterendeAnsatt = await prisma.ansatt.findUnique({
+      where: { epost }
+    });
+
+    if (eksisterendeAnsatt) {
+      throw new ConflictError('En ansatt med denne e-postadressen eksisterer allerede');
+    }
+
+    // Hash passordet
+    const passordHash = await bcrypt.hash(passord, 10);
+
+    // Opprett ansatt med riktig rolle
+    const ansatt = await prisma.ansatt.create({
+      data: {
+        fornavn: fornavn.trim(),
+        etternavn: etternavn.trim(),
+        epost: epost.trim(),
+        telefon: telefon ? telefon.replace(/\s/g, '') : null,
+        adresse: adresse?.trim() || null,
+        postnummer: postnummer || null,
+        poststed: poststed?.trim() || null,
+        passordHash,
+        rolle: rolle || (bedrift.ansatte.length === 0 ? 'HOVEDBRUKER' : 'TRAFIKKLARER'),
+        bedriftId: bedriftId,
+        klasser: klasser || [],
+        kjoretoy: kjoretoy || [],
+        hovedkjoretoy: hovedkjoretoy || null
+      }
+    });
+
+    // Hvis dette er første ansatt, sett som hovedbruker
+    if (bedrift.ansatte.length === 0) {
+      await prisma.bedrift.update({
+        where: { id: bedriftId },
+        data: { hovedbrukerId: ansatt.id }
+      });
+    }
+
+    auditLog(
+      req.bruker!.id,
+      'CREATE_ANSATT',
+      'Ansatt',
+      {
+        ansattId: ansatt.id,
+        epost: ansatt.epost,
+        bedriftId: ansatt.bedriftId
+      }
+    );
+
+    logger.info('Ansatt opprettet vellykket', {
+      ansattId: ansatt.id,
+      epost: ansatt.epost
+    });
+
+    res.status(201).json(ansatt);
+  })
+);
+
+// Oppdater ansatt
+router.put("/:id", 
+  verifyToken, 
+  validate(adminOppdaterAnsattSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ansattId = Number(req.params.id);
+    const { fornavn, etternavn, epost, telefon, rolle, passord, adresse, postnummer, poststed, klasser, kjoretoy, hovedkjoretoy } = req.body;
+    
+    logger.info('Oppdaterer ansatt', {
+      ansattId,
+      userId: req.bruker!.id
+    });
+
+    // Hent ansatt for å sjekke tilgang
+    const eksisterendeAnsatt = await prisma.ansatt.findUnique({
+      where: { id: ansattId },
+      include: { bedrift: true }
+    });
+
+    if (!eksisterendeAnsatt) {
+      throw new NotFoundError('Ansatt', ansattId);
+    }
+
+    // Sjekk tilgang - kun admin, hovedbruker i samme bedrift, eller ansatt kan oppdatere seg selv
+    if (req.bruker!.rolle !== 'ADMIN' && 
+        req.bruker!.id !== ansattId &&
+        (req.bruker!.rolle !== 'HOVEDBRUKER' || req.bruker!.bedriftId !== eksisterendeAnsatt.bedriftId)) {
+      throw new ForbiddenError('Ikke tilgang til å oppdatere denne ansatten');
+    }
+
+    // Sjekk om e-postadressen er i bruk av en annen ansatt
+    if (epost && epost !== eksisterendeAnsatt.epost) {
+      const eksisterendeEpost = await prisma.ansatt.findUnique({
+        where: { epost }
+      });
+
+      if (eksisterendeEpost) {
+        throw new ConflictError('En ansatt med denne e-postadressen eksisterer allerede');
+      }
+    }
+
+    // Valider rolle endring - kun admin eller hovedbruker kan endre roller
+    if (rolle && rolle !== eksisterendeAnsatt.rolle) {
+      if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.rolle !== 'HOVEDBRUKER') {
+        throw new ForbiddenError('Ikke tilgang til å endre rolle');
+      }
+    }
+
+    // Bygg data for oppdatering
+    const updateData: any = {};
+    
+    if (fornavn) updateData.fornavn = fornavn.trim();
+    if (etternavn) updateData.etternavn = etternavn.trim();
+    if (epost) updateData.epost = epost.trim();
+    if (telefon !== undefined) updateData.telefon = telefon ? telefon.replace(/\s/g, '') : null;
+    if (adresse !== undefined) updateData.adresse = adresse?.trim() || null;
+    if (postnummer !== undefined) updateData.postnummer = postnummer || null;
+    if (poststed !== undefined) updateData.poststed = poststed?.trim() || null;
+    if (klasser !== undefined) updateData.klasser = klasser || [];
+    if (kjoretoy !== undefined) updateData.kjoretoy = kjoretoy || [];
+    if (hovedkjoretoy !== undefined) updateData.hovedkjoretoy = hovedkjoretoy || null;
+
+    // Legg til rolle hvis den skal endres
+    if (rolle && rolle !== eksisterendeAnsatt.rolle) {
+      updateData.rolle = rolle;
+    }
+
+    // Hash nytt passord hvis oppgitt
+    if (passord) {
+      updateData.passordHash = await bcrypt.hash(passord, 10);
+    }
+
+    const oppdatertAnsatt = await prisma.ansatt.update({
+      where: { id: ansattId },
+      data: updateData,
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        telefon: true,
+        rolle: true,
+        bedriftId: true,
+        opprettet: true,
+        oppdatert: true
+      }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'UPDATE_ANSATT',
+      'Ansatt',
+      {
+        ansattId: oppdatertAnsatt.id,
+        changes: updateData
+      }
+    );
+
+    logger.info('Ansatt oppdatert vellykket', {
+      ansattId: oppdatertAnsatt.id
+    });
+
+    res.json(oppdatertAnsatt);
+  })
+);
+
+// Slett ansatt
+router.delete("/:id", 
+  verifyToken, 
+  validate(slettAnsattSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ansattId = Number(req.params.id);
+    
+    logger.info('Sletter ansatt', {
+      ansattId,
+      userId: req.bruker!.id
+    });
+
+    // Hent ansatt for å få bedrift info og relaterte data
+    const ansatt = await prisma.ansatt.findUnique({
+      where: { id: ansattId },
+      include: { 
+        bedrift: {
+          include: {
+            ansatte: true
+          }
+        }
+      }
+    });
+
+    if (!ansatt) {
+      throw new NotFoundError('Ansatt', ansattId);
+    }
+
+    // Sjekk tilgang - kun admin eller hovedbruker i samme bedrift kan slette ansatte
+    if (req.bruker!.rolle !== 'ADMIN' && 
+        (req.bruker!.rolle !== 'HOVEDBRUKER' || req.bruker!.bedriftId !== ansatt.bedriftId)) {
+      throw new ForbiddenError('Ikke tilgang til å slette denne ansatten');
+    }
+
+    // Kan ikke slette seg selv
+    if (req.bruker!.id === ansattId) {
+      throw new ValidationError('Du kan ikke slette deg selv');
+    }
+
+    // Kan ikke slette hovedbruker hvis det er andre ansatte
+    if (ansatt.rolle === 'HOVEDBRUKER' && ansatt.bedrift?.ansatte && ansatt.bedrift.ansatte.length > 1) {
+      throw new ValidationError('Kan ikke slette hovedbruker når det finnes andre ansatte. Overfør hovedbrukerrolle først.');
+    }
+
+    // Sjekk om ansatt har relaterte data - for nå tillater vi sletting
+    // I fremtiden kan vi implementere sjekk for relaterte data
+
+    await prisma.ansatt.delete({
+      where: { id: ansattId }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'DELETE_ANSATT',
+      'Ansatt',
+      {
+        slettetAnsattId: ansattId,
+        slettetAnsattEpost: ansatt.epost
+      }
+    );
+
+    logger.info('Ansatt slettet vellykket', {
+      slettetAnsattId: ansattId
+    });
+
+    res.json({ success: true, message: "Ansatt slettet" });
+  })
+);
+
+// Hent ansatte for en bedrift
+router.get("/bedrift/:id", 
+  verifyToken, 
+  validate(hentAnsatteBedriftSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = Number(req.params.id);
+    
+    logger.info('Henter ansatte for bedrift', {
+      bedriftId,
+      userId: req.bruker!.id
+    });
+    
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw new ForbiddenError('Ikke tilgang til denne bedriften');
+    }
+    
+    const ansatte = await prisma.ansatt.findMany({
+      where: { bedriftId },
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        telefon: true,
+        rolle: true
+      },
+      orderBy: { fornavn: 'asc' }
+    });
+    
+    res.json(ansatte);
+  })
+);
+
+// Admin-funksjoner for brukeradministrasjon
+router.get("/admin/brukere", 
+  verifyToken, 
+  sjekkRolle(['ADMIN']), 
+  asyncHandler(async (_req: Request, res: Response) => {
+    logger.info('Admin henter alle brukere');
+    
+    const brukere = await prisma.ansatt.findMany({
+      include: { bedrift: true }
+    });
+    res.json(brukere);
+  })
+);
+
+router.put("/admin/brukere/:id/tilganger", 
+  verifyToken, 
+  sjekkRolle(['ADMIN']), 
+  validate(adminOppdaterTilgangerSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { tilganger } = req.body;
+    const brukerId = Number(req.params.id);
+
+    logger.info('Admin oppdaterer tilganger', {
+      brukerId,
+      tilganger
+    });
+
+    const bruker = await prisma.ansatt.update({
+      where: { id: brukerId },
+      data: { tilganger },
+      include: { bedrift: true }
+    });
+
+    auditLog(
+      brukerId, // Assuming this is the admin user - may need to get from req if available
+      'UPDATE_USER_PERMISSIONS',
+      'Ansatt',
+      {
+        targetUserId: brukerId,
+        newTilganger: tilganger
+      }
+    );
+
+    res.json(bruker);
+  })
+);
+
+// Impersonering
+router.post("/auth/impersonate/:id", 
+  verifyToken, 
+  sjekkRolle(['ADMIN']), 
+  validate(impersonerBrukerSchema),
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const targetUserId = Number(req.params.id);
+
+    logger.info('Admin starter impersonering', {
+      adminId: req.bruker!.id,
+      targetUserId
+    });
+
+    const targetUser = await prisma.ansatt.findUnique({
+      where: { id: targetUserId },
+      include: { bedrift: true }
+    });
+
+    if (!targetUser) {
+      throw new NotFoundError('Bruker', targetUserId);
+    }
+
+    // Generer ny token med original bruker ID som metadata
+    const token = jwt.sign(
+      { 
+        id: targetUser.id,
+        epost: targetUser.epost,
+        rolle: targetUser.rolle,
+        bedriftId: targetUser.bedriftId,
+        originalUserId: req.bruker!.id,
+        isImpersonating: true
+      },
+      process.env.JWT_SECRET || 'dev-secret',
+      { expiresIn: '1h' }
+    );
+
+    auditLog(
+      req.bruker!.id,
+      'START_IMPERSONATION',
+      'Ansatt',
+      {
+        targetUserId: targetUser.id,
+        targetUserEpost: targetUser.epost
+      }
+    );
+
+    res.json({
+      token,
+      bruker: {
+        id: targetUser.id,
+        navn: `${targetUser.fornavn} ${targetUser.etternavn}`,
+        epost: targetUser.epost,
+        rolle: targetUser.rolle,
+        tilganger: targetUser.tilganger,
+        bedrift: targetUser.bedrift,
+        isImpersonating: true
+      }
+    });
+  })
+);
+
+router.post("/auth/stop-impersonate", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    if (!req.bruker?.originalUserId) {
+      throw new ValidationError('Ikke i impersoneringsmodus');
+    }
+
+    logger.info('Stopper impersonering', {
+      impersonatedUserId: req.bruker!.id,
+      originalUserId: req.bruker.originalUserId
+    });
+
+    const originalUser = await prisma.ansatt.findUnique({
+      where: { id: req.bruker.originalUserId },
+      include: { bedrift: true }
+    });
+
+    if (!originalUser) {
+      throw new NotFoundError('Original bruker', req.bruker.originalUserId);
+    }
+
+    // Generer ny token for original bruker
+    const token = jwt.sign(
+      { 
+        id: originalUser.id,
+        epost: originalUser.epost,
+        rolle: originalUser.rolle,
+        bedriftId: originalUser.bedriftId
+      },
+      process.env.JWT_SECRET || 'dev-secret',
+      { expiresIn: '7d' }
+    );
+
+    auditLog(
+      originalUser.id,
+      'STOP_IMPERSONATION',
+      'Ansatt',
+      {
+        impersonatedUserId: req.bruker!.id
+      }
+    );
+
+    res.json({
+      token,
+      bruker: {
+        id: originalUser.id,
+        navn: `${originalUser.fornavn} ${originalUser.etternavn}`,
+        epost: originalUser.epost,
+        rolle: originalUser.rolle,
+        tilganger: originalUser.tilganger,
+        bedrift: originalUser.bedrift
+      }
+    });
+  })
+);
+
+export default router; 

@@ -1,0 +1,272 @@
+import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { verifyToken } from '../../middleware/auth';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Middleware for admin-only access
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (!req.bruker || req.bruker.rolle !== 'ADMIN') {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Kun administratorer har tilgang til denne funksjonen' 
+    });
+  }
+  next();
+};
+
+// GET /api/admin/services - Hent alle tjenester
+router.get('/', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const services = await prisma.service.findMany({
+      include: {
+        bedriftServices: {
+          include: {
+            bedrift: {
+              select: { id: true, navn: true }
+            }
+          }
+        },
+        _count: {
+          select: {
+            bedriftServices: {
+              where: { isActive: true }
+            }
+          }
+        }
+      },
+      orderBy: { navn: 'asc' }
+    });
+
+    const servicesWithStats = services.map((service: any) => ({
+      ...service,
+      activeBedrifter: service._count.bedriftServices
+    }));
+
+    res.json({
+      success: true,
+      data: servicesWithStats
+    });
+  } catch (error) {
+    console.error('Feil ved henting av tjenester:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente tjenester'
+    });
+  }
+});
+
+// POST /api/admin/services - Opprett ny tjeneste
+router.post('/', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { navn, type, beskrivelse, status, versjon } = req.body;
+
+    if (!navn || !type || !beskrivelse) {
+      return res.status(400).json({
+        success: false,
+        error: 'Navn, type og beskrivelse er påkrevd'
+      });
+    }
+
+    const service = await prisma.service.create({
+      data: {
+        navn,
+        type,
+        beskrivelse,
+        status: status || 'ACTIVE',
+        versjon: versjon || '1.0.0'
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      data: service
+    });
+  } catch (error) {
+    console.error('Feil ved opprettelse av tjeneste:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke opprette tjeneste'
+    });
+  }
+});
+
+// PUT /api/admin/services/:id - Oppdater tjeneste
+router.put('/:id', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { navn, type, beskrivelse, status, versjon } = req.body;
+
+    const service = await prisma.service.update({
+      where: { id: Number(id) },
+      data: {
+        navn,
+        type,
+        beskrivelse,
+        status,
+        versjon
+      }
+    });
+
+    res.json({
+      success: true,
+      data: service
+    });
+  } catch (error) {
+    console.error('Feil ved oppdatering av tjeneste:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke oppdatere tjeneste'
+    });
+  }
+});
+
+// GET /api/admin/services/:id/bedrifter - Hent bedrifter som bruker tjenesten
+router.get('/:id/bedrifter', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+
+    const bedriftServices = await prisma.bedriftService.findMany({
+      where: { serviceId: Number(id) },
+      include: {
+        bedrift: {
+          select: {
+            id: true,
+            navn: true,
+            organisasjonsnummer: true,
+            epost: true
+          }
+        },
+        activatedByUser: {
+          select: {
+            id: true,
+            fornavn: true,
+            etternavn: true
+          }
+        }
+      },
+      orderBy: { activatedAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: bedriftServices
+    });
+  } catch (error) {
+    console.error('Feil ved henting av bedrifter for tjeneste:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente bedrifter'
+    });
+  }
+});
+
+// POST /api/admin/services/:serviceId/bedrifter/:bedriftId/activate - Aktiver tjeneste for bedrift
+router.post('/:serviceId/bedrifter/:bedriftId/activate', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { serviceId, bedriftId } = req.params;
+
+    // Sjekk om tjenesten allerede er aktiv
+    const existing = await prisma.bedriftService.findUnique({
+      where: {
+        bedriftId_serviceId: {
+          bedriftId: Number(bedriftId),
+          serviceId: Number(serviceId)
+        }
+      }
+    });
+
+    if (existing) {
+      if (existing.isActive) {
+        return res.status(400).json({
+          success: false,
+          error: 'Tjenesten er allerede aktiv for denne bedriften'
+        });
+      }
+
+      // Reaktiver tjenesten
+      const updated = await prisma.bedriftService.update({
+        where: { id: existing.id },
+        data: {
+          isActive: true,
+          activatedAt: new Date(),
+          activatedBy: req.bruker.id,
+          deactivatedAt: null,
+          deactivatedBy: null
+        }
+      });
+
+      return res.json({
+        success: true,
+        data: updated
+      });
+    }
+
+    // Opprett ny aktivering
+    const bedriftService = await prisma.bedriftService.create({
+      data: {
+        bedriftId: Number(bedriftId),
+        serviceId: Number(serviceId),
+        isActive: true,
+        activatedBy: req.bruker.id
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      data: bedriftService
+    });
+  } catch (error) {
+    console.error('Feil ved aktivering av tjeneste:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke aktivere tjeneste'
+    });
+  }
+});
+
+// POST /api/admin/services/:serviceId/bedrifter/:bedriftId/deactivate - Deaktiver tjeneste for bedrift
+router.post('/:serviceId/bedrifter/:bedriftId/deactivate', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { serviceId, bedriftId } = req.params;
+
+    const bedriftService = await prisma.bedriftService.findUnique({
+      where: {
+        bedriftId_serviceId: {
+          bedriftId: Number(bedriftId),
+          serviceId: Number(serviceId)
+        }
+      }
+    });
+
+    if (!bedriftService || !bedriftService.isActive) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tjenesten er ikke aktiv for denne bedriften'
+      });
+    }
+
+    const updated = await prisma.bedriftService.update({
+      where: { id: bedriftService.id },
+      data: {
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedBy: req.bruker.id
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Feil ved deaktivering av tjeneste:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke deaktivere tjeneste'
+    });
+  }
+});
+
+export default router; 

@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Infrastructure only
+  postgres-minimal:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tms_db
+      POSTGRES_USER: tms_user
+      POSTGRES_PASSWORD: tms_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_minimal_data:/var/lib/postgresql/data
+    networks:
+      - tms-minimal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms_user -d tms_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis-minimal:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_minimal_data:/data
+    networks:
+      - tms-minimal-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+
+  # Simple test microservice
+  notification-service-minimal:
+    build:
+      context: ./microservices/services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "8008:8008"
+    environment:
+      - NODE_ENV=development
+      - PORT=8008
+      - LOG_LEVEL=info
+    networks:
+      - tms-minimal-network
+    depends_on:
+      postgres-minimal:
+        condition: service_healthy
+      redis-minimal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8008/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_minimal_data:
+  redis_minimal_data:
+
+networks:
+  tms-minimal-network:
+    driver: bridge 

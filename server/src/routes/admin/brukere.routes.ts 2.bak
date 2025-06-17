@@ -1,0 +1,553 @@
+import { Router } from 'express';
+import { verifyToken, sjekkRolle, AuthRequest } from '../../middleware/auth';
+
+const router = Router();
+
+// Mock data for brukere
+const mockBrukere = [
+  {
+    id: 1,
+    fornavn: 'Ola',
+    etternavn: 'Nordmann',
+    epost: 'ola.nordmann@bedrift1.no',
+    telefon: '+47 123 45 678',
+    rolle: 'HOVEDBRUKER',
+    status: 'ACTIVE',
+    bedriftId: 1,
+    bedrift: {
+      id: 1,
+      navn: 'Bedrift AS',
+      organisasjonsnummer: '123456789'
+    },
+    tofaAktivert: true,
+    sistInnlogget: '2024-01-15T10:30:00Z',
+    opprettet: '2024-01-01T08:00:00Z',
+    sistOppdatert: '2024-01-15T10:30:00Z',
+    tilganger: ['sikkerhetskontroll', 'rapporter']
+  },
+  {
+    id: 2,
+    fornavn: 'Kari',
+    etternavn: 'Hansen',
+    epost: 'kari.hansen@bedrift2.no',
+    telefon: '+47 987 65 432',
+    rolle: 'ANSATT',
+    status: 'ACTIVE',
+    bedriftId: 2,
+    bedrift: {
+      id: 2,
+      navn: 'Transport Norge AS',
+      organisasjonsnummer: '987654321'
+    },
+    tofaAktivert: false,
+    sistInnlogget: '2024-01-14T16:45:00Z',
+    opprettet: '2024-01-05T09:15:00Z',
+    sistOppdatert: '2024-01-14T16:45:00Z',
+    tilganger: ['sikkerhetskontroll']
+  },
+  {
+    id: 3,
+    fornavn: 'Per',
+    etternavn: 'Johansen',
+    epost: 'per.johansen@bedrift1.no',
+    telefon: '+47 555 12 345',
+    rolle: 'ELEV',
+    status: 'PENDING',
+    bedriftId: 1,
+    bedrift: {
+      id: 1,
+      navn: 'Bedrift AS',
+      organisasjonsnummer: '123456789'
+    },
+    tofaAktivert: false,
+    sistInnlogget: null,
+    opprettet: '2024-01-10T12:00:00Z',
+    sistOppdatert: '2024-01-10T12:00:00Z',
+    tilganger: []
+  },
+  {
+    id: 4,
+    fornavn: 'Anne',
+    etternavn: 'Larsen',
+    epost: 'anne.larsen@admin.no',
+    telefon: '+47 111 22 333',
+    rolle: 'ADMIN',
+    status: 'ACTIVE',
+    bedriftId: null,
+    bedrift: null,
+    tofaAktivert: true,
+    sistInnlogget: '2024-01-15T11:00:00Z',
+    opprettet: '2023-12-01T08:00:00Z',
+    sistOppdatert: '2024-01-15T11:00:00Z',
+    tilganger: ['admin', 'all_access']
+  },
+  {
+    id: 5,
+    fornavn: 'Lars',
+    etternavn: 'Andersen',
+    epost: 'lars.andersen@bedrift3.no',
+    telefon: '+47 444 55 666',
+    rolle: 'ANSATT',
+    status: 'LOCKED',
+    bedriftId: 3,
+    bedrift: {
+      id: 3,
+      navn: 'Sikkerhet Pro AS',
+      organisasjonsnummer: '555666777'
+    },
+    tofaAktivert: false,
+    sistInnlogget: '2024-01-12T14:20:00Z',
+    opprettet: '2024-01-03T10:30:00Z',
+    sistOppdatert: '2024-01-13T09:15:00Z',
+    tilganger: ['sikkerhetskontroll']
+  },
+  {
+    id: 6,
+    fornavn: 'Maria',
+    etternavn: 'Olsen',
+    epost: 'maria.olsen@bedrift2.no',
+    telefon: '+47 777 88 999',
+    rolle: 'HOVEDBRUKER',
+    status: 'ACTIVE',
+    bedriftId: 2,
+    bedrift: {
+      id: 2,
+      navn: 'Transport Norge AS',
+      organisasjonsnummer: '987654321'
+    },
+    tofaAktivert: true,
+    sistInnlogget: '2024-01-15T09:45:00Z',
+    opprettet: '2023-12-15T11:00:00Z',
+    sistOppdatert: '2024-01-15T09:45:00Z',
+    tilganger: ['sikkerhetskontroll', 'rapporter', 'admin']
+  },
+  {
+    id: 7,
+    fornavn: 'Erik',
+    etternavn: 'Nilsen',
+    epost: 'erik.nilsen@bedrift1.no',
+    telefon: '+47 222 33 444',
+    rolle: 'ELEV',
+    status: 'ACTIVE',
+    bedriftId: 1,
+    bedrift: {
+      id: 1,
+      navn: 'Bedrift AS',
+      organisasjonsnummer: '123456789'
+    },
+    tofaAktivert: false,
+    sistInnlogget: '2024-01-14T13:30:00Z',
+    opprettet: '2024-01-08T14:15:00Z',
+    sistOppdatert: '2024-01-14T13:30:00Z',
+    tilganger: []
+  },
+  {
+    id: 8,
+    fornavn: 'Ingrid',
+    etternavn: 'Berg',
+    epost: 'ingrid.berg@superadmin.no',
+    telefon: '+47 999 88 777',
+    rolle: 'SUPER_ADMIN',
+    status: 'ACTIVE',
+    bedriftId: null,
+    bedrift: null,
+    tofaAktivert: true,
+    sistInnlogget: '2024-01-15T12:15:00Z',
+    opprettet: '2023-11-01T08:00:00Z',
+    sistOppdatert: '2024-01-15T12:15:00Z',
+    tilganger: ['super_admin', 'all_access', 'system_config']
+  }
+];
+
+// GET /admin/brukere - Hent alle brukere med paginering
+router.get('/', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string;
+    const status = req.query.status as string;
+    const rolle = req.query.rolle as string;
+    const tofaAktivert = req.query.tofaAktivert as string;
+
+    let filteredBrukere = [...mockBrukere];
+
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredBrukere = filteredBrukere.filter(bruker =>
+        bruker.fornavn.toLowerCase().includes(searchLower) ||
+        bruker.etternavn.toLowerCase().includes(searchLower) ||
+        bruker.epost.toLowerCase().includes(searchLower) ||
+        (bruker.bedrift?.navn.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply status filter
+    if (status) {
+      filteredBrukere = filteredBrukere.filter(bruker => bruker.status === status);
+    }
+
+    // Apply rolle filter
+    if (rolle) {
+      filteredBrukere = filteredBrukere.filter(bruker => bruker.rolle === rolle);
+    }
+
+    // Apply 2FA filter
+    if (tofaAktivert) {
+      const is2FAEnabled = tofaAktivert === 'true';
+      filteredBrukere = filteredBrukere.filter(bruker => bruker.tofaAktivert === is2FAEnabled);
+    }
+
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedBrukere = filteredBrukere.slice(startIndex, endIndex);
+
+    res.json({
+      data: paginatedBrukere,
+      pagination: {
+        page,
+        limit,
+        total: filteredBrukere.length,
+        totalPages: Math.ceil(filteredBrukere.length / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching brukere:', error);
+    res.status(500).json({ error: 'Feil ved henting av brukere' });
+  }
+});
+
+// GET /admin/brukere/:id - Hent spesifikk bruker
+router.get('/:id', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    res.json(bruker);
+  } catch (error) {
+    console.error('Error fetching bruker:', error);
+    res.status(500).json({ error: 'Feil ved henting av bruker' });
+  }
+});
+
+// POST /admin/brukere/:id/actions - Utfør handling på bruker
+router.post('/:id/actions', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { action } = req.body;
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    switch (action) {
+      case 'activate':
+        bruker.status = 'ACTIVE';
+        break;
+      case 'deactivate':
+        bruker.status = 'INACTIVE';
+        break;
+      case 'lock':
+        bruker.status = 'LOCKED';
+        break;
+      case 'unlock':
+        bruker.status = 'ACTIVE';
+        break;
+      case 'resetPassword':
+        // Mock password reset
+        console.log(`Password reset for user ${bruker.epost}`);
+        break;
+      case 'delete':
+        const index = mockBrukere.findIndex(b => b.id === id);
+        if (index > -1) {
+          mockBrukere.splice(index, 1);
+        }
+        return res.json({ message: 'Bruker slettet' });
+      default:
+        return res.status(400).json({ error: 'Ugyldig handling' });
+    }
+
+    bruker.sistOppdatert = new Date().toISOString();
+    res.json({ message: `Handling ${action} utført på bruker ${bruker.fornavn} ${bruker.etternavn}` });
+  } catch (error) {
+    console.error('Error performing bruker action:', error);
+    res.status(500).json({ error: 'Feil ved utføring av handling' });
+  }
+});
+
+// GET /admin/brukere/:id/activity - Hent brukeraktivitet
+router.get('/:id/activity', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    // Mock activity data
+    const activities = [
+      {
+        id: '1',
+        type: 'login',
+        description: 'Logget inn fra Chrome på Windows',
+        timestamp: '2024-01-15T10:30:00Z',
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      {
+        id: '2',
+        type: 'action',
+        description: 'Opprettet ny sikkerhetskontroll',
+        timestamp: '2024-01-15T09:45:00Z',
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      {
+        id: '3',
+        type: 'logout',
+        description: 'Logget ut',
+        timestamp: '2024-01-14T17:00:00Z',
+        ipAddress: '192.168.1.100',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    ];
+
+    res.json(activities);
+  } catch (error) {
+    console.error('Error fetching bruker activity:', error);
+    res.status(500).json({ error: 'Feil ved henting av brukeraktivitet' });
+  }
+});
+
+// GET /admin/brukere/:id/sessions - Hent aktive sesjoner
+router.get('/:id/sessions', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    // Mock session data
+    const sessions = [
+      {
+        id: 'session_1',
+        device: 'Chrome på Windows',
+        ipAddress: '192.168.1.100',
+        location: 'Oslo, Norge',
+        lastActivity: '2024-01-15T10:30:00Z',
+        isCurrentSession: true
+      },
+      {
+        id: 'session_2',
+        device: 'Safari på iPhone',
+        ipAddress: '192.168.1.101',
+        location: 'Oslo, Norge',
+        lastActivity: '2024-01-14T20:15:00Z',
+        isCurrentSession: false
+      }
+    ];
+
+    res.json(sessions);
+  } catch (error) {
+    console.error('Error fetching bruker sessions:', error);
+    res.status(500).json({ error: 'Feil ved henting av sesjoner' });
+  }
+});
+
+// DELETE /admin/brukere/:id/sessions/:sessionId - Avslutt sesjon
+router.delete('/:id/sessions/:sessionId', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const sessionId = req.params.sessionId;
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    console.log(`Revoking session ${sessionId} for user ${bruker.epost}`);
+    res.json({ message: 'Sesjon avsluttet' });
+  } catch (error) {
+    console.error('Error revoking session:', error);
+    res.status(500).json({ error: 'Feil ved avslutting av sesjon' });
+  }
+});
+
+// GET /admin/brukere/roles - Hent tilgjengelige roller
+router.get('/roles', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const roles = [
+      { id: 'SUPER_ADMIN', name: 'Super Administrator', description: 'Full systemtilgang' },
+      { id: 'ADMIN', name: 'Administrator', description: 'Administrativ tilgang' },
+      { id: 'HOVEDBRUKER', name: 'Hovedbruker', description: 'Bedriftens hovedbruker' },
+      { id: 'ANSATT', name: 'Ansatt', description: 'Vanlig ansatt' },
+      { id: 'ELEV', name: 'Elev', description: 'Elev under opplæring' }
+    ];
+
+    res.json(roles);
+  } catch (error) {
+    console.error('Error fetching roles:', error);
+    res.status(500).json({ error: 'Feil ved henting av roller' });
+  }
+});
+
+// PUT /admin/brukere/:id/role - Oppdater brukerrolle
+router.put('/:id/role', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { role } = req.body;
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    bruker.rolle = role;
+    bruker.sistOppdatert = new Date().toISOString();
+
+    res.json({ message: `Rolle oppdatert til ${role} for ${bruker.fornavn} ${bruker.etternavn}` });
+  } catch (error) {
+    console.error('Error updating bruker role:', error);
+    res.status(500).json({ error: 'Feil ved oppdatering av rolle' });
+  }
+});
+
+// POST /admin/brukere/:id/password-reset - Send passord reset
+router.post('/:id/password-reset', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    console.log(`Sending password reset to ${bruker.epost}`);
+    res.json({ message: `Passord reset sendt til ${bruker.epost}` });
+  } catch (error) {
+    console.error('Error sending password reset:', error);
+    res.status(500).json({ error: 'Feil ved sending av passord reset' });
+  }
+});
+
+// POST /admin/brukere/:id/2fa-reminder - Send 2FA påminnelse
+router.post('/:id/2fa-reminder', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const bruker = mockBrukere.find(b => b.id === id);
+
+    if (!bruker) {
+      return res.status(404).json({ error: 'Bruker ikke funnet' });
+    }
+
+    console.log(`Sending 2FA reminder to ${bruker.epost}`);
+    res.json({ message: `2FA påminnelse sendt til ${bruker.epost}` });
+  } catch (error) {
+    console.error('Error sending 2FA reminder:', error);
+    res.status(500).json({ error: 'Feil ved sending av 2FA påminnelse' });
+  }
+});
+
+// GET /admin/brukere/stats - Hent brukerstatistikk
+router.get('/stats', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const stats = {
+      total: mockBrukere.length,
+      active: mockBrukere.filter(b => b.status === 'ACTIVE').length,
+      locked: mockBrukere.filter(b => b.status === 'LOCKED').length,
+      pending: mockBrukere.filter(b => b.status === 'PENDING').length,
+      tofaEnabled: mockBrukere.filter(b => b.tofaAktivert).length,
+      byRole: {
+        SUPER_ADMIN: mockBrukere.filter(b => b.rolle === 'SUPER_ADMIN').length,
+        ADMIN: mockBrukere.filter(b => b.rolle === 'ADMIN').length,
+        HOVEDBRUKER: mockBrukere.filter(b => b.rolle === 'HOVEDBRUKER').length,
+        ANSATT: mockBrukere.filter(b => b.rolle === 'ANSATT').length,
+        ELEV: mockBrukere.filter(b => b.rolle === 'ELEV').length
+      }
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching bruker stats:', error);
+    res.status(500).json({ error: 'Feil ved henting av statistikk' });
+  }
+});
+
+// POST /admin/brukere/bulk-actions/lock-inactive - Lås inaktive brukere
+router.post('/bulk-actions/lock-inactive', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const { days = 90 } = req.body;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    let lockedCount = 0;
+    mockBrukere.forEach(bruker => {
+      if (bruker.sistInnlogget && new Date(bruker.sistInnlogget) < cutoffDate && bruker.status === 'ACTIVE') {
+        bruker.status = 'LOCKED';
+        bruker.sistOppdatert = new Date().toISOString();
+        lockedCount++;
+      }
+    });
+
+    res.json({ 
+      message: `${lockedCount} brukere låst på grunn av inaktivitet`,
+      lockedCount 
+    });
+  } catch (error) {
+    console.error('Error locking inactive users:', error);
+    res.status(500).json({ error: 'Feil ved låsing av inaktive brukere' });
+  }
+});
+
+// POST /admin/brukere/bulk-actions/force-password-change - Tving passordendring
+router.post('/bulk-actions/force-password-change', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const { userIds } = req.body;
+    let affectedUsers = mockBrukere;
+
+    if (userIds && Array.isArray(userIds)) {
+      affectedUsers = mockBrukere.filter(b => userIds.includes(b.id));
+    }
+
+    console.log(`Forcing password change for ${affectedUsers.length} users`);
+    res.json({ 
+      message: `Passordendring tvunget for ${affectedUsers.length} brukere`,
+      affectedCount: affectedUsers.length 
+    });
+  } catch (error) {
+    console.error('Error forcing password change:', error);
+    res.status(500).json({ error: 'Feil ved tvungen passordendring' });
+  }
+});
+
+// POST /admin/brukere/bulk-actions/2fa-reminder - Send bulk 2FA påminnelse
+router.post('/bulk-actions/2fa-reminder', verifyToken, sjekkRolle(['ADMIN']), (req: AuthRequest, res) => {
+  try {
+    const { userIds } = req.body;
+    let affectedUsers = mockBrukere.filter(b => !b.tofaAktivert);
+
+    if (userIds && Array.isArray(userIds)) {
+      affectedUsers = mockBrukere.filter(b => userIds.includes(b.id) && !b.tofaAktivert);
+    }
+
+    console.log(`Sending 2FA reminder to ${affectedUsers.length} users`);
+    res.json({ 
+      message: `2FA påminnelse sendt til ${affectedUsers.length} brukere`,
+      affectedCount: affectedUsers.length 
+    });
+  } catch (error) {
+    console.error('Error sending bulk 2FA reminder:', error);
+    res.status(500).json({ error: 'Feil ved sending av bulk 2FA påminnelse' });
+  }
+});
+
+export default router; 

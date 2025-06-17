@@ -1,0 +1,183 @@
+config:
+  target: 'http://localhost:4000'
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+    # Ramp-up phase
+    - duration: 300
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp-up"
+    # Sustained load
+    - duration: 600
+      arrivalRate: 50
+      name: "Sustained Load"
+    # Peak load
+    - duration: 300
+      arrivalRate: 50
+      rampTo: 100
+      name: "Peak Load"
+    # Spike test
+    - duration: 60
+      arrivalRate: 200
+      name: "Spike Test"
+    # Cool-down
+    - duration: 120
+      arrivalRate: 100
+      rampTo: 5
+      name: "Cool-down"
+  
+  processor: "./load-test-processor.js"
+  
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+    
+  defaults:
+    headers:
+      'Content-Type': 'application/json'
+      'User-Agent': 'Artillery Load Test'
+
+scenarios:
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health"
+          capture:
+            - json: "$.status"
+              as: "health_status"
+      - think: 1
+
+  - name: "User Authentication Flow"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "test@example.com"
+            passord: "testpassword123"
+          capture:
+            - json: "$.token"
+              as: "auth_token"
+      - think: 2
+      - get:
+          url: "/api/auth/profile"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+      - think: 1
+
+  - name: "Bedrift Operations"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "admin@example.com"
+            passord: "adminpassword123"
+          capture:
+            - json: "$.token"
+              as: "auth_token"
+      - think: 1
+      - get:
+          url: "/api/bedrifter"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+      - think: 2
+      - post:
+          url: "/api/bedrifter"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+          json:
+            navn: "Test Bedrift {{ $randomString() }}"
+            organisasjonsnummer: "{{ $randomInt(100000000, 999999999) }}"
+            epost: "test{{ $randomInt(1, 1000) }}@example.com"
+          capture:
+            - json: "$.id"
+              as: "bedrift_id"
+      - think: 1
+      - get:
+          url: "/api/bedrifter/{{ bedrift_id }}"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+      - think: 2
+
+  - name: "Sikkerhetskontroll Operations"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "inspector@example.com"
+            passord: "inspectorpassword123"
+          capture:
+            - json: "$.token"
+              as: "auth_token"
+      - think: 1
+      - get:
+          url: "/api/sikkerhetskontroll"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+      - think: 2
+      - post:
+          url: "/api/sikkerhetskontroll"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+          json:
+            tittel: "Load Test Kontroll {{ $randomString() }}"
+            beskrivelse: "Automatisk generert sikkerhetskontroll for load testing"
+            type: "PERIODISK"
+          capture:
+            - json: "$.id"
+              as: "kontroll_id"
+      - think: 1
+      - get:
+          url: "/api/sikkerhetskontroll/{{ kontroll_id }}"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+      - think: 2
+
+  - name: "Quiz Operations"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "student@example.com"
+            passord: "studentpassword123"
+          capture:
+            - json: "$.token"
+              as: "auth_token"
+      - think: 1
+      - get:
+          url: "/api/quiz/kategorier"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+      - think: 1
+      - get:
+          url: "/api/quiz/sporsmal"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+          qs:
+            kategori: "TRAFIKK"
+            limit: "10"
+      - think: 3
+      - post:
+          url: "/api/quiz/svar"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+          json:
+            sporsmalId: "{{ $randomInt(1, 100) }}"
+            svar: "{{ $randomInt(1, 4) }}"
+      - think: 1
+
+# Performance thresholds
+expect:
+  - http.response_time.p95: 1000  # 95% of requests should complete within 1 second
+  - http.response_time.p99: 2000  # 99% of requests should complete within 2 seconds
+  - http.request_rate: 45         # Should handle at least 45 requests per second
+  - http.codes.200: 95            # At least 95% success rate
+  - http.codes.4xx: 3             # Less than 3% client errors
+  - http.codes.5xx: 1             # Less than 1% server errors 

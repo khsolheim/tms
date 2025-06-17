@@ -1,0 +1,408 @@
+/**
+ * Tenant Routes
+ * 
+ * API endpoints for multi-tenancy operasjoner
+ */
+
+import { Router, Request, Response } from 'express';
+import { verifyToken, sjekkRolle } from '../middleware/auth';
+import { z } from 'zod';
+import { validate } from '../middleware/validation';
+import { TenantService } from '../services/tenant.service';
+import logger from '../utils/logger';
+
+const router = Router();
+const tenantService = new TenantService();
+
+// ============================================================================
+// VALIDATION SCHEMAS
+// ============================================================================
+
+const opprettTenantSchema = z.object({
+  body: z.object({
+    navn: z.string().min(2).max(100),
+    slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/, 'Slug kan kun inneholde små bokstaver, tall og bindestrek'),
+    domain: z.string().optional(),
+    logo: z.string().url().optional(),
+    plan: z.enum(['BASIC', 'PROFESSIONAL', 'ENTERPRISE']).optional()
+  })
+});
+
+const inviterBrukerSchema = z.object({
+  body: z.object({
+    epost: z.string().email(),
+    rolle: z.enum(['SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_MANAGER', 'BEDRIFT_ADMIN', 'BEDRIFT_LEDER', 'INSTRUCTOR', 'VIEWER'])
+  })
+});
+
+const oppdaterRolleSchema = z.object({
+  body: z.object({
+    rolle: z.enum(['SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_MANAGER', 'BEDRIFT_ADMIN', 'BEDRIFT_LEDER', 'INSTRUCTOR', 'VIEWER'])
+  })
+});
+
+// ============================================================================
+// MIDDLEWARE
+// ============================================================================
+
+router.use(verifyToken);
+
+// Middleware for å sjekke tenant tilgang
+const sjekkTenantTilgang = (minimumRolle?: string) => {
+  return async (req: any, res: Response, next: any) => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const userId = req.user.id;
+
+      if (!tenantId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Tenant ID er pakrevd'
+        });
+      }
+
+      const harTilgang = await tenantService.harTilgangTilTenant(
+        userId,
+        tenantId,
+        minimumRolle as any
+      );
+
+      if (!harTilgang) {
+        return res.status(403).json({
+          success: false,
+          error: 'Ingen tilgang til denne tenant'
+        });
+      }
+
+      req.tenantId = tenantId;
+      next();
+    } catch (error) {
+      logger.error('Feil ved sjekk av tenant tilgang', error);
+      res.status(500).json({
+        success: false,
+        error: 'Kunne ikke verifisere tenant tilgang'
+      });
+    }
+  };
+};
+
+// ============================================================================
+// ENDPOINTS
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/tenants:
+ *   get:
+ *     summary: Hent alle tenants for bruker
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/', async (req: any, res: Response): Promise<void> => {
+  try {
+    const userId = req.user.id;
+    const tenants = await tenantService.hentTenantsForBruker(userId);
+
+    res.json({
+      success: true,
+      data: tenants
+    });
+
+  } catch (error) {
+    logger.error('Feil ved henting av tenants', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente tenants'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/tenants:
+ *   post:
+ *     summary: Opprett ny tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/',
+  validate(opprettTenantSchema),
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const userId = req.user.id;
+      const tenantData = {
+        ...req.body,
+        opprettetAvUserId: userId
+      };
+
+      const tenant = await tenantService.opprettTenant(tenantData);
+
+      res.status(201).json({
+        success: true,
+        data: tenant
+      });
+
+    } catch (error) {
+      logger.error('Feil ved opprettelse av tenant', error);
+      
+      if (error instanceof Error && error.message.includes('allerede i bruk')) {
+        res.status(409).json({
+          success: false,
+          error: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Kunne ikke opprette tenant'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/tenants/{tenantId}:
+ *   get:
+ *     summary: Hent tenant detaljer
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:tenantId',
+  sjekkTenantTilgang('VIEWER'),
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const tenantId = req.tenantId;
+      const tenant = await tenantService.hentTenant(tenantId);
+
+      if (!tenant) {
+        res.status(404).json({
+          success: false,
+          error: 'Tenant ikke funnet'
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: tenant
+      });
+
+    } catch (error) {
+      logger.error('Feil ved henting av tenant', error);
+      res.status(500).json({
+        success: false,
+        error: 'Kunne ikke hente tenant'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/tenants/{tenantId}/inviter:
+ *   post:
+ *     summary: Inviter bruker til tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/:tenantId/inviter',
+  sjekkTenantTilgang('TENANT_MANAGER'),
+  validate(inviterBrukerSchema),
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const tenantId = req.tenantId;
+      const invitedBy = req.user.id;
+      const { epost, rolle } = req.body;
+
+      // Finn bruker basert på epost
+      const prisma = tenantService['prisma']; // Access protected prisma
+      const bruker = await prisma.user.findUnique({
+        where: { epost }
+      });
+
+      if (!bruker) {
+        res.status(404).json({
+          success: false,
+          error: 'Bruker ikke funnet'
+        });
+        return;
+      }
+
+      const userTenant = await tenantService.inviterBrukerTilTenant({
+        userId: bruker.id,
+        tenantId,
+        rolle,
+        invitedBy
+      });
+
+      res.status(201).json({
+        success: true,
+        data: userTenant
+      });
+
+    } catch (error) {
+      logger.error('Feil ved invitasjon til tenant', error);
+      
+      if (error instanceof Error && error.message.includes('allerede medlem')) {
+        res.status(409).json({
+          success: false,
+          error: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Kunne ikke invitere bruker'
+        });
+      }
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/tenants/{tenantId}/aksepter:
+ *   post:
+ *     summary: Aksepter invitasjon til tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/:tenantId/aksepter',
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const tenantId = parseInt(req.params.tenantId);
+      const userId = req.user.id;
+
+      const userTenant = await tenantService.aksepterInvitasjon(userId, tenantId);
+
+      res.json({
+        success: true,
+        data: userTenant,
+        message: 'Invitasjon akseptert'
+      });
+
+    } catch (error) {
+      logger.error('Feil ved akseptering av invitasjon', error);
+      res.status(500).json({
+        success: false,
+        error: 'Kunne ikke akseptere invitasjon'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/tenants/{tenantId}/brukere/{userId}/rolle:
+ *   put:
+ *     summary: Oppdater bruker rolle i tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:tenantId/brukere/:userId/rolle',
+  sjekkTenantTilgang('TENANT_ADMIN'),
+  validate(oppdaterRolleSchema),
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const tenantId = req.tenantId;
+      const userId = parseInt(req.params.userId);
+      const oppdatertAv = req.user.id;
+      const { rolle } = req.body;
+
+      const userTenant = await tenantService.oppdaterBrukerRolle(
+        userId,
+        tenantId,
+        rolle,
+        oppdatertAv
+      );
+
+      res.json({
+        success: true,
+        data: userTenant,
+        message: 'Rolle oppdatert'
+      });
+
+    } catch (error) {
+      logger.error('Feil ved oppdatering av bruker rolle', error);
+      res.status(500).json({
+        success: false,
+        error: 'Kunne ikke oppdatere rolle'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/tenants/{tenantId}/brukere/{userId}:
+ *   delete:
+ *     summary: Fjern bruker fra tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/:tenantId/brukere/:userId',
+  sjekkTenantTilgang('TENANT_ADMIN'),
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const tenantId = req.tenantId;
+      const userId = parseInt(req.params.userId);
+      const fjernetAv = req.user.id;
+
+      await tenantService.fjernBrukerFraTenant(userId, tenantId, fjernetAv);
+
+      res.json({
+        success: true,
+        message: 'Bruker fjernet fra tenant'
+      });
+
+    } catch (error) {
+      logger.error('Feil ved fjerning av bruker fra tenant', error);
+      res.status(500).json({
+        success: false,
+        error: 'Kunne ikke fjerne bruker'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/tenants/{tenantId}:
+ *   delete:
+ *     summary: Slett tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/:tenantId',
+  sjekkTenantTilgang('TENANT_ADMIN'),
+  async (req: any, res: Response): Promise<void> => {
+    try {
+      const tenantId = req.tenantId;
+      const slettetAv = req.user.id;
+
+      await tenantService.slettTenant(tenantId, slettetAv);
+
+      res.json({
+        success: true,
+        message: 'Tenant slettet'
+      });
+
+    } catch (error) {
+      logger.error('Feil ved sletting av tenant', error);
+      res.status(500).json({
+        success: false,
+        error: 'Kunne ikke slette tenant'
+      });
+    }
+  }
+);
+
+export default router; 

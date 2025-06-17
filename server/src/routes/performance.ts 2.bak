@@ -1,0 +1,227 @@
+/**
+ * Performance Management API
+ * 
+ * Admin-only endpoints for:
+ * - System performance monitoring
+ * - Basic cache management
+ * - Performance metrics
+ */
+
+import { Router } from 'express';
+import { z } from 'zod';
+import { sjekkRolle } from '../middleware/auth';
+import logger from '../utils/logger';
+
+const router = Router();
+
+// ============================================================================
+// VALIDATION SCHEMAS
+// ============================================================================
+
+const performanceConfigSchema = z.object({
+  slowQueryThreshold: z.number().min(100).max(10000).optional(),
+  cacheEnabled: z.boolean().optional(),
+  queryOptimizationEnabled: z.boolean().optional(),
+  maxCacheSizeMB: z.number().min(10).max(1000).optional()
+});
+
+// ============================================================================
+// SYSTEM PERFORMANCE ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/performance/system/overview
+ * Hent komplett system performance oversikt
+ */
+router.get('/system/overview',
+  sjekkRolle(['ADMIN', 'SUPER_ADMIN']),
+  async (req, res) => {
+    try {
+      // Basic system metrics
+      const systemMetrics = {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        cpu: process.cpuUsage(),
+        timestamp: new Date().toISOString()
+      };
+
+      // Calculate performance scores
+      const performanceScore = {
+        memory: Math.max(0, 100 - (systemMetrics.memory.heapUsed / systemMetrics.memory.heapTotal * 100)),
+        uptime: systemMetrics.uptime > 3600 ? 100 : Math.round(systemMetrics.uptime / 36), // Score based on uptime
+        overall: 0
+      };
+      
+      performanceScore.overall = Math.round(
+        (performanceScore.memory + performanceScore.uptime) / 2
+      );
+
+      // Generate recommendations
+      const recommendations: string[] = [];
+      
+      if (performanceScore.memory < 50) {
+        recommendations.push('Høy memory usage - vurder å restarte applikasjonen');
+      }
+      
+      if (systemMetrics.uptime < 300) {
+        recommendations.push('Applikasjonen har nylig startet - overvåk stabilitet');
+      }
+
+      res.json({
+        success: true,
+        data: {
+          performanceScore,
+          recommendations,
+          system: systemMetrics,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to get system performance overview', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Kunne ikke hente system performance oversikt',
+        error: error instanceof Error ? error.message : 'Ukjent feil'
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/performance/system/optimize
+ * Utfør automatisk system optimalisering
+ */
+router.post('/system/optimize',
+  sjekkRolle(['ADMIN', 'SUPER_ADMIN']),
+  async (req, res) => {
+    try {
+      const optimizations: string[] = [];
+      
+      // Force garbage collection if available
+      if (global.gc) {
+        global.gc();
+        optimizations.push('Garbage collection utført');
+      }
+
+      // Log optimization
+      logger.info('System optimization performed by admin', {
+        optimizations,
+        adminId: (req as any).bruker?.id || 'unknown'
+      });
+
+      res.json({
+        success: true,
+        message: 'System optimalisering utført',
+        data: {
+          optimizations,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to optimize system', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        adminId: (req as any).bruker?.id || 'unknown'
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Kunne ikke optimalisere system',
+        error: error instanceof Error ? error.message : 'Ukjent feil'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/performance/health
+ * Hent system health status
+ */
+router.get('/health',
+  sjekkRolle(['ADMIN', 'SUPER_ADMIN']),
+  async (req, res) => {
+    try {
+      const health = {
+        status: 'healthy',
+        uptime: process.uptime(),
+        memory: {
+          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+          percentage: Math.round(process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100)
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      // Determine health status
+      if (health.memory.percentage > 90) {
+        health.status = 'warning';
+      }
+      if (health.memory.percentage > 95) {
+        health.status = 'critical';
+      }
+
+      res.json({
+        success: true,
+        data: health
+      });
+    } catch (error) {
+      logger.error('Failed to get health status', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Kunne ikke hente health status',
+        error: error instanceof Error ? error.message : 'Ukjent feil'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/performance/metrics
+ * Hent detaljerte performance metrics
+ */
+router.get('/metrics',
+  sjekkRolle(['ADMIN', 'SUPER_ADMIN']),
+  async (req, res) => {
+    try {
+      const metrics = {
+        process: {
+          uptime: process.uptime(),
+          memory: process.memoryUsage(),
+          cpu: process.cpuUsage(),
+          pid: process.pid,
+          version: process.version,
+          platform: process.platform
+        },
+        system: {
+          loadavg: require('os').loadavg(),
+          totalmem: require('os').totalmem(),
+          freemem: require('os').freemem(),
+          cpus: require('os').cpus().length
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      res.json({
+        success: true,
+        data: metrics
+      });
+    } catch (error) {
+      logger.error('Failed to get performance metrics', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      res.status(500).json({
+        success: false,
+        message: 'Kunne ikke hente performance metrics',
+        error: error instanceof Error ? error.message : 'Ukjent feil'
+      });
+    }
+  }
+);
+
+export default router; 

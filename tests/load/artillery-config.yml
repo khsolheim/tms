@@ -1,0 +1,224 @@
+config:
+  target: 'http://localhost:4000'
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+    
+    # Gradual ramp-up
+    - duration: 120
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp-up"
+    
+    # Sustained load
+    - duration: 300
+      arrivalRate: 50
+      name: "Sustained load"
+    
+    # Peak load
+    - duration: 120
+      arrivalRate: 50
+      rampTo: 100
+      name: "Peak load"
+    
+    # Cool down
+    - duration: 60
+      arrivalRate: 100
+      rampTo: 10
+      name: "Cool down"
+
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      User-Agent: 'Artillery Load Test'
+  
+  variables:
+    testUsers:
+      - email: "test1@example.com"
+        password: "testpassword123"
+      - email: "test2@example.com"
+        password: "testpassword123"
+      - email: "test3@example.com"
+        password: "testpassword123"
+    
+    bedriftIds:
+      - "bed_123456789"
+      - "bed_987654321"
+      - "bed_456789123"
+
+  processor: "./load-test-functions.js"
+
+scenarios:
+  # Health check scenario (no auth required)
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+            - hasProperty: "status"
+
+  # Authentication flow
+  - name: "Authentication Flow"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "{{ $randomString() }}@example.com"
+            passord: "testpassword123"
+          capture:
+            - json: "$.data.token"
+              as: "authToken"
+          expect:
+            - statusCode: [200, 401] # Accept both success and auth failure
+
+  # Authenticated API calls
+  - name: "Authenticated API Calls"
+    weight: 30
+    flow:
+      # Login first
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "test1@example.com"
+            passord: "testpassword123"
+          capture:
+            - json: "$.data.token"
+              as: "authToken"
+      
+      # Get user profile
+      - get:
+          url: "/api/bruker/profil"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 401]
+      
+      # Get bedrifter
+      - get:
+          url: "/api/bedrifter"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 401]
+      
+      # Get quiz categories
+      - get:
+          url: "/api/quiz/kategorier"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 401]
+
+  # Database intensive operations
+  - name: "Database Operations"
+    weight: 25
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            epost: "test2@example.com"
+            passord: "testpassword123"
+          capture:
+            - json: "$.data.token"
+              as: "authToken"
+      
+      # Search operations
+      - get:
+          url: "/api/bedrifter/search"
+          qs:
+            q: "{{ $randomString() }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 401, 404]
+      
+      # Get reports
+      - get:
+          url: "/api/rapporter"
+          qs:
+            fra: "2024-01-01"
+            til: "2024-12-31"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: [200, 401]
+
+  # Cache testing scenario
+  - name: "Cache Performance"
+    weight: 15
+    flow:
+      # Repeated calls to same endpoint to test caching
+      - loop:
+          - get:
+              url: "/api/systemconfig"
+              expect:
+                - statusCode: 200
+                - header: "X-Cache"
+          count: 5
+
+  # Security testing scenario
+  - name: "Security Tests"
+    weight: 10
+    flow:
+      # Test rate limiting
+      - loop:
+          - post:
+              url: "/api/auth/login"
+              json:
+                epost: "invalid@example.com"
+                passord: "wrongpassword"
+              expect:
+                - statusCode: [401, 429] # Unauthorized or rate limited
+          count: 10
+      
+      # Test SQL injection attempt (should be blocked)
+      - get:
+          url: "/api/bedrifter"
+          qs:
+            search: "'; DROP TABLE bedrift; --"
+          expect:
+            - statusCode: [400, 403] # Should be blocked by security middleware
+
+  # Error handling scenario
+  - name: "Error Handling"
+    weight: 5
+    flow:
+      # Test 404 endpoints
+      - get:
+          url: "/api/nonexistent"
+          expect:
+            - statusCode: 404
+      
+      # Test malformed JSON
+      - post:
+          url: "/api/auth/login"
+          body: "invalid json"
+          headers:
+            Content-Type: "application/json"
+          expect:
+            - statusCode: 400
+
+# Performance thresholds
+expect:
+  thresholds:
+    - http.response_time.p95: 1000  # 95% of responses under 1000ms
+    - http.response_time.p99: 2000  # 99% of responses under 2000ms
+    - http.request_rate: 50         # At least 50 requests per second
+    - http.codes.200: 70            # At least 70% success rate
+    - http.codes.4xx: 25            # Max 25% client errors
+    - http.codes.5xx: 5             # Max 5% server errors
+
+# Metrics to collect
+metrics:
+  - name: "response_time_health"
+    expression: "http.response_time[url='/api/health']"
+  - name: "response_time_auth"
+    expression: "http.response_time[url='/api/auth/login']"
+  - name: "cache_hit_rate"
+    expression: "http.response_time[headers.x-cache='HIT']" 

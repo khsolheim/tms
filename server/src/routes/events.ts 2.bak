@@ -1,0 +1,49 @@
+import { Router, Request, Response } from 'express';
+import { eventBus, EventType } from '../events/eventBus';
+
+const router = Router();
+
+// Get event statistics
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const stats = eventBus.getEventStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to get stats' });
+  }
+});
+
+// Get event history
+router.get('/history', async (req: Request, res: Response) => {
+  try {
+    const events = eventBus.getEventHistory(50);
+    res.json({ success: true, data: events });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to get history' });
+  }
+});
+
+// Test event
+router.post('/test', async (req: Request, res: Response) => {
+  try {
+    await eventBus.publish(EventType.SYSTEM_HEALTH_CHECK, {
+      status: 'healthy',
+      timestamp: new Date()
+    });
+    res.json({ success: true, message: 'Test event published' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to publish test event' });
+  }
+});
+
+// Get available event types
+router.get('/types', async (req: Request, res: Response) => {
+  try {
+    const eventTypes = Object.values(EventType);
+    res.json({ success: true, data: eventTypes });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to get event types' });
+  }
+});
+
+export default router; 

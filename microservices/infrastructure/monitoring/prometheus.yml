@@ -1,0 +1,91 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Auth Service
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # User Service
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Quiz Service
+  - job_name: 'quiz-service'
+    static_configs:
+      - targets: ['quiz-service:8003']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Sikkerhetskontroll Service
+  - job_name: 'sikkerhetskontroll-service'
+    static_configs:
+      - targets: ['sikkerhetskontroll-service:8004']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # HR Service
+  - job_name: 'hr-service'
+    static_configs:
+      - targets: ['hr-service:8005']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Economy Service
+  - job_name: 'economy-service'
+    static_configs:
+      - targets: ['economy-service:8006']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # PostgreSQL Exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Node Exporter (System metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Docker metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s 

@@ -1,0 +1,413 @@
+import { Router } from 'express';
+import { verifyToken } from '../../middleware/auth';
+import { requireAdminRole } from '../../middleware/admin';
+
+const router = Router();
+
+// Apply authentication and admin role middleware
+router.use(verifyToken);
+router.use(requireAdminRole);
+
+// Mock data generators
+const generateMockAuditLogs = (count = 50) => {
+  const actions = ['login', 'logout', 'create_user', 'delete_user', 'update_settings', 'export_data', 'view_report'];
+  const resources = ['users', 'bedrifter', 'settings', 'reports', 'system'];
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+  ];
+
+  return Array.from({ length: count }, (_, i) => ({
+    id: `audit_${i + 1}`,
+    userId: Math.floor(Math.random() * 100) + 1,
+    userName: `Bruker ${Math.floor(Math.random() * 100) + 1}`,
+    action: actions[Math.floor(Math.random() * actions.length)],
+    resource: resources[Math.floor(Math.random() * resources.length)],
+    ipAddress: `192.168.1.${Math.floor(Math.random() * 255)}`,
+    userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+    success: Math.random() > 0.1,
+    timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+    details: {
+      browser: 'Chrome',
+      os: 'Windows',
+      location: 'Oslo, Norge'
+    }
+  }));
+};
+
+const generateMockSecurityThreats = (count = 25) => {
+  const types = ['brute_force', 'suspicious_activity', 'malware', 'ddos', 'unauthorized_access'];
+  const severities = ['low', 'medium', 'high', 'critical'];
+  const statuses = ['active', 'mitigated', 'false_positive'];
+  const sources = ['192.168.1.100', '10.0.0.50', '172.16.0.25', '203.0.113.10'];
+  const targets = ['/api/auth/login', '/api/admin/users', '/api/data/export', '/api/system/config'];
+
+  return Array.from({ length: count }, (_, i) => ({
+    id: `threat_${i + 1}`,
+    timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    type: types[Math.floor(Math.random() * types.length)],
+    severity: severities[Math.floor(Math.random() * severities.length)],
+    source: sources[Math.floor(Math.random() * sources.length)],
+    target: targets[Math.floor(Math.random() * targets.length)],
+    description: `Mistenkelig aktivitet detektert fra ${sources[Math.floor(Math.random() * sources.length)]}`,
+    status: statuses[Math.floor(Math.random() * statuses.length)],
+    actions: ['block_ip', 'monitor', 'alert_admin']
+  }));
+};
+
+const generateMockAccessControl = (count = 30) => {
+  const roles = ['ADMIN', 'SUPER_ADMIN', 'USER', 'MODERATOR'];
+  const statuses = ['active', 'inactive', 'locked'];
+  const permissions = ['read', 'write', 'delete', 'admin', 'export'];
+
+  return Array.from({ length: count }, (_, i) => ({
+    userId: i + 1,
+    userName: `Bruker ${i + 1}`,
+    email: `bruker${i + 1}@example.com`,
+    role: roles[Math.floor(Math.random() * roles.length)],
+    permissions: permissions.slice(0, Math.floor(Math.random() * permissions.length) + 1),
+    lastLogin: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    status: statuses[Math.floor(Math.random() * statuses.length)],
+    failedLoginAttempts: Math.floor(Math.random() * 5),
+    ipWhitelist: [`192.168.1.${Math.floor(Math.random() * 255)}`]
+  }));
+};
+
+// Audit Logs
+router.get('/audit-logs', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, userId, action, dateFrom, dateTo } = req.query;
+    
+    let logs = generateMockAuditLogs(200);
+    
+    // Apply filters
+    if (userId) {
+      logs = logs.filter(log => log.userId === parseInt(userId as string));
+    }
+    if (action) {
+      logs = logs.filter(log => log.action === action);
+    }
+    if (dateFrom) {
+      logs = logs.filter(log => new Date(log.timestamp) >= new Date(dateFrom as string));
+    }
+    if (dateTo) {
+      logs = logs.filter(log => new Date(log.timestamp) <= new Date(dateTo as string));
+    }
+
+    // Sort by timestamp (newest first)
+    logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Pagination
+    const startIndex = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const endIndex = startIndex + parseInt(limit as string);
+    const paginatedLogs = logs.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      data: paginatedLogs,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total: logs.length,
+        totalPages: Math.ceil(logs.length / parseInt(limit as string))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({ success: false, message: 'Feil ved henting av revisjonslogger' });
+  }
+});
+
+// Security Threats
+router.get('/threats', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, type, severity, status } = req.query;
+    
+    let threats = generateMockSecurityThreats(100);
+    
+    // Apply filters
+    if (type) {
+      threats = threats.filter(threat => threat.type === type);
+    }
+    if (severity) {
+      threats = threats.filter(threat => threat.severity === severity);
+    }
+    if (status) {
+      threats = threats.filter(threat => threat.status === status);
+    }
+
+    // Sort by timestamp (newest first)
+    threats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Pagination
+    const startIndex = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const endIndex = startIndex + parseInt(limit as string);
+    const paginatedThreats = threats.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      data: paginatedThreats,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total: threats.length,
+        totalPages: Math.ceil(threats.length / parseInt(limit as string))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching security threats:', error);
+    res.status(500).json({ success: false, message: 'Feil ved henting av sikkerhetstrusler' });
+  }
+});
+
+// Access Control
+router.get('/access-control', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, role, status } = req.query;
+    
+    let users = generateMockAccessControl(150);
+    
+    // Apply filters
+    if (role) {
+      users = users.filter(user => user.role === role);
+    }
+    if (status) {
+      users = users.filter(user => user.status === status);
+    }
+
+    // Sort by last login (newest first)
+    users.sort((a, b) => new Date(b.lastLogin).getTime() - new Date(a.lastLogin).getTime());
+
+    // Pagination
+    const startIndex = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const endIndex = startIndex + parseInt(limit as string);
+    const paginatedUsers = users.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      data: paginatedUsers,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total: users.length,
+        totalPages: Math.ceil(users.length / parseInt(limit as string))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching access control:', error);
+    res.status(500).json({ success: false, message: 'Feil ved henting av tilgangskontroll' });
+  }
+});
+
+// Security Settings
+router.get('/settings', async (req, res) => {
+  try {
+    const settings = {
+      passwordPolicy: {
+        minLength: 8,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireNumbers: true,
+        requireSpecialChars: false,
+        maxAge: 90,
+        preventReuse: 5
+      },
+      sessionSettings: {
+        timeout: 30,
+        maxConcurrentSessions: 3,
+        requireReauth: true,
+        rememberMe: false
+      },
+      ipSecurity: {
+        enableWhitelist: false,
+        enableBlacklist: true,
+        autoBlockSuspicious: true,
+        blockDuration: 30,
+        maxFailedAttempts: 5
+      },
+      rateLimiting: {
+        enabled: true,
+        requestsPerMinute: 100,
+        burstLimit: 20,
+        windowSize: 60
+      },
+      twoFactorAuth: {
+        required: false,
+        methods: ['email', 'sms'],
+        backupCodes: true
+      },
+      auditLogging: {
+        enabled: true,
+        retentionDays: 365,
+        logLevel: 'detailed'
+      }
+    };
+
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    console.error('Error fetching security settings:', error);
+    res.status(500).json({ success: false, message: 'Feil ved henting av sikkerhetsinnstillinger' });
+  }
+});
+
+router.put('/settings', async (req, res) => {
+  try {
+    const settings = req.body;
+    
+    // Here you would normally save to database
+    console.log('Updating security settings:', settings);
+
+    res.json({
+      success: true,
+      data: settings,
+      message: 'Sikkerhetsinnstillinger oppdatert'
+    });
+  } catch (error) {
+    console.error('Error updating security settings:', error);
+    res.status(500).json({ success: false, message: 'Feil ved oppdatering av sikkerhetsinnstillinger' });
+  }
+});
+
+// Threat Management
+router.post('/threats/:id/mitigate', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+
+    console.log(`Mitigating threat ${id} with action: ${action}`);
+
+    res.json({
+      success: true,
+      message: `Trussel ${id} håndtert med handling: ${action}`
+    });
+  } catch (error) {
+    console.error('Error mitigating threat:', error);
+    res.status(500).json({ success: false, message: 'Feil ved håndtering av trussel' });
+  }
+});
+
+router.post('/threats/:id/false-positive', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`Marking threat ${id} as false positive`);
+
+    res.json({
+      success: true,
+      message: `Trussel ${id} markert som falsk positiv`
+    });
+  } catch (error) {
+    console.error('Error marking threat as false positive:', error);
+    res.status(500).json({ success: false, message: 'Feil ved markering som falsk positiv' });
+  }
+});
+
+// User Management
+router.post('/users/:id/lock', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    console.log(`Locking user ${id} for reason: ${reason}`);
+
+    res.json({
+      success: true,
+      message: `Bruker ${id} låst`
+    });
+  } catch (error) {
+    console.error('Error locking user:', error);
+    res.status(500).json({ success: false, message: 'Feil ved låsing av bruker' });
+  }
+});
+
+router.post('/users/:id/unlock', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`Unlocking user ${id}`);
+
+    res.json({
+      success: true,
+      message: `Bruker ${id} låst opp`
+    });
+  } catch (error) {
+    console.error('Error unlocking user:', error);
+    res.status(500).json({ success: false, message: 'Feil ved opplåsing av bruker' });
+  }
+});
+
+router.post('/users/:id/reset-password', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sendEmail } = req.body;
+
+    console.log(`Resetting password for user ${id}, send email: ${sendEmail}`);
+
+    res.json({
+      success: true,
+      message: `Passord tilbakestilt for bruker ${id}`
+    });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({ success: false, message: 'Feil ved tilbakestilling av passord' });
+  }
+});
+
+// Test endpoints
+router.get('/test-connection', async (req, res) => {
+  try {
+    // Simulate connection test
+    const success = Math.random() > 0.1; // 90% success rate
+
+    res.json({
+      success: true,
+      data: {
+        success,
+        error: success ? undefined : 'Tilkoblingsfeil til sikkerhetsmodul'
+      }
+    });
+  } catch (error) {
+    console.error('Error testing security connection:', error);
+    res.status(500).json({ success: false, message: 'Feil ved testing av tilkobling' });
+  }
+});
+
+router.post('/generate-api-key', async (req, res) => {
+  try {
+    // Generate a mock API key
+    const apiKey = 'sk_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+    res.json({
+      success: true,
+      data: apiKey,
+      message: 'Ny API-nøkkel generert'
+    });
+  } catch (error) {
+    console.error('Error generating API key:', error);
+    res.status(500).json({ success: false, message: 'Feil ved generering av API-nøkkel' });
+  }
+});
+
+// Export audit logs
+router.post('/audit-logs/export', async (req, res) => {
+  try {
+    const { dateFrom, dateTo, format } = req.body;
+
+    console.log(`Exporting audit logs from ${dateFrom} to ${dateTo} in ${format} format`);
+
+    res.json({
+      success: true,
+      message: `Revisjonslogger eksportert i ${format} format`,
+      downloadUrl: `/api/admin/security/downloads/audit-logs-${Date.now()}.${format}`
+    });
+  } catch (error) {
+    console.error('Error exporting audit logs:', error);
+    res.status(500).json({ success: false, message: 'Feil ved eksport av revisjonslogger' });
+  }
+});
+
+export default router; 

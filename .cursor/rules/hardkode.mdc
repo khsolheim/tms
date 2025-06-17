@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Jeg vil ikke ha hardkoding i appen.
+Om vi skal vise data, skal den først opprettes i databasen, så hentes fram i frontend. Om tabellen mangler i databasen, skal denne opprettes.
+

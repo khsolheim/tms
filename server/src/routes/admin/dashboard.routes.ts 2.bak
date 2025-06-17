@@ -1,0 +1,416 @@
+import { Router } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { verifyToken } from '../../middleware/auth';
+import logger from '../../utils/logger';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Middleware for admin-only access
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (!req.bruker || !['ADMIN', 'SUPER_ADMIN'].includes(req.bruker.rolle)) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Kun administratorer har tilgang til denne funksjonen' 
+    });
+  }
+  next();
+};
+
+// GET /api/admin/stats/overview - Hent oversiktsstatistikk
+router.get('/stats/overview', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const [
+      totalBedrifter,
+      activeBedrifter,
+      totalBrukere,
+      activeServices,
+      recentActivity
+    ] = await Promise.all([
+      prisma.bedrift.count({ where: { isDeleted: false } }),
+      prisma.bedrift.count({ 
+        where: { 
+          isDeleted: false,
+          bedriftServices: {
+            some: { isActive: true }
+          }
+        } 
+      }),
+      prisma.ansatt.count({ where: { isDeleted: false } }),
+      prisma.service.count({ where: { status: 'ACTIVE' } }),
+      // Recent activity - mock data for now
+      Promise.resolve([
+        {
+          id: '1',
+          type: 'bedrift_created',
+          title: 'Ny bedrift registrert',
+          description: 'Acme Corp ble registrert i systemet',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          severity: 'success'
+        },
+        {
+          id: '2',
+          type: 'service_activated',
+          title: 'Tjeneste aktivert',
+          description: 'Sikkerhetskontroll aktivert for Acme Corp',
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          severity: 'info'
+        },
+        {
+          id: '3',
+          type: 'system_alert',
+          title: 'System vedlikehold',
+          description: 'Planlagt vedlikehold i morgen kl 02:00',
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          severity: 'warning'
+        }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalBedrifter,
+        activeBedrifter,
+        totalBrukere,
+        activeServices,
+        recentActivity
+      }
+    });
+  } catch (error) {
+    logger.error('Feil ved henting av oversiktsstatistikk:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente oversiktsstatistikk'
+    });
+  }
+});
+
+// GET /api/admin/system/health - Hent systemhelse
+router.get('/system/health', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    // Mock system health data - in production this would come from actual monitoring
+    const systemHealth = {
+      database: {
+        status: 'healthy' as const,
+        responseTime: Math.floor(Math.random() * 50) + 10, // 10-60ms
+        connections: Math.floor(Math.random() * 20) + 5, // 5-25 connections
+        maxConnections: 100
+      },
+      api: {
+        status: 'healthy' as const,
+        responseTime: Math.floor(Math.random() * 100) + 50, // 50-150ms
+        requestsPerMinute: Math.floor(Math.random() * 1000) + 500, // 500-1500 req/min
+        errorRate: Math.random() * 0.05 // 0-5% error rate
+      },
+      services: [
+        {
+          name: 'Auth Service',
+          status: 'healthy' as const,
+          uptime: Math.floor(Math.random() * 86400) + 86400, // 1-2 days
+          lastCheck: new Date().toISOString()
+        },
+        {
+          name: 'Quiz Service',
+          status: 'healthy' as const,
+          uptime: Math.floor(Math.random() * 86400) + 86400,
+          lastCheck: new Date().toISOString()
+        },
+        {
+          name: 'Sikkerhetskontroll Service',
+          status: 'warning' as const,
+          uptime: Math.floor(Math.random() * 3600) + 3600, // 1-2 hours
+          lastCheck: new Date().toISOString()
+        },
+        {
+          name: 'HR Service',
+          status: 'healthy' as const,
+          uptime: Math.floor(Math.random() * 86400) + 86400,
+          lastCheck: new Date().toISOString()
+        }
+      ],
+      memory: {
+        used: Math.floor(Math.random() * 4 * 1024 * 1024 * 1024) + 2 * 1024 * 1024 * 1024, // 2-6GB
+        total: 8 * 1024 * 1024 * 1024, // 8GB
+        percentage: Math.floor(Math.random() * 40) + 30 // 30-70%
+      },
+      cpu: {
+        usage: Math.floor(Math.random() * 50) + 20, // 20-70%
+        cores: 4
+      }
+    };
+
+    res.json({
+      success: true,
+      data: systemHealth
+    });
+  } catch (error) {
+    logger.error('Feil ved henting av systemhelse:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente systemhelse'
+    });
+  }
+});
+
+// GET /api/admin/activity/recent - Hent nylig aktivitet
+router.get('/activity/recent', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { limit = 20 } = req.query;
+
+    // Mock activity data - in production this would come from audit logs
+    const activities = [
+      {
+        id: '1',
+        type: 'user_login',
+        title: 'Bruker innlogging',
+        description: 'John Doe logget inn fra 192.168.1.100',
+        timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        severity: 'info',
+        userId: 1,
+        metadata: { ip: '192.168.1.100', userAgent: 'Mozilla/5.0...' }
+      },
+      {
+        id: '2',
+        type: 'bedrift_created',
+        title: 'Ny bedrift opprettet',
+        description: 'Test AS ble opprettet av admin',
+        timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        severity: 'success',
+        bedriftId: 2,
+        metadata: { organisasjonsnummer: '123456789' }
+      },
+      {
+        id: '3',
+        type: 'service_activated',
+        title: 'Tjeneste aktivert',
+        description: 'Quiz tjeneste aktivert for Test AS',
+        timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        severity: 'info',
+        bedriftId: 2,
+        metadata: { serviceId: 'QUIZ' }
+      },
+      {
+        id: '4',
+        type: 'security_event',
+        title: 'Sikkerhetshendelse',
+        description: 'Flere mislykkede innloggingsforsøk fra 192.168.1.200',
+        timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+        severity: 'warning',
+        metadata: { ip: '192.168.1.200', attempts: 5 }
+      },
+      {
+        id: '5',
+        type: 'system_alert',
+        title: 'System advarsel',
+        description: 'Høy CPU bruk detektert på server-01',
+        timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        severity: 'warning',
+        metadata: { server: 'server-01', cpuUsage: 85 }
+      }
+    ];
+
+    const limitedActivities = activities.slice(0, parseInt(limit as string));
+
+    res.json({
+      success: true,
+      data: limitedActivities
+    });
+  } catch (error) {
+    logger.error('Feil ved henting av aktivitet:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente aktivitet'
+    });
+  }
+});
+
+// GET /api/admin/alerts/active - Hent aktive varsler
+router.get('/alerts/active', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    // Mock alerts data - in production this would come from monitoring system
+    const alerts = [
+      {
+        id: 'alert-1',
+        type: 'performance',
+        severity: 'medium',
+        title: 'Høy responstid',
+        message: 'API responstid over 500ms de siste 10 minuttene',
+        timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        acknowledged: false,
+        actionRequired: true,
+        metadata: { avgResponseTime: 650, threshold: 500 }
+      },
+      {
+        id: 'alert-2',
+        type: 'security',
+        severity: 'high',
+        title: 'Mistenkelig aktivitet',
+        message: 'Flere mislykkede innloggingsforsøk fra samme IP',
+        timestamp: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+        acknowledged: false,
+        actionRequired: true,
+        metadata: { ip: '192.168.1.200', attempts: 10 }
+      },
+      {
+        id: 'alert-3',
+        type: 'system',
+        severity: 'low',
+        title: 'Disk plass lav',
+        message: 'Disk plass under 20% på backup server',
+        timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+        acknowledged: true,
+        actionRequired: false,
+        metadata: { diskUsage: 85, server: 'backup-01' }
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: alerts
+    });
+  } catch (error) {
+    logger.error('Feil ved henting av varsler:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente varsler'
+    });
+  }
+});
+
+// POST /api/admin/alerts/:id/acknowledge - Bekreft varsel
+router.post('/alerts/:id/acknowledge', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    
+    // Mock acknowledgment - in production this would update the alert in database
+    logger.info(`Alert ${id} acknowledged by admin ${req.bruker.id}`);
+
+    res.json({
+      success: true,
+      message: 'Varsel bekreftet'
+    });
+  } catch (error) {
+    logger.error('Feil ved bekreftelse av varsel:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke bekrefte varsel'
+    });
+  }
+});
+
+// POST /api/admin/alerts/:id/dismiss - Avvis varsel
+router.post('/alerts/:id/dismiss', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    
+    // Mock dismissal - in production this would remove/archive the alert
+    logger.info(`Alert ${id} dismissed by admin ${req.bruker.id}`);
+
+    res.json({
+      success: true,
+      message: 'Varsel avvist'
+    });
+  } catch (error) {
+    logger.error('Feil ved avvisning av varsel:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke avvise varsel'
+    });
+  }
+});
+
+// GET /api/admin/quick-actions - Hent tilgjengelige hurtighandlinger
+router.get('/quick-actions', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const quickActions = [
+      {
+        id: 'restart-services',
+        title: 'Restart Tjenester',
+        description: 'Restart alle mikrotjenester',
+        dangerous: true
+      },
+      {
+        id: 'clear-cache',
+        title: 'Tøm Cache',
+        description: 'Tøm all system cache',
+        dangerous: false
+      },
+      {
+        id: 'maintenance-mode',
+        title: 'Vedlikeholdsmodus',
+        description: 'Aktiver/deaktiver vedlikeholdsmodus',
+        dangerous: true
+      },
+      {
+        id: 'system-report',
+        title: 'Generer Rapport',
+        description: 'Last ned systemrapport',
+        dangerous: false
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: quickActions
+    });
+  } catch (error) {
+    logger.error('Feil ved henting av hurtighandlinger:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke hente hurtighandlinger'
+    });
+  }
+});
+
+// POST /api/admin/quick-actions/:id/execute - Utfør hurtighandling
+router.post('/quick-actions/:id/execute', verifyToken, requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { params } = req.body;
+
+    logger.info(`Executing quick action ${id} by admin ${req.bruker.id}`, { params });
+
+    // Mock execution - in production this would perform actual actions
+    switch (id) {
+      case 'restart-services':
+        // Simulate service restart
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        break;
+      case 'clear-cache':
+        // Simulate cache clearing
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        break;
+      case 'maintenance-mode':
+        // Simulate maintenance mode toggle
+        await new Promise(resolve => setTimeout(resolve, 500));
+        break;
+      case 'system-report':
+        // Simulate report generation
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        break;
+      default:
+        return res.status(400).json({
+          success: false,
+          error: 'Ukjent handling'
+        });
+    }
+
+    res.json({
+      success: true,
+      message: `Handling ${id} utført`,
+      data: {
+        executedAt: new Date().toISOString(),
+        executedBy: req.bruker.id
+      }
+    });
+  } catch (error) {
+    logger.error('Feil ved utførelse av hurtighandling:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Kunne ikke utføre handling'
+    });
+  }
+});
+
+export default router; 

@@ -1,0 +1,313 @@
+import { Router, Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { z } from 'zod';
+import { validate } from '../middleware/validation';
+import { verifyToken, sjekkRolle, AuthRequest } from '../middleware/auth';
+import { asyncHandler } from '../middleware/errorHandler';
+import { ApiError } from '../utils/ApiError';
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Validation schemas
+const nyhetSchema = z.object({
+  body: z.object({
+    tittel: z.string().min(1, 'Tittel er påkrevd'),
+    innhold: z.string().min(1, 'Innhold er påkrevd'),
+    sammendrag: z.string().optional(),
+    bildeUrl: z.string().url().optional(),
+    kategori: z.string().default('GENERELT'),
+    tags: z.array(z.string()).default([]),
+    prioritet: z.number().int().min(1).max(5).default(1),
+    visning: z.enum(['ALLE', 'BEDRIFT', 'ADMIN']).default('ALLE'),
+    publisert: z.boolean().default(false),
+    publiseringsdato: z.string().datetime().optional()
+  })
+});
+
+const querySchema = z.object({
+  query: z.object({
+    page: z.string().optional().default('1'),
+    limit: z.string().optional().default('20'),
+    kategori: z.string().optional(),
+    search: z.string().optional(),
+    publisert: z.string().optional(),
+    sortBy: z.enum(['opprettet', 'oppdatert', 'publiseringsdato', 'tittel']).optional().default('opprettet'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('desc')
+  })
+});
+
+// GET /api/nyheter - Hent alle nyheter
+router.get('/', verifyToken, validate(querySchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { page = '1', limit = '20', kategori, search, publisert, sortBy = 'opprettet', sortOrder = 'desc' } = req.query;
+  const bruker = req.bruker!;
+  
+  const pageNum = parseInt(page as string) || 1;
+  const limitNum = Math.min(parseInt(limit as string) || 20, 100);
+  const offset = (pageNum - 1) * limitNum;
+  
+  // Bygg where clause
+  const where: any = {
+    isDeleted: false
+  };
+  
+  // Filtrer basert på brukerens tilgang
+  if (bruker.rolle !== 'ADMIN') {
+    where.OR = [
+      { visning: 'ALLE' },
+      { visning: 'BEDRIFT', bedriftId: bruker.bedriftId }
+    ];
+  }
+  
+  if (kategori) {
+    where.kategori = kategori;
+  }
+  
+  if (publisert === 'true') {
+    where.publisert = true;
+  } else if (publisert === 'false') {
+    where.publisert = false;
+  }
+  
+  if (search) {
+    where.OR = [
+      { tittel: { contains: search as string, mode: 'insensitive' } },
+      { innhold: { contains: search as string, mode: 'insensitive' } },
+      { sammendrag: { contains: search as string, mode: 'insensitive' } }
+    ];
+  }
+  
+  // Sortering
+  const orderBy: any = {};
+  orderBy[sortBy as string] = sortOrder;
+  
+  const [nyheter, total] = await Promise.all([
+    prisma.nyhet.findMany({
+      where,
+      orderBy,
+      skip: offset,
+      take: limitNum,
+      include: {
+        bedrift: {
+          select: {
+            id: true,
+            navn: true
+          }
+        }
+      }
+    }),
+    prisma.nyhet.count({ where })
+  ]);
+  
+  res.json({
+    success: true,
+    data: nyheter,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum)
+    }
+  });
+}));
+
+// GET /api/nyheter/:id - Hent spesifikk nyhet
+router.get('/:id', verifyToken, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const bruker = req.bruker!;
+  
+  const nyhet = await prisma.nyhet.findFirst({
+    where: {
+      id: parseInt(id),
+      isDeleted: false
+    },
+    include: {
+      bedrift: {
+        select: {
+          id: true,
+          navn: true
+        }
+      }
+    }
+  });
+  
+  if (!nyhet) {
+    throw ApiError.notFound('Nyhet ikke funnet');
+  }
+  
+  // Sjekk tilgang
+  if (bruker.rolle !== 'ADMIN' && 
+      nyhet.visning === 'ADMIN') {
+    throw ApiError.forbidden('Ikke tilgang til denne nyheten');
+  }
+  
+  if (nyhet.visning === 'BEDRIFT' && 
+      nyhet.bedriftId !== bruker.bedriftId) {
+    throw ApiError.forbidden('Ikke tilgang til denne nyheten');
+  }
+  
+  res.json({
+    success: true,
+    data: nyhet
+  });
+}));
+
+// POST /api/nyheter - Opprett ny nyhet
+router.post('/', verifyToken, sjekkRolle(['ADMIN']), validate(nyhetSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const data = req.body;
+  const bruker = req.bruker!;
+  
+  const nyhet = await prisma.nyhet.create({
+    data: {
+      ...data,
+      forfatter: `Bruker ID ${bruker.id}`,
+      bedriftId: data.visning === 'BEDRIFT' ? bruker.bedriftId : null,
+      publiseringsdato: data.publisert && data.publiseringsdato ? 
+        new Date(data.publiseringsdato) : 
+        (data.publisert ? new Date() : null)
+    },
+    include: {
+      bedrift: {
+        select: {
+          id: true,
+          navn: true
+        }
+      }
+    }
+  });
+  
+  res.status(201).json({
+    success: true,
+    data: nyhet,
+    message: 'Nyhet opprettet'
+  });
+}));
+
+// PUT /api/nyheter/:id - Oppdater nyhet
+router.put('/:id', verifyToken, sjekkRolle(['ADMIN']), validate(nyhetSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const data = req.body;
+  
+  const eksisterendeNyhet = await prisma.nyhet.findFirst({
+    where: {
+      id: parseInt(id),
+      isDeleted: false
+    }
+  });
+  
+  if (!eksisterendeNyhet) {
+    throw ApiError.notFound('Nyhet ikke funnet');
+  }
+  
+  const oppdatertData: any = { ...data };
+  
+  // Håndter publiseringsdato
+  if (data.publisert !== undefined) {
+    if (data.publisert && !eksisterendeNyhet.publiseringsdato) {
+      oppdatertData.publiseringsdato = data.publiseringsdato ? 
+        new Date(data.publiseringsdato) : new Date();
+    } else if (!data.publisert) {
+      oppdatertData.publiseringsdato = null;
+    }
+  }
+  
+  const nyhet = await prisma.nyhet.update({
+    where: { id: parseInt(id) },
+    data: oppdatertData,
+    include: {
+      bedrift: {
+        select: {
+          id: true,
+          navn: true
+        }
+      }
+    }
+  });
+  
+  res.json({
+    success: true,
+    data: nyhet,
+    message: 'Nyhet oppdatert'
+  });
+}));
+
+// DELETE /api/nyheter/:id - Slett nyhet (soft delete)
+router.delete('/:id', verifyToken, sjekkRolle(['ADMIN']), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const bruker = req.bruker!;
+  
+  const eksisterendeNyhet = await prisma.nyhet.findFirst({
+    where: {
+      id: parseInt(id),
+      isDeleted: false
+    }
+  });
+  
+  if (!eksisterendeNyhet) {
+    throw ApiError.notFound('Nyhet ikke funnet');
+  }
+  
+  await prisma.nyhet.update({
+    where: { id: parseInt(id) },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: bruker.id
+    }
+  });
+  
+  res.json({
+    success: true,
+    message: 'Nyhet slettet'
+  });
+}));
+
+// GET /api/nyheter/kategorier/stats - Hent statistikk per kategori
+router.get('/kategorier/stats', verifyToken, async (req, res) => {
+  try {
+    const bruker = req.bruker!;
+    
+    const where: any = {
+      isDeleted: false,
+      publisert: true
+    };
+    
+    // Filtrer basert på brukerens tilgang
+    if (bruker.rolle !== 'ADMIN') {
+      where.OR = [
+        { visning: 'ALLE' },
+        { visning: 'BEDRIFT', bedriftId: bruker.bedriftId }
+      ];
+    }
+    
+    const stats = await prisma.nyhet.groupBy({
+      by: ['kategori'],
+      where,
+      _count: {
+        id: true
+      },
+      orderBy: {
+        _count: {
+          id: 'desc'
+        }
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: stats.map(stat => ({
+        kategori: stat.kategori,
+        antall: stat._count.id
+      }))
+    });
+  } catch (error) {
+    console.error('Feil ved henting av kategori-statistikk:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kunne ikke hente statistikk',
+      error: error instanceof Error ? error.message : 'Ukjent feil'
+    });
+  }
+});
+
+export default router; 

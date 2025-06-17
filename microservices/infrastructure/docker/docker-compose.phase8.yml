@@ -1,0 +1,461 @@
+version: '3.8'
+
+services:
+  # === FASE 8: QUANTUM-READY FUTURE ARCHITECTURE ===
+  
+  # Quantum Security Service (Port 8014)
+  quantum-security-service:
+    build:
+      context: ../../services/quantum-security-service
+      dockerfile: Dockerfile
+    ports:
+      - "8014:8014"
+    environment:
+      - NODE_ENV=production
+      - PORT=8014
+      - QUANTUM_BACKEND=simulator
+      - QUANTUM_KEY_LENGTH=256
+      - POST_QUANTUM_ALGORITHMS=kyber,dilithium,falcon
+    networks:
+      - tms-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.quantum-security.rule=Host(`quantum.tms.local`)"
+      - "traefik.http.services.quantum-security.loadbalancer.server.port=8014"
+
+  # Edge Computing Service (Port 8015)
+  edge-computing-service:
+    build:
+      context: ../../services/edge-computing-service
+      dockerfile: Dockerfile
+    ports:
+      - "8015:8015"
+    environment:
+      - NODE_ENV=production
+      - PORT=8015
+      - EDGE_REGION=eu-west-1
+      - FOG_COMPUTING_ENABLED=true
+      - EDGE_SYNC_INTERVAL=30s
+    networks:
+      - tms-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.edge-computing.rule=Host(`edge.tms.local`)"
+      - "traefik.http.services.edge-computing.loadbalancer.server.port=8015"
+
+  # Blockchain Service (Port 8016)
+  blockchain-service:
+    build:
+      context: ../../services/blockchain-service
+      dockerfile: Dockerfile
+    ports:
+      - "8016:8016"
+    environment:
+      - NODE_ENV=production
+      - PORT=8016
+      - BLOCKCHAIN_NETWORK=tms-private
+      - CONSENSUS_ALGORITHM=proof-of-stake
+      - SMART_CONTRACTS_ENABLED=true
+    networks:
+      - tms-network
+    volumes:
+      - blockchain-data:/app/blockchain
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.blockchain.rule=Host(`blockchain.tms.local`)"
+      - "traefik.http.services.blockchain.loadbalancer.server.port=8016"
+
+  # === QUANTUM INFRASTRUCTURE ===
+  
+  # Quantum Simulator (for development/testing)
+  quantum-simulator:
+    image: rigetti/quilc:latest
+    ports:
+      - "5555:5555"  # Quil Compiler
+    environment:
+      - QUILC_LOG_LEVEL=INFO
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Post-Quantum Cryptography Library
+  pqcrypto-service:
+    image: openquantumsafe/oqs-nginx:latest
+    ports:
+      - "4433:4433"  # HTTPS with post-quantum TLS
+    environment:
+      - OQS_KEM_ALG=kyber512
+      - OQS_SIG_ALG=dilithium2
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # === EDGE COMPUTING INFRASTRUCTURE ===
+  
+  # Edge Node Simulator (simulates multiple edge nodes)
+  edge-node-simulator:
+    image: k3s:latest
+    ports:
+      - "6443:6443"  # Kubernetes API
+    environment:
+      - K3S_TOKEN=edge-cluster-token
+      - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
+    volumes:
+      - edge-k3s-data:/var/lib/rancher/k3s
+      - edge-kubeconfig:/output
+    networks:
+      - tms-network
+    privileged: true
+    restart: unless-stopped
+
+  # Edge Data Sync Service
+  edge-sync:
+    image: syncthing/syncthing:latest
+    ports:
+      - "8384:8384"  # Web UI
+      - "22000:22000"  # Sync protocol
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - edge-sync-config:/var/syncthing/config
+      - edge-sync-data:/var/syncthing/data
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # === BLOCKCHAIN INFRASTRUCTURE ===
+  
+  # Ethereum-compatible Blockchain Node
+  geth-node:
+    image: ethereum/client-go:latest
+    ports:
+      - "8545:8545"  # HTTP RPC
+      - "8546:8546"  # WebSocket RPC
+      - "30303:30303"  # P2P
+    command: >
+      --dev
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.corsdomain "*"
+      --ws
+      --ws.addr 0.0.0.0
+      --ws.port 8546
+      --ws.origins "*"
+      --datadir /data
+    volumes:
+      - geth-data:/data
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # IPFS for Distributed Storage
+  ipfs-node:
+    image: ipfs/go-ipfs:latest
+    ports:
+      - "4001:4001"  # P2P
+      - "5001:5001"  # API
+      - "8080:8080"  # Gateway
+    environment:
+      - IPFS_PROFILE=server
+    volumes:
+      - ipfs-data:/data/ipfs
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Smart Contract Compiler
+  solidity-compiler:
+    image: ethereum/solc:stable
+    volumes:
+      - ./smart-contracts:/contracts
+      - compiled-contracts:/output
+    networks:
+      - tms-network
+    restart: "no"
+
+  # === ADVANCED AI/ML INFRASTRUCTURE ===
+  
+  # Quantum Machine Learning Service
+  qml-service:
+    image: tensorflow/tensorflow:latest-gpu
+    ports:
+      - "8888:8888"  # Jupyter
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - QUANTUM_BACKEND=qiskit
+    volumes:
+      - qml-notebooks:/tf/notebooks
+      - qml-models:/tf/models
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Neural Network Accelerator
+  neural-accelerator:
+    image: nvidia/cuda:11.8-devel-ubuntu20.04
+    ports:
+      - "8889:8889"
+    environment:
+      - CUDA_VISIBLE_DEVICES=all
+    volumes:
+      - neural-models:/models
+    networks:
+      - tms-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # === ADVANCED MONITORING & ANALYTICS ===
+  
+  # Quantum Metrics Collector
+  quantum-metrics:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./quantum-prometheus.yml:/etc/prometheus/prometheus.yml
+      - quantum-metrics-data:/prometheus
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Edge Analytics Engine
+  edge-analytics:
+    image: apache/spark:3.4.0
+    ports:
+      - "4040:4040"  # Spark UI
+      - "7077:7077"  # Spark Master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=edge-analytics
+    volumes:
+      - edge-analytics-data:/opt/spark/data
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Blockchain Analytics
+  blockchain-analytics:
+    image: ethereum/client-go:latest
+    command: >
+      --syncmode light
+      --http
+      --http.addr 0.0.0.0
+      --http.api eth,net,web3,debug,trace
+    ports:
+      - "8547:8545"
+    volumes:
+      - blockchain-analytics-data:/data
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # === ENHANCED SECURITY ===
+  
+  # Zero Trust Network Access
+  ztna-gateway:
+    image: openziti/ziti-edge-router:latest
+    ports:
+      - "3022:3022"
+      - "10080:10080"
+    environment:
+      - ZITI_EDGE_ROUTER_NAME=tms-edge-router
+    volumes:
+      - ztna-config:/persistent
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # Hardware Security Module Simulator
+  hsm-simulator:
+    image: softhsm:latest
+    ports:
+      - "2048:2048"
+    environment:
+      - SOFTHSM2_CONF=/etc/softhsm2/softhsm2.conf
+    volumes:
+      - hsm-data:/var/lib/softhsm
+    networks:
+      - tms-network
+    restart: unless-stopped
+
+  # === EXTEND EXISTING SERVICES ===
+  
+  # Include all services from Phase 7
+  ai-autoscaler-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: ai-autoscaler-service
+
+  performance-optimizer-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: performance-optimizer-service
+
+  chaos-engineering-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: chaos-engineering-service
+
+  # Include all services from previous phases
+  api-gateway:
+    extends:
+      file: docker-compose.phase7.yml
+      service: api-gateway
+
+  auth-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: auth-service
+
+  user-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: user-service
+
+  quiz-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: quiz-service
+
+  sikkerhetskontroll-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: sikkerhetskontroll-service
+
+  hr-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: hr-service
+
+  economy-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: economy-service
+
+  graphql-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: graphql-service
+
+  notification-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: notification-service
+
+  ml-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: ml-service
+
+  observability-service:
+    extends:
+      file: docker-compose.phase7.yml
+      service: observability-service
+
+  # === DATABASES & STORAGE ===
+  
+  postgres:
+    extends:
+      file: docker-compose.phase7.yml
+      service: postgres
+
+  redis:
+    extends:
+      file: docker-compose.phase7.yml
+      service: redis
+
+  elasticsearch:
+    extends:
+      file: docker-compose.phase7.yml
+      service: elasticsearch
+
+  # === MONITORING ===
+  
+  prometheus:
+    extends:
+      file: docker-compose.phase7.yml
+      service: prometheus
+
+  grafana:
+    extends:
+      file: docker-compose.phase7.yml
+      service: grafana
+
+  jaeger:
+    extends:
+      file: docker-compose.phase7.yml
+      service: jaeger
+
+  # === INFRASTRUCTURE ===
+  
+  traefik:
+    extends:
+      file: docker-compose.phase7.yml
+      service: traefik
+
+  vault:
+    extends:
+      file: docker-compose.phase7.yml
+      service: vault
+
+  consul:
+    extends:
+      file: docker-compose.phase7.yml
+      service: consul
+
+networks:
+  tms-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  # Quantum volumes
+  quantum-metrics-data:
+  
+  # Edge computing volumes
+  edge-k3s-data:
+  edge-kubeconfig:
+  edge-sync-config:
+  edge-sync-data:
+  edge-analytics-data:
+  
+  # Blockchain volumes
+  blockchain-data:
+  geth-data:
+  ipfs-data:
+  compiled-contracts:
+  blockchain-analytics-data:
+  
+  # AI/ML volumes
+  qml-notebooks:
+  qml-models:
+  neural-models:
+  
+  # Security volumes
+  ztna-config:
+  hsm-data:
+  
+  # Extend existing volumes from previous phases
+  postgres-data:
+  redis-data:
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:
+  mlflow-artifacts:
+  redis-cluster-data:
+  influxdb-data:
+  rabbitmq-data:
+  traefik-acme: 

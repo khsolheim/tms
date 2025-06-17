@@ -1,0 +1,250 @@
+import express, { Router, Request, Response } from 'express';
+import { emailService } from '../services/email.service';
+import { PrismaClient } from '@prisma/client';
+import { verifyToken, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validation';
+import {
+  testEmailSchema,
+  sendKontraktEmailSchema,
+  sendStatusVarselSchema,
+  getEmailSettingsSchema
+} from '../validation/email.validation';
+import { AppError, ValidationError, NotFoundError, AuthError } from '../utils/errors';
+import { asyncHandler } from '../middleware/errorHandler';
+import logger from '../utils/logger';
+import { ApiError } from '../utils/ApiError';
+
+const prisma = new PrismaClient();
+
+const router = express.Router();
+
+// Test e-postkonfigurasjon
+router.get('/test', async (req, res) => {
+  try {
+    const isConnected = await emailService.testConnection();
+    
+    if (isConnected) {
+      res.json({ 
+        success: true, 
+        message: 'E-postserver tilkobling vellykket',
+        config: {
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: process.env.SMTP_PORT || '587',
+          from: process.env.SMTP_FROM || 'noreply@tms.no'
+        }
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Kunne ikke koble til e-postserver' 
+      });
+    }
+  } catch (error) {
+    console.error('Feil ved testing av e-postkonfigurasjon:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Ukjent feil' 
+    });
+  }
+});
+
+// Send test e-post
+router.post('/test-send', verifyToken, validate(testEmailSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { to, subject, message } = req.body;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #1e40af; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f3f4f6; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Test E-post</h1>
+        </div>
+        <div class="content">
+          <p>${message}</p>
+          <p>Sendt: ${new Date().toLocaleString('nb-NO')}</p>
+        </div>
+        <div class="footer">
+          <p>Dette er en test e-post fra TMS systemet.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await emailService.sendEmail({
+    to,
+    subject,
+    html
+  });
+
+  logger.info('Test e-post sendt', {
+    userId: req.bruker?.id,
+    to: to,
+    subject: subject
+  });
+  
+  res.json({ 
+    success: true, 
+    message: 'Test e-post sendt',
+    details: {
+      to,
+      subject
+    }
+  });
+}));
+
+// Send kontrakt på e-post
+router.post('/kontrakt/:kontraktId', verifyToken, validate(sendKontraktEmailSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+    const kontraktId = Number(req.params.kontraktId);
+    const { sendPdf = true } = req.body;
+    
+    // Hent kontrakt
+    const kontrakt = await prisma.kontrakt.findUnique({
+      where: { id: kontraktId }
+    });
+    
+    if (!kontrakt) {
+      throw new NotFoundError('Kontrakt ikke funnet');
+    }
+    
+    // Sjekk tilgang - må være i samme bedrift
+    if (kontrakt.bedriftId !== req.bruker?.bedriftId) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Ingen tilgang til denne kontrakten' 
+      });
+    }
+    
+    // Hent bedriftsnavn
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: kontrakt.bedriftId },
+      select: { navn: true }
+    });
+    
+    // Send e-post
+    await emailService.sendKontraktEmail({
+      kontraktId: kontrakt.id,
+      elevNavn: `${kontrakt.elevFornavn} ${kontrakt.elevEtternavn}`,
+      elevEpost: kontrakt.elevEpost || '',
+      totalBelop: kontrakt.totalBelop,
+      terminbelop: kontrakt.terminbelop,
+      lopetid: kontrakt.lopetid,
+      bedriftNavn: bedrift?.navn || 'Ukjent bedrift',
+      pdfBuffer: sendPdf ? undefined : undefined // PDF-generering implementeres når det er krav til dette
+    });
+    
+    logger.info('Kontrakt e-post sendt', {
+      userId: req.bruker?.id,
+      kontraktId: kontrakt.id,
+      mottaker: kontrakt.elevEpost
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Kontrakt sendt på e-post',
+      details: {
+        kontraktId,
+        mottaker: kontrakt.elevEpost,
+        sendtTidspunkt: new Date()
+      }
+    });
+}));
+
+// Send statusvarsel
+router.post('/status-varsel', verifyToken, validate(sendStatusVarselSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { kontraktId, nyStatus } = req.body;
+    
+    // Hent kontrakt
+    const kontrakt = await prisma.kontrakt.findUnique({
+      where: { id: kontraktId }
+    });
+    
+    if (!kontrakt) {
+      throw new NotFoundError('Kontrakt ikke funnet');
+    }
+    
+    // Sjekk tilgang - må være i samme bedrift
+    if (kontrakt.bedriftId !== req.bruker?.bedriftId) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Ingen tilgang til denne kontrakten' 
+      });
+    }
+    
+    if (!kontrakt.elevEpost) {
+      throw new ValidationError('Ingen e-postadresse funnet for eleven');
+    }
+    
+    await emailService.sendStatusChangeEmail(
+      kontraktId,
+      nyStatus,
+      kontrakt.elevEpost,
+      `${kontrakt.elevFornavn} ${kontrakt.elevEtternavn}`
+    );
+    
+    logger.info('Statusvarsel sendt', {
+      userId: req.bruker?.id,
+      kontraktId,
+      nyStatus,
+      mottaker: kontrakt.elevEpost
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Statusvarsel sendt',
+      details: {
+        kontraktId,
+        nyStatus,
+        mottaker: kontrakt.elevEpost
+      }
+    });
+}));
+
+// Hent e-postinnstillinger fra systemconfig
+router.get('/settings', verifyToken, validate(getEmailSettingsSchema), asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = req.bruker?.bedriftId;
+    
+    if (!bedriftId) {
+      throw new AuthError('Ingen bedrift tilknyttet');
+    }
+    
+    const systemConfig = await prisma.systemConfig.findUnique({
+      where: { bedriftId },
+      select: {
+        sendKvitteringTilElev: true,
+        sendKopiTilBedrift: true,
+        standardAvsenderEpost: true,
+        standardAvsenderNavn: true,
+        varsleNyKontrakt: true,
+        varsleStatusendring: true,
+        varsleForfall: true,
+        dagerForVarslingForfall: true
+      }
+    });
+    
+    res.json({ 
+      success: true, 
+      data: systemConfig || {
+        sendKvitteringTilElev: true,
+        sendKopiTilBedrift: true,
+        standardAvsenderEpost: '',
+        standardAvsenderNavn: '',
+        varsleNyKontrakt: true,
+        varsleStatusendring: true,
+        varsleForfall: true,
+        dagerForVarslingForfall: 7
+      }
+    });
+}));
+
+export default router; 
