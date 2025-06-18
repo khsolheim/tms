@@ -1,0 +1,754 @@
+import { Router, Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+import { verifyToken, sjekkRolle, AuthRequest } from "../middleware/auth";
+import logger, { auditLog } from "../utils/logger";
+import { ApiError } from "../utils/ApiError";
+import { asyncHandler } from "../middleware/errorHandler";
+import {
+  validateOpprettBedrift,
+  validateOppdaterBedrift,
+  validateHentBedrift,
+  validateSlettBedrift,
+  validateSokBedrifter,
+  validateHentBedriftByOrgNummer
+} from "../validation/bedrift.validation";
+
+const router = Router();
+const prisma = new PrismaClient();
+
+// Hent alle bedrifter (kun for admin)
+router.get("/", verifyToken, sjekkRolle(['ADMIN']), validateSokBedrifter, asyncHandler(async (_req: Request, res: Response) => {
+  logger.info('Henter alle bedrifter');
+  
+  const bedrifter = await prisma.bedrift.findMany({
+    where: {
+      isDeleted: false
+    },
+    include: {
+      ansatte: true,
+      hovedbruker: true,
+      klasser: true,
+      kjoretoy: true
+    }
+  });
+  
+  res.json(bedrifter);
+}));
+
+// Hent spesifikk bedrift basert på navn (slug)
+router.get("/by-name/:navn", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+  const bedriftNavn = decodeURIComponent(req.params.navn);
+  
+  const bedrift = await prisma.bedrift.findFirst({
+    where: {
+      navn: {
+        equals: bedriftNavn,
+        mode: 'insensitive'
+      },
+      isDeleted: false
+    },
+    include: {
+      ansatte: {
+        select: {
+          id: true,
+          fornavn: true,
+          etternavn: true,
+          epost: true,
+          rolle: true,
+          telefon: true
+        }
+      },
+      hovedbruker: {
+        select: {
+          id: true,
+          fornavn: true,
+          etternavn: true,
+          epost: true
+        }
+      },
+      klasser: true,
+      kjoretoy: true
+    }
+  });
+
+  if (!bedrift) {
+    throw ApiError.notFound(`Bedrift med navn '${bedriftNavn}' ble ikke funnet`);
+  }
+
+  // Sjekk tilgang
+  if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedrift.id) {
+    throw ApiError.forbidden('Ikke tilgang til denne bedriften');
+  }
+
+  res.json(bedrift);
+}));
+
+// Hent spesifikk bedrift
+router.get("/:id", 
+  verifyToken, 
+  validateHentBedrift,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+  const bedriftId = Number(req.params.id);
+  if (!bedriftId) {
+    throw ApiError.badRequest('Ugyldig bedrift-id');
+  }
+
+  const bedrift = await prisma.bedrift.findFirst({
+    where: { 
+      id: bedriftId,
+      isDeleted: false
+    },
+    include: {
+      ansatte: {
+        select: {
+          id: true,
+          fornavn: true,
+          etternavn: true,
+          epost: true,
+          rolle: true,
+          telefon: true
+        }
+      },
+      hovedbruker: {
+        select: {
+          id: true,
+          fornavn: true,
+          etternavn: true,
+          epost: true
+        }
+      },
+      klasser: true,
+      kjoretoy: true
+    }
+  });
+
+  if (!bedrift) {
+    throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+  }
+
+  // Sjekk tilgang
+  if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedrift.id) {
+    throw ApiError.forbidden('Ikke tilgang til denne bedriften');
+  }
+
+  res.json(bedrift);
+}));
+
+// Opprett ny bedrift (kun for admin)
+router.post("/", 
+  verifyToken, 
+  sjekkRolle(['ADMIN']), 
+  validateOpprettBedrift,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { 
+      navn, organisasjonsnummer, adresse, postnummer, poststed, telefon, epost,
+      stiftelsesdato, organisasjonsform, organisasjonsformKode, 
+      naeringskode, naeringskodeKode, dagligLeder, styreleder, 
+      signaturrett, brregMetadata 
+    } = req.body;
+
+    logger.info('Oppretter ny bedrift', {
+      navn,
+      organisasjonsnummer,
+      userId: (req as AuthRequest).bruker!.id
+    });
+
+    const bedrift = await prisma.bedrift.create({
+      data: {
+        navn,
+        organisasjonsnummer: organisasjonsnummer || "",
+        adresse,
+        postnummer,
+        poststed,
+        telefon,
+        epost,
+        // Utvidet informasjon fra Brønnøysundregisteret
+        stiftelsesdato,
+        organisasjonsform,
+        organisasjonsformKode,
+        naeringskode,
+        naeringskodeKode,
+        dagligLeder,
+        styreleder,
+        signaturrett: signaturrett || [],
+        brregMetadata: brregMetadata || null
+      },
+      include: {
+        ansatte: true,
+        hovedbruker: true,
+        klasser: true,
+        kjoretoy: true
+      }
+    });
+
+    auditLog(
+      (req as AuthRequest).bruker!.id,
+      'CREATE_BEDRIFT',
+      'Bedrift',
+      {
+        bedriftId: bedrift.id,
+        navn: bedrift.navn,
+        organisasjonsnummer: bedrift.organisasjonsnummer
+      }
+    );
+
+    logger.info(`Bedrift opprettet vellykket`, {
+      bedriftId: bedrift.id,
+      navn: bedrift.navn
+    });
+
+    res.status(201).json(bedrift);
+  })
+);
+
+// Opprett ansatt for bedrift
+router.post("/:id/ansatte", 
+  verifyToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = parseInt(req.params.id, 10);
+
+    if (isNaN(bedriftId)) {
+      throw ApiError.badRequest('Ugyldig bedrift-id');
+    }
+    const { fornavn, etternavn, epost, passord, rolle } = req.body;
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å opprette ansatt for denne bedriften');
+    }
+
+    // Sjekk om bedrift eksisterer
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!bedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    // Sjekk om e-post allerede er i bruk
+    const eksisterendeAnsatt = await prisma.ansatt.findUnique({
+      where: { epost }
+    });
+
+    if (eksisterendeAnsatt) {
+      throw ApiError.conflict('En ansatt med denne e-postadressen eksisterer allerede');
+    }
+
+    const saltRounds = 10;
+    const passordHash = await bcrypt.hash(passord, saltRounds);
+
+    const ansatt = await prisma.ansatt.create({
+      data: {
+        fornavn,
+        etternavn,
+        epost,
+        passordHash,
+        rolle: rolle || 'TRAFIKKLARER',
+        bedriftId
+      }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'CREATE_ANSATT',
+      'Ansatt',
+      {
+        ansattId: ansatt.id,
+        bedriftId,
+        epost: ansatt.epost,
+        rolle: ansatt.rolle
+      }
+    );
+
+    logger.info('Ansatt opprettet', {
+      ansattId: ansatt.id,
+      bedriftId,
+      rolle: ansatt.rolle
+    });
+
+    res.status(201).json({
+      id: ansatt.id,
+      navn: `${ansatt.fornavn} ${ansatt.etternavn}`,
+      fornavn: ansatt.fornavn,
+      etternavn: ansatt.etternavn,
+      epost: ansatt.epost,
+      rolle: ansatt.rolle,
+      bedriftId: ansatt.bedriftId
+    });
+  })
+);
+
+// Oppdater bedrift
+router.put("/:id", 
+  verifyToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = req.params.id as unknown as number; // Validert av schema
+    const { 
+      navn, organisasjonsnummer, adresse, postnummer, poststed, telefon, epost,
+      stiftelsesdato, organisasjonsform, organisasjonsformKode,
+      naeringskode, naeringskodeKode, dagligLeder, styreleder,
+      signaturrett, brregMetadata
+    } = req.body;
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å oppdatere denne bedriften');
+    }
+
+    // Hent eksisterende data for audit log
+    const eksisterendeBedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!eksisterendeBedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    const bedrift = await prisma.bedrift.update({
+      where: { id: bedriftId },
+      data: {
+        navn,
+        organisasjonsnummer,
+        adresse,
+        postnummer,
+        poststed,
+        telefon,
+        epost,
+        stiftelsesdato,
+        organisasjonsform,
+        organisasjonsformKode,
+        naeringskode,
+        naeringskodeKode,
+        dagligLeder,
+        styreleder,
+        signaturrett: signaturrett || [],
+        brregMetadata: brregMetadata || null
+      },
+      include: {
+        ansatte: true,
+        hovedbruker: true,
+        klasser: true,
+        kjoretoy: true
+      }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'UPDATE_BEDRIFT',
+      'Bedrift',
+      {
+        bedriftId: bedrift.id,
+        endringer: {
+          fra: eksisterendeBedrift,
+          til: bedrift
+        }
+      }
+    );
+
+    res.json(bedrift);
+  })
+);
+
+// Sett hovedbruker for bedrift
+router.put("/:id/hovedbruker", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = req.params.id as unknown as number; // Validert av schema
+    const { hovedbrukerId } = req.body;
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å endre hovedbruker');
+    }
+
+    // Sjekk om bedrift eksisterer
+    const eksisterendeBedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!eksisterendeBedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    // Sjekk om hovedbruker eksisterer og tilhører bedriften
+    const hovedbruker = await prisma.ansatt.findFirst({
+      where: { 
+        id: hovedbrukerId,
+        bedriftId: bedriftId
+      }
+    });
+
+    if (!hovedbruker) {
+      throw ApiError.validation('Hovedbruker må tilhøre samme bedrift');
+    }
+
+    const bedrift = await prisma.bedrift.update({
+      where: { id: bedriftId },
+      data: { hovedbrukerId },
+      include: { hovedbruker: true }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'SET_HOVEDBRUKER',
+      'Bedrift',
+      {
+        bedriftId,
+        hovedbrukerId
+      }
+    );
+    
+    res.json(bedrift);
+  })
+);
+
+// Legg til klasser for bedrift
+router.post("/:id/klasser", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = req.params.id as unknown as number; // Validert av schema
+    const { klasser } = req.body;
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å endre klasser for denne bedriften');
+    }
+
+    // Sjekk om bedrift eksisterer
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!bedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    // Slett eksisterende klasser for bedriften
+    await prisma.bedriftsKlasse.deleteMany({ where: { bedriftId } });
+    
+    // Legg til nye
+    await prisma.bedriftsKlasse.createMany({
+      data: klasser.map((klassekode: string) => ({ bedriftId, klassekode })),
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'UPDATE_KLASSER',
+      'Bedrift',
+      {
+        bedriftId,
+        klasser
+      }
+    );
+    
+    res.json({ success: true, klasser });
+  })
+);
+
+// Hent ansatte for bedrift
+router.get("/:id/ansatte", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = req.params.id as unknown as number; // Validert av schema
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til ansatte for denne bedriften');
+    }
+
+    // Sjekk om bedrift eksisterer
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!bedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    const ansatte = await prisma.ansatt.findMany({
+      where: { bedriftId },
+      select: {
+        id: true,
+        fornavn: true,
+        etternavn: true,
+        epost: true,
+        rolle: true,
+        telefon: true
+      }
+    });
+
+    res.json(ansatte);
+  })
+);
+
+// Hent kjoretoy for bedrift
+router.get("/:id/kjoretoy", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = parseInt(req.params.id, 10);
+
+    if (isNaN(bedriftId)) {
+      throw ApiError.badRequest('Ugyldig bedrift-id');
+    }
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til denne bedriftens kjoretoy');
+    }
+
+    // Sjekk om bedrift eksisterer
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!bedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    const kjoretoy = await prisma.kjoretoy.findMany({
+      where: { bedriftId },
+      orderBy: { opprettet: 'desc' }
+    });
+    
+    res.json(kjoretoy);
+  })
+);
+
+// Opprett kjoretoy for bedrift
+router.post("/:id/kjoretoy", 
+  verifyToken,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = parseInt(req.params.id, 10);
+
+    if (isNaN(bedriftId)) {
+      throw ApiError.badRequest('Ugyldig bedrift-id');
+    }
+    const { registreringsnummer, merke, modell, aarsmodell, type, status, forerkortklass } = req.body;
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å opprette kjoretoy for denne bedriften');
+    }
+
+    // Sjekk om bedrift eksisterer
+    const bedrift = await prisma.bedrift.findUnique({
+      where: { id: bedriftId }
+    });
+
+    if (!bedrift) {
+      throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+    }
+
+    try {
+      const kjoretoy = await prisma.kjoretoy.create({
+        data: {
+          registreringsnummer, // Allerede uppercase fra validation
+          merke,
+          modell,
+          aarsmodell,
+          type,
+          status,
+          forerkortklass,
+          bedriftId
+        }
+      });
+
+      auditLog(
+        req.bruker!.id,
+        'CREATE_KJORETOY',
+        'Kjoretoy',
+        {
+          kjoretoyId: kjoretoy.id,
+          bedriftId,
+          registreringsnummer: kjoretoy.registreringsnummer
+        }
+      );
+
+      logger.info('Kjøretøy opprettet', {
+        kjoretoyId: kjoretoy.id,
+        bedriftId,
+        registreringsnummer: kjoretoy.registreringsnummer
+      });
+
+      res.status(201).json(kjoretoy);
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        throw ApiError.conflict('Registreringsnummer finnes allerede');
+      }
+      throw e;
+    }
+  })
+);
+
+// Oppdater kjoretoy
+router.put("/:bedriftId/kjoretoy/:id", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = Number(req.params.bedriftId);
+    const kjoretoyId = Number(req.params.id);
+    const { registreringsnummer, merke, modell, aarsmodell, type, status, forerkortklass } = req.body;
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å oppdatere kjoretoy for denne bedriften');
+    }
+
+    // Sjekk om kjoretoy eksisterer
+    const eksisterendeKjoretoy = await prisma.kjoretoy.findFirst({
+      where: { id: kjoretoyId, bedriftId }
+    });
+
+    if (!eksisterendeKjoretoy) {
+      throw ApiError.notFound(`'Kjøretøy' med ID ${String(kjoretoyId)} ble ikke funnet`);
+    }
+
+    try {
+      const kjoretoy = await prisma.kjoretoy.update({
+        where: { id: kjoretoyId, bedriftId },
+        data: {
+          registreringsnummer,
+          merke,
+          modell,
+          aarsmodell: Number(aarsmodell),
+          type,
+          status,
+          forerkortklass
+        }
+      });
+
+      auditLog(
+        req.bruker!.id,
+        'UPDATE_KJORETOY',
+        'Kjoretoy',
+        {
+          kjoretoyId,
+          bedriftId,
+          registreringsnummer: kjoretoy.registreringsnummer
+        }
+      );
+
+      logger.info('Kjøretøy oppdatert', {
+        kjoretoyId,
+        bedriftId,
+        registreringsnummer: kjoretoy.registreringsnummer
+      });
+
+      res.json(kjoretoy);
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        throw ApiError.conflict('Registreringsnummer finnes allerede');
+      }
+      throw e;
+    }
+  })
+);
+
+// Slett kjoretoy
+router.delete("/:bedriftId/kjoretoy/:id", 
+  verifyToken, 
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const bedriftId = Number(req.params.bedriftId);
+    const kjoretoyId = Number(req.params.id);
+
+    // Sjekk tilgang
+    if (req.bruker!.rolle !== 'ADMIN' && req.bruker!.bedriftId !== bedriftId) {
+      throw ApiError.forbidden('Ikke tilgang til å slette kjoretoy for denne bedriften');
+    }
+
+    // Sjekk om kjoretoy eksisterer
+    const eksisterendeKjoretoy = await prisma.kjoretoy.findFirst({
+      where: { id: kjoretoyId, bedriftId }
+    });
+
+    if (!eksisterendeKjoretoy) {
+      throw ApiError.notFound(`'Kjøretøy' med ID ${String(kjoretoyId)} ble ikke funnet`);
+    }
+
+    await prisma.kjoretoy.delete({
+      where: { id: kjoretoyId, bedriftId }
+    });
+
+    auditLog(
+      req.bruker!.id,
+      'DELETE_KJORETOY',
+      'Kjoretoy',
+      {
+        kjoretoyId,
+        bedriftId,
+        registreringsnummer: eksisterendeKjoretoy.registreringsnummer
+      }
+    );
+
+    logger.info('Kjøretøy slettet', {
+      kjoretoyId,
+      bedriftId,
+      registreringsnummer: eksisterendeKjoretoy.registreringsnummer
+    });
+
+    res.status(204).send();
+  })
+);
+
+// Slett bedrift
+router.delete("/:id", verifyToken, sjekkRolle(['ADMIN']), asyncHandler(async (req: AuthRequest, res: Response) => {
+  const bedriftId = parseInt(req.params.id);
+  
+  if (!bedriftId) {
+    throw ApiError.validation('Ugyldig bedrift-id');
+  }
+
+  logger.info(`Starter sletting av bedrift ${bedriftId}`, {
+    userId: req.bruker!.id,
+    bedriftId
+  });
+
+  // Hent bedrift info før sletting for audit log
+  const bedrift = await prisma.bedrift.findFirst({
+    where: { 
+      id: bedriftId,
+      isDeleted: false
+    },
+    select: { navn: true, organisasjonsnummer: true }
+  });
+
+  if (!bedrift) {
+    throw ApiError.notFound(`'Bedrift' med ID ${String(bedriftId)} ble ikke funnet`);
+  }
+
+  // Soft delete bedriften
+  await prisma.bedrift.update({
+    where: { id: bedriftId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: req.bruker!.id
+    }
+  });
+
+  logger.debug(`Bedrift ${bedriftId} markert som slettet (soft delete)`);
+
+  // Audit log for sletting
+  auditLog(
+    req.bruker!.id,
+    'DELETE_BEDRIFT',
+    'Bedrift',
+    {
+      bedriftId,
+      navn: bedrift.navn,
+      organisasjonsnummer: bedrift.organisasjonsnummer
+    }
+  );
+
+  logger.info(`Bedrift ${bedriftId} slettet vellykket`, {
+    userId: req.bruker!.id,
+    bedriftNavn: bedrift.navn
+  });
+
+  res.status(204).send();
+}));
+
+export default router; 

@@ -15,6 +15,16 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Demo mode constants
+const DEMO_TOKEN = 'demo-token-123';
+const DEMO_USER = {
+  id: 1,
+  rolle: 'ADMIN',
+  bedriftId: 1,
+  originalUserId: undefined,
+  isImpersonating: false
+};
+
 export const verifyToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
   console.log('Auth header:', authHeader);
@@ -27,8 +37,16 @@ export const verifyToken = async (req: AuthRequest, res: Response, next: NextFun
     return;
   }
 
+  // Check for demo token first
+  if (token === DEMO_TOKEN) {
+    console.log('Demo token detected - using demo user');
+    req.bruker = DEMO_USER;
+    next();
+    return;
+  }
+
   try {
-    console.log('Verifying token...');
+    console.log('Verifying JWT token...');
     const decoded = jwt.verify(token, getJwtSecret()) as {
       id: number;
       originalUserId?: number;

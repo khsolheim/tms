@@ -18,7 +18,7 @@ async function seedSikkerhetskontrollData() {
         navn: 'Klasse B',
         beskrivelse: 'Personbil opptil 3500 kg',
         ikonUrl: '/icons/bil-klasse-b.svg',
-        rekkefølge: 1
+        rekkefolge: 1
       }
     });
 
@@ -29,7 +29,7 @@ async function seedSikkerhetskontrollData() {
         navn: 'Klasse C',
         beskrivelse: 'Lastebil over 3500 kg',
         ikonUrl: '/icons/bil-klasse-c.svg',
-        rekkefølge: 2
+        rekkefolge: 2
       }
     });
 
@@ -44,35 +44,35 @@ async function seedSikkerhetskontrollData() {
         beskrivelse: 'Kontroll av bilens bremsesystem',
         ikonUrl: '/icons/bremser.svg',
         farge: '#ef4444',
-        rekkefølge: 1
+        rekkefolge: 1
       },
       {
         navn: 'Lys',
         beskrivelse: 'Kontroll av alle lyskilder på bilen',
         ikonUrl: '/icons/lys.svg',
         farge: '#f59e0b',
-        rekkefølge: 2
+        rekkefolge: 2
       },
       {
         navn: 'Motorrom',
         beskrivelse: 'Kontroll under panseret',
         ikonUrl: '/icons/motorrom.svg',
         farge: '#10b981',
-        rekkefølge: 3
+        rekkefolge: 3
       },
       {
         navn: 'Dekk og Hjul',
         beskrivelse: 'Kontroll av dekk og hjuloppheng',
         ikonUrl: '/icons/dekk.svg',
         farge: '#3b82f6',
-        rekkefølge: 4
+        rekkefolge: 4
       },
       {
         navn: 'Vinduer og Speil',
         beskrivelse: 'Kontroll av siktforhold',
         ikonUrl: '/icons/vinduer.svg',
         farge: '#8b5cf6',
-        rekkefølge: 5
+        rekkefolge: 5
       }
     ];
 
@@ -108,7 +108,7 @@ async function seedSikkerhetskontrollData() {
         svarDetaljert: 'Trykk bremsepedalene rolig ned til bunns. Pedalen skal ha god motstand og ikke synke til bunns uten motstand. Den skal holde seg fast når du holder trykket.',
         hvorforderVikreligTekst: 'Bremsepedalens gang forteller deg om det er luft i bremsesystemet eller om det er andre problemer som kan påvirke bremseevnen kritisk.',
         vanskelighetsgrad: SikkerhetskontrollVanskelighetsgrad.LETT,
-        rekkefølge: 1
+        rekkefolge: 1
       },
       {
         sporsmalTekst: 'Hvor sjekker du bremsevæskenivået?',
@@ -116,7 +116,7 @@ async function seedSikkerhetskontrollData() {
         svarDetaljert: 'Bremsevæskebeholderen er vanligvis plassert på førersiden av motorrommet, festet til brannmuren. Den har MAX og MIN markeringer på siden.',
         hvorforderVikreligTekst: 'For lite bremsevæske kan føre til at bremsene svikter, mens gamle bremsevæske kan ha for høyt vanninnhold og koke under hard bremsing.',
         vanskelighetsgrad: SikkerhetskontrollVanskelighetsgrad.LETT,
-        rekkefølge: 2
+        rekkefolge: 2
       },
       {
         sporsmalTekst: 'Hvordan sjekker du parkeringsbremsen?',
@@ -124,7 +124,7 @@ async function seedSikkerhetskontrollData() {
         svarDetaljert: 'Sett bilen i en liten bakke, aktiver parkeringsbremsen og slip clutch/gir for å teste at bilen holder seg fast. Du kan også telle antall "klikk" - det skal ikke være mer enn 7-8 klikk til bremsen griper.',
         hvorforderVikreligTekst: 'En parkeringsbrems som ikke holder kan føre til at bilen ruller av sted når den er parkert, noe som kan skade både bil og mennesker.',
         vanskelighetsgrad: SikkerhetskontrollVanskelighetsgrad.MIDDELS,
-        rekkefølge: 3
+        rekkefolge: 3
       }
     ];
 
@@ -151,7 +151,7 @@ async function seedSikkerhetskontrollData() {
         svarDetaljert: 'Foran på bilen skal du kontrollere: Nærlys (begge sider), fjernlys (begge sider), parkeringslys/posisjonsLys, blinklys (begge sider). Hvis bilen har tåkelys foran, skal også disse sjekkes.',
         hvorforderVikreligTekst: 'Defekte lys foran reduserer din sikt og gjør at andre trafikanter ikke ser deg. Dette øker risikoen for ulykker dramatisk, spesielt i mørket.',
         vanskelighetsgrad: SikkerhetskontrollVanskelighetsgrad.LETT,
-        rekkefølge: 1
+        rekkefolge: 1
       },
       {
         sporsmalTekst: 'Hvordan sjekker du baklyselne?',
@@ -159,7 +159,7 @@ async function seedSikkerhetskontrollData() {
         svarDetaljert: 'Be en medpassasjer eller annen person stå bak bilen og gi tilbakemelding mens du aktiverer: Baklys, blinklys, refleks, ryggelys og bremseLys. Alternativt kan du bruke refleksjon i en vegg eller vinduer.',
         hvorforderVikreligTekst: 'Baklyselne varsler andre trafikanter om din tilstedeværelse, intensjoner (blinking) og bremsing. Defekte baklys er en stor ulykksrisiko.',
         vanskelighetsgrad: SikkerhetskontrollVanskelighetsgrad.LETT,
-        rekkefølge: 2
+        rekkefolge: 2
       },
       {
         sporsmalTekst: 'Hvordan sjekker du lyskeglenes innstilling?',
@@ -167,7 +167,7 @@ async function seedSikkerhetskontrollData() {
         svarDetaljert: 'Kjør med nærlys mot en jevn vegg i mørket (ca. 5 meter unna). Lyskeglene skal være symmetriske og ikke peke for høyt opp eller for mye til sidene. På veien skal lyskeglene lyse ca. 50-70 meter fremover uten å blende motgående trafikk.',
         hvorforderVikreligTekst: 'Feil innstilte lys blender andre bilister eller gir dårlig sikt, noe som øker risikoen for frontkollisjoner og andre alvorlige ulykker.',
         vanskelighetsgrad: SikkerhetskontrollVanskelighetsgrad.VANSKELIG,
-        rekkefølge: 3
+        rekkefolge: 3
       }
     ];
 

@@ -62,13 +62,12 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key-change-in-production
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
       - API_GATEWAY_URL=http://api-gateway:8000
     depends_on:
-      - postgres-dev
       - redis-dev
     networks:
       - tms-network
@@ -112,7 +111,7 @@ services:
       - NODE_ENV=development
       - PORT=8000
       - JWT_SECRET=dev-jwt-secret-key
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - AUTH_SERVICE_URL=http://auth-service:8001
       - USER_SERVICE_URL=http://user-service:8002
@@ -145,7 +144,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8001
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -169,7 +168,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8002
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -193,7 +192,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8003
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -217,7 +216,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8004
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -243,7 +242,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8005
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -267,7 +266,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8006
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -291,7 +290,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8007
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -315,7 +314,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8008
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -339,7 +338,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8009
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -365,7 +364,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8010
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -391,7 +390,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8011
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -415,7 +414,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8012
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -439,7 +438,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8013
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -463,7 +462,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8014
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -487,7 +486,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8015
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -511,7 +510,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8016
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -535,7 +534,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8017
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -559,7 +558,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8018
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -583,7 +582,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8019
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -607,7 +606,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8020
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -631,7 +630,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8021
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -655,7 +654,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8022
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -679,7 +678,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8023
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -703,7 +702,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8024
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -727,7 +726,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8025
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -751,7 +750,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8026
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -775,7 +774,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8027
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:
@@ -799,7 +798,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8028
-      - DATABASE_URL=postgresql://tms_user:tms_password@postgres-dev:5432/tms_db
+      - DATABASE_URL=postgresql://db_tms:oiq3-DEOH-jck4@91.108.121.251:5432/db_tms
       - REDIS_URL=redis://redis-dev:6379
       - JWT_SECRET=dev-jwt-secret-key
     depends_on:

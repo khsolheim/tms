@@ -1,5 +1,7 @@
 import { Express, Request, Response } from "express";
 import authRoutes from "../routes/auth";
+import bedrifterRoutes from "../routes/bedrifter";
+import sikkerhetskontrollLaeringRoutes from "../routes/sikkerhetskontroll-laering.routes";
 import logger from "../utils/logger";
 
 export function configureRoutes(app: Express): void {
@@ -16,6 +18,12 @@ export function configureRoutes(app: Express): void {
 
   // Auth routes for login
   app.use('/api/auth', authRoutes);
+  
+  // Bedrifter routes
+  app.use('/api/bedrifter', bedrifterRoutes);
+  
+  // Sikkerhetskontroll læring routes
+  app.use('/api/sikkerhetskontroll-laering', sikkerhetskontrollLaeringRoutes);
 
   console.log('✅ Routes konfigurert!');
 }
