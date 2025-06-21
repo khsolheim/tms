@@ -159,3 +159,7 @@ prisma/generated/
 
 # Production files
 .env.production
+# Log files
+server/logs/
+client/logs/
+*.log
