@@ -1,56 +1,45 @@
-# 🚛 TMS - Traffic Management System
+# 🚛 TMS - Treningssystem for Sikkerhetskontroll
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/your-org/tms)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/your-org/tms)
-[![Kubernetes](https://img.shields.io/badge/kubernetes-ready-326ce5.svg)](https://kubernetes.io/)
-[![API Documentation](https://img.shields.io/badge/API-documented-orange.svg)](http://localhost:4000/api-docs)
-[![Monitoring](https://img.shields.io/badge/monitoring-grafana-ff6b35.svg)](http://localhost:3001)
+[![Node.js](https://img.shields.io/badge/node.js-18%2B-brightgreen.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/react-18%2B-61dafb.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-5%2B-blue.svg)](https://typescriptlang.org/)
+[![API Documentation](https://img.shields.io/badge/API-documented-orange.svg)](http://localhost:3000/api-docs)
 
-Omfattende Traffic Management System bygget med moderne teknologier for norske transportbedrifter.
+Omfattende treningssystem for sikkerhetskontroll bygget med moderne web-teknologier for norske transportbedrifter.
 
 ## 🎯 Oversikt
 
-TMS er et komplett system for håndtering av trafikksikkerhet, bedriftsstyring, og compliance for transportbedrifter. Systemet inkluderer avansert sikkerhetskontroll, real-time monitoring, og omfattende rapportering.
+TMS er et komplett system for håndtering av sikkerhetskontroll, bedriftsstyring, og compliance-training for transportbedrifter. Systemet inkluderer interaktive treningsmoduler, digital inspeksjon, og omfattende brukeradministrasjon.
 
 ### ✨ Hovedfunksjoner
 
-- 🔐 **Avansert Sikkerhet**: Multi-layer sikkerhet med trussel-deteksjon og IP-blokkering
+- 🎓 **Interaktiv Opplæring**: Sikkerhetskontroll-treningssystem
 - 🏢 **Bedriftshåndtering**: Komplett bedrifts- og brukerstyring
 - 🛡️ **Sikkerhetskontroll**: Digitale inspeksjoner og compliance-tracking
-- 📊 **Real-time Monitoring**: Prometheus + Grafana dashboard
-- 🚀 **High Performance**: Avansert caching og database-optimalisering
-- 📋 **API-first**: Komplett REST API med Swagger-dokumentasjon
-- 🐳 **Container-ready**: Docker og Kubernetes deployment
-- 🧪 **Load Testing**: Artillery-basert performance testing
+- 👥 **Brukeradministrasjon**: Integrert admin-portal
+- 📊 **Rapportering**: Detaljert progresjon og statistikk
+- 🔐 **Sikkerhet**: Rolle-basert tilgangskontroll
+- 📱 **Responsiv Design**: Optimalisert for alle enheter
 
 ## 🏗️ Arkitektur
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend API   │    │   Database      │
-│   (React)       │◄──►│   (Node.js)     │◄──►│   (PostgreSQL)  │
-│   Port: 3000    │    │   Port: 4000    │    │   Port: 5432    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │              ┌─────────────────┐              │
-         │              │     Redis       │              │
-         └──────────────►│   (Cache)       │◄─────────────┘
-                        │   Port: 6379    │
-                        └─────────────────┘
-                                 │
-                    ┌─────────────────────────────┐
-                    │      Monitoring Stack       │
-                    │                             │
-                    │  ┌─────────┐ ┌─────────┐   │
-                    │  │Prometheus│ │ Grafana │   │
-                    │  │Port: 9090│ │Port:3001│   │
-                    │  └─────────┘ └─────────┘   │
-                    │                             │
-                    │  ┌─────────┐ ┌─────────┐   │
-                    │  │AlertMgr │ │  Nginx  │   │
-                    │  │Port: 9093│ │Port: 80 │   │
-                    │  └─────────┘ └─────────┘   │
-                    └─────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                   TMS Applikasjon                       │
+│                                                         │
+│  ┌─────────────────┐    ┌─────────────────────────────┐ │
+│  │   Frontend      │    │        Backend API          │ │
+│  │   (React)       │◄──►│       (Node.js)             │ │
+│  │   Port: 3000    │    │       Port: 3000            │ │
+│  └─────────────────┘    └─────────────────────────────┘ │
+│                                      │                  │
+│                         ┌─────────────────────────────┐ │
+│                         │       Database              │ │
+│                         │       (PostgreSQL)          │ │
+│                         │       Port: 5432            │ │
+│                         └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## 🚀 Rask Start
@@ -58,9 +47,8 @@ TMS er et komplett system for håndtering av trafikksikkerhet, bedriftsstyring, 
 ### Forutsetninger
 
 - **Node.js** 18+ 
-- **Docker** & **Docker Compose**
+- **npm** 8+
 - **PostgreSQL** 14+
-- **Redis** 6+
 
 ### 1. Klon Repository
 
@@ -69,7 +57,26 @@ git clone https://github.com/your-org/tms.git
 cd tms
 ```
 
-### 2. Miljøvariabler
+### 2. Installer Dependencies
+
+```bash
+# Installer alle dependencies
+npm run install:all
+```
+
+### 3. Database Oppsett
+
+```bash
+# Opprett database
+createdb tms_development
+
+# Kjør migrasjoner
+cd server
+npm run prisma:migrate
+npm run prisma:seed
+```
+
+### 4. Miljøvariabler
 
 ```bash
 # Kopier environment template
@@ -79,113 +86,164 @@ cp server/.env.example server/.env
 nano server/.env
 ```
 
-### 3. Start med Docker Compose
+### 5. Start Applikasjonen
 
 ```bash
-# Start alle tjenester
-docker-compose up -d
+# Start hele systemet
+npm run dev
 
-# Eller bruk deployment script
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh development
+# Eller start individuelt:
+npm run dev:server  # Backend på port 3000
+npm run dev:client  # Frontend på port 3001
 ```
 
-### 4. Tilgang til Tjenester
+### 6. Tilgang til Systemet
 
-| Tjeneste | URL | Beskrivelse |
-|----------|-----|-------------|
-| **TMS API** | http://localhost:4000 | Hovedapplikasjon |
-| **API Docs** | http://localhost:4000/api-docs | Swagger dokumentasjon |
-| **Grafana** | http://localhost:3001 | Monitoring dashboard |
-| **Prometheus** | http://localhost:9090 | Metrics database |
-| **AlertManager** | http://localhost:9093 | Alert management |
+- **TMS Applikasjon**: http://localhost:3001
+- **API Dokumentasjon**: http://localhost:3000/api-docs
+- **Admin Portal**: http://localhost:3001/admin
 
-**Standard innlogging:**
-- Grafana: `admin` / `admin123`
+## 📚 Systemmoduleer
 
-## 📚 Dokumentasjon
+### 🎓 Sikkerhetskontroll Læring
+- Interaktive treningsmoduler
+- Progresjonssporing
+- Sertifisering og badges
+- Mester-test funksjonalitet
 
-### API Dokumentasjon
-- **Swagger UI**: http://localhost:4000/api-docs
-- **OpenAPI JSON**: http://localhost:4000/api-docs.json
+### 🏢 Bedriftshåndtering
+- Bedriftsregistrering og -administrasjon
+- Brukeradministrasjon
+- Rolle- og tilgangsstyring
+- Organisasjonsstruktur
 
-### Systemdokumentasjon
-- [Implementeringsrapport](docs/FINAL_IMPLEMENTATION_REPORT.md)
-- [Sikkerhetsdokumentasjon](docs/SECURITY_IMPLEMENTATION.md)
-- [Database Schema](server/prisma/schema.prisma)
+### 👥 Admin Portal
+- Integrert administratorpanel
+- System-overvåkning
+- Bruker- og bedriftsstyring
+- Sikkerhetskonfigurasjon
+
+### 📊 Rapportering
+- Detaljert progresjonsoversikt
+- Statistikk og analyser
+- Export-funksjonalitet
+- Compliance-rapporter
 
 ## 🔧 Utvikling
 
-### Lokal Utvikling
+### Prosjektstruktur
 
-```bash
-# Backend
-cd server
-npm install
-npm run dev
-
-# Frontend
-cd client
-npm install
-npm start
-
-# Database migrations
-cd server
-npx prisma migrate dev
-npx prisma generate
+```
+tms/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/    # Gjenbrukbare komponenter
+│   │   ├── pages/         # Side-komponenter
+│   │   ├── services/      # API-tjenester
+│   │   └── contexts/      # React contexts
+│   └── public/
+├── server/                 # Node.js backend
+│   ├── src/
+│   │   ├── routes/        # API routes
+│   │   ├── controllers/   # Route controllers
+│   │   ├── models/        # Database models
+│   │   ├── middleware/    # Express middleware
+│   │   └── services/      # Business logic
+│   └── prisma/            # Database schema
+├── shared/                 # Delte types og utilities
+└── scripts/               # Deployment og utility scripts
 ```
 
-### Testing
+### Tilgjengelige Scripts
 
 ```bash
-# Unit tests
-npm test
+# Utvikling
+npm run dev                 # Start alle tjenester
+npm run dev:client         # Start kun frontend
+npm run dev:server         # Start kun backend
 
-# Integration tests
+# Bygging
+npm run build              # Bygg alle moduler
+npm run build:client       # Bygg frontend
+npm run build:server       # Bygg backend
+
+# Testing
+npm run test               # Kjør alle tester
+npm run test:client        # Test frontend
+npm run test:server        # Test backend
+npm run test:e2e          # End-to-end testing
+
+# Code Quality
+npm run lint              # Lint kodebase
+npm run lint:fix          # Fiks linting-problemer
+npm run type-check        # TypeScript type checking
+```
+
+### Database Administrasjon
+
+```bash
+# Prisma commands
+cd server
+npx prisma studio          # Database GUI
+npx prisma migrate dev     # Opprett ny migrasjon
+npx prisma generate        # Generer Prisma klient
+npx prisma seed           # Seed database
+```
+
+## 🛡️ Sikkerhet
+
+### Sikkerhetsfunksjoner
+
+- **Autentisering**: JWT-basert autentisering
+- **Autorisasjon**: Rolle-basert tilgangskontroll
+- **Input Validering**: Omfattende validering av alle inputs
+- **Rate Limiting**: Beskytte mot misbruk
+- **SQL Injection Prevention**: Parameteriserte queries
+- **XSS Protection**: Content Security Policy
+
+### Roller og Tilganger
+
+| Rolle | Beskrivelse | Tilganger |
+|-------|-------------|-----------|
+| **ADMIN** | Systemadministrator | Full systemtilgang |
+| **HOVEDBRUKER** | Bedriftsleder | Bedriftsstyring, rapporter |
+| **BRUKER** | Standard bruker | Treningsmoduler, egen profil |
+| **ELEV** | Lærling/trainee | Begrenset tilgang til treningssystem |
+
+## 🧪 Testing
+
+### Testtyper
+
+```bash
+# Unit testing
+npm run test:unit
+
+# Integration testing  
 npm run test:integration
 
-# Load testing
-cd tests/load
-artillery run artillery-config.yml
+# End-to-end testing
+npm run test:e2e
+
+# Performance testing
+npm run test:performance
 ```
 
-### Code Quality
+### Test Coverage
+
+Systemet har omfattende test-dekning:
+- Unit tests for alle komponenter
+- Integration tests for API-endepunkter
+- E2E tests for kritiske brukerflyter
+- Performance tests for responsivitet
+
+## 📈 Deployment
+
+### Lokal Deployment
 
 ```bash
-# Linting
-npm run lint
-
-# Type checking
-npm run type-check
-
-# Format code
-npm run format
-```
-
-## 🐳 Deployment
-
-### Docker Deployment
-
-```bash
-# Development
-./scripts/deploy.sh development
-
-# Med performance testing
-./scripts/deploy.sh development --test
-
-# Med monitoring setup
-./scripts/deploy.sh development --test --monitoring
-```
-
-### Kubernetes Deployment
-
-```bash
-# Production deployment
-./scripts/deploy.sh production
-
-# Manual kubectl
-kubectl apply -f k8s/base/
-kubectl apply -f k8s/overlays/production/
+# Produksjonsmodus
+npm run build
+npm start
 ```
 
 ### Environment Variables
@@ -193,149 +251,27 @@ kubectl apply -f k8s/overlays/production/
 | Variable | Beskrivelse | Default |
 |----------|-------------|---------|
 | `NODE_ENV` | Environment | `development` |
-| `PORT` | Server port | `4000` |
+| `PORT` | Server port | `3000` |
 | `DATABASE_URL` | PostgreSQL connection | - |
-| `REDIS_URL` | Redis connection | - |
 | `JWT_SECRET` | JWT signing key | - |
 | `LOG_LEVEL` | Logging level | `info` |
-
-## 📊 Monitoring & Observability
-
-### Metrics
-
-TMS eksponerer omfattende metrics via Prometheus:
-
-- **HTTP Metrics**: Request rate, response time, error rate
-- **Database Metrics**: Connection pool, query performance
-- **Cache Metrics**: Hit rate, memory usage
-- **Security Metrics**: Threat detection, blocked IPs
-- **Business Metrics**: User activity, system usage
-
-### Dashboards
-
-Grafana dashboards inkluderer:
-
-- **System Overview**: Health, performance, errors
-- **API Performance**: Response times, throughput
-- **Security Dashboard**: Threats, incidents, blocks
-- **Business Metrics**: User activity, feature usage
-
-### Alerting
-
-Automatiske varsler for:
-
-- 🚨 **Kritiske**: System down, høy feilrate
-- ⚠️ **Advarsler**: Høy responstid, minnebruk
-- 📊 **Info**: Deployment, configuration changes
-
-## 🛡️ Sikkerhet
-
-### Implementerte Sikkerhetstiltak
-
-- **Autentisering**: JWT Bearer tokens
-- **Autorisasjon**: Role-based access control (RBAC)
-- **Input Validering**: Zod schema validation
-- **Rate Limiting**: Adaptive rate limiting per endpoint
-- **Threat Detection**: 15 avanserte trussel-mønstre
-- **IP Protection**: Intelligent blokkering med whitelist
-- **Security Headers**: CSP, HSTS, X-Frame-Options
-- **Audit Logging**: Komplett audit trail
-
-### Sikkerhetskonfigurasjon
-
-```typescript
-// Eksempel sikkerhetskonfigurasjon
-const securityConfig = {
-  enableThreatDetection: true,
-  enableIPBlocking: true,
-  blockDuration: 3600000, // 1 time
-  alertThreshold: 10,
-  trustedProxies: ['127.0.0.1', '::1']
-};
-```
-
-## 🧪 Performance Testing
-
-### Load Testing med Artillery
-
-```bash
-# Kjør load test
-cd tests/load
-artillery run artillery-config.yml
-
-# Generer rapport
-artillery report report.json --output report.html
-```
-
-### Performance Benchmarks
-
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Response Time (P95) | < 1000ms | ~200ms |
-| Throughput | > 100 req/s | ~500 req/s |
-| Error Rate | < 1% | ~0.1% |
-| Cache Hit Rate | > 80% | ~95% |
-
-## 🔄 CI/CD Pipeline
-
-### GitHub Actions
-
-```yaml
-# .github/workflows/ci.yml
-name: CI/CD Pipeline
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - name: Install dependencies
-        run: npm ci
-      - name: Run tests
-        run: npm test
-      - name: Build Docker image
-        run: docker build -t tms:${{ github.sha }} .
-```
-
-## 📈 Skalerbarhet
-
-### Horizontal Scaling
-
-```bash
-# Docker Compose scaling
-docker-compose up -d --scale tms-backend=3
-
-# Kubernetes scaling
-kubectl scale deployment tms-backend --replicas=5
-```
-
-### Database Optimalisering
-
-- **Connection Pooling**: 10 connections per instance
-- **Query Optimization**: Intelligent query analyzer
-- **Indexing**: Automatisk index-anbefalinger
-- **Caching**: Multi-layer cache med Redis
 
 ## 🤝 Bidrag
 
 ### Utvikling
 
 1. Fork repository
-2. Opprett feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit endringer (`git commit -m 'Add amazing feature'`)
-4. Push til branch (`git push origin feature/amazing-feature`)
+2. Opprett feature branch (`git checkout -b feature/ny-funksjon`)
+3. Commit endringer (`git commit -m 'Legg til ny funksjon'`)
+4. Push til branch (`git push origin feature/ny-funksjon`)
 5. Åpne Pull Request
 
 ### Code Standards
 
 - **TypeScript**: Strict mode aktivert
 - **ESLint**: Airbnb configuration
-- **Prettier**: Code formatting
-- **Husky**: Pre-commit hooks
+- **Prettier**: Automatisk code formatting
+- **Husky**: Pre-commit hooks for kvalitetssikring
 
 ## 📄 Lisens
 
@@ -344,19 +280,13 @@ Dette prosjektet er lisensiert under MIT License - se [LICENSE](LICENSE) filen f
 ## 🆘 Support
 
 ### Dokumentasjon
-- [API Dokumentasjon](http://localhost:4000/api-docs)
-- [System Monitoring](http://localhost:3001)
-- [Implementeringsguide](docs/)
+- [API Dokumentasjon](http://localhost:3000/api-docs)
+- [Utviklerdokumentasjon](docs/)
 
 ### Kontakt
-- **Email**: support@tms.no
 - **Issues**: [GitHub Issues](https://github.com/your-org/tms/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/tms/discussions)
+- **Diskusjoner**: [GitHub Discussions](https://github.com/your-org/tms/discussions)
 
 ---
 
-## 🎉 Takk til
-
-Spesiell takk til alle bidragsytere som har gjort TMS til et robust og skalerbart system for norske transportbedrifter.
-
-**Bygget med ❤️ i Norge** 🇳🇴 
+**Bygget med ❤️ for norske transportbedrifter** 🇳🇴 

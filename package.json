@@ -53,36 +53,10 @@
     "clean:server": "cd server && rm -rf dist node_modules",
     "clean:admin": "cd admin && rm -rf build node_modules",
     
-    "docker:build": "docker-compose -f docker-compose.production.yml build",
-    "docker:up": "docker-compose -f docker-compose.production.yml up -d",
-    "docker:down": "docker-compose -f docker-compose.production.yml down",
-    "docker:logs": "docker-compose -f docker-compose.production.yml logs -f",
-    
-    "production:check": "./scripts/production-readiness-check.sh",
-    "production:deploy": "./scripts/deploy-production.sh",
-    "production:backup": "cd server && npm run backup:create",
-    "production:restore": "cd server && npm run backup:restore",
-    
-    "setup:env": "cp .env.example .env.production && echo 'Please edit .env.production with your settings'",
-    "setup:ssl": "mkdir -p nginx/ssl && echo 'Please add your SSL certificates to nginx/ssl/'",
-    "setup:db": "cd server && npm run prisma:migrate && npm run prisma:seed",
-    
     "security:audit": "npm audit --audit-level moderate",
     "security:fix": "npm audit fix",
     "security:check": "cd server && npm run security:check",
-    
-    "monitoring:up": "docker-compose -f monitoring/docker-compose.monitoring.yml up -d",
-    "monitoring:down": "docker-compose -f monitoring/docker-compose.monitoring.yml down",
-    
-    "microservices:up": "cd microservices && ./scripts/start-microservices.sh",
-    "microservices:down": "cd microservices && ./scripts/stop-microservices.sh",
-    
-    "logs:client": "docker-compose -f docker-compose.production.yml logs -f tms-client",
-    "logs:server": "docker-compose -f docker-compose.production.yml logs -f tms-server",
-    "logs:db": "docker-compose -f docker-compose.production.yml logs -f tms-database",
-    
-    "status": "docker-compose -f docker-compose.production.yml ps",
-    "health": "curl -f http://localhost/health && curl -f http://localhost:4000/api/v1/health"
+    "health": "curl -f http://localhost:3000/api/v1/health"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
@@ -95,8 +69,7 @@
     "react",
     "nodejs",
     "typescript",
-    "postgresql",
-    "docker"
+    "postgresql"
   ],
   "repository": {
     "type": "git",
