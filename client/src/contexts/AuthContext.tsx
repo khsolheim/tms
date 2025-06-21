@@ -21,6 +21,7 @@ interface AuthContextType {
   erInnlogget: boolean;
   loading: boolean;
   erImpersonert: boolean;
+  demoModus: boolean;
   loggInn: (epost: string, passord: string) => Promise<void>;
   loggUt: () => void;
   impersonateUser: (userId: number) => Promise<void>;
@@ -30,7 +31,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Dummy bruker som alltid er innlogget
+// Dummy bruker for fallback
 const DUMMY_BRUKER: Bruker = {
   id: '1',
   navn: 'Demo Bruker',
@@ -47,20 +48,26 @@ const DUMMY_BRUKER: Bruker = {
 const DUMMY_TOKEN = 'demo-token-123';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [bruker, setBruker] = useState<Bruker | null>(DUMMY_BRUKER);
-  const [loading, setLoading] = useState(false); // Aldri loading siden vi alltid er innlogget
+  const [bruker, setBruker] = useState<Bruker | null>(null);
+  const [loading, setLoading] = useState(true);
   const [erImpersonert, setErImpersonert] = useState(false);
+  const [demoModus, setDemoModus] = useState(true);
 
   useEffect(() => {
-    // Sett opp dummy bruker og token umiddelbart
+    // Gå direkte til demo-modus uten å sjekke server
+    aktiverDemoModus();
+  }, []);
+
+  const aktiverDemoModus = () => {
+    setDemoModus(true);
     setBruker(DUMMY_BRUKER);
     setLoading(false);
     
-    // Lagre dummy token i localStorage slik at API-kall fungerer
+    // Lagre dummy token
     localStorage.setItem('token', DUMMY_TOKEN);
     localStorage.setItem('bruker', JSON.stringify(DUMMY_BRUKER));
     
-    // Oppdater Sentry med dummy brukerkontext
+    // Oppdater Sentry
     setSentryUser({
       id: DUMMY_BRUKER.id,
       email: DUMMY_BRUKER.epost,
@@ -70,55 +77,114 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       bedriftNavn: DUMMY_BRUKER.bedrift?.navn,
     });
     
-    log.info('Demo modus aktivert - bruker automatisk innlogget med token', { navn: DUMMY_BRUKER.navn });
-  }, []);
+    log.info('Demo modus aktivert', { navn: DUMMY_BRUKER.navn });
+  };
 
   const loggInn = async (epost: string, passord: string) => {
-    // I demo modus, aksepter alle innlogginger
-    setBruker(DUMMY_BRUKER);
-    setErImpersonert(false);
+    // I demo-modus, bare acceptér alle innloggingsforsøk
+    setLoading(true);
     
-    // Sett dummy token
-    localStorage.setItem('token', DUMMY_TOKEN);
-    localStorage.setItem('bruker', JSON.stringify(DUMMY_BRUKER));
-    
-    log.info('Demo innlogging', { epost });
+    try {
+      // Simuler en kort loading-periode
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Opprett en bruker basert på e-post
+      const brukerData: Bruker = {
+        id: '2',
+        navn: epost === 'admin@test.no' ? 'Admin Bruker' : 'Demo Bruker',
+        epost,
+        rolle: 'ADMIN' as Rolle,
+        tilganger: ['READ_ALL', 'WRITE_ALL', 'ADMIN'],
+        bedrift: {
+          id: 1,
+          navn: 'Demo Bedrift AS'
+        }
+      };
+      
+      setBruker(brukerData);
+      setDemoModus(true);
+      setErImpersonert(false);
+      
+      localStorage.setItem('token', DUMMY_TOKEN);
+      localStorage.setItem('bruker', JSON.stringify(brukerData));
+      
+      // Oppdater Sentry
+      setSentryUser({
+        id: brukerData.id,
+        email: brukerData.epost,
+        navn: brukerData.navn,
+        rolle: brukerData.rolle,
+        bedriftId: brukerData.bedrift?.id?.toString(),
+        bedriftNavn: brukerData.bedrift?.navn,
+      });
+      
+      log.info('Demo innlogging vellykket', { epost, navn: brukerData.navn });
+    } catch (error) {
+      log.error('Demo innlogging feilet', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loggUt = () => {
-    // I demo modus, gå tilbake til demo bruker i stedet for å logge ut
-    setBruker(DUMMY_BRUKER);
+    setBruker(null);
+    setDemoModus(false);
     setErImpersonert(false);
     
-    // Sett dummy token tilbake
-    localStorage.setItem('token', DUMMY_TOKEN);
-    localStorage.setItem('bruker', JSON.stringify(DUMMY_BRUKER));
+    // Fjern lagrede data
+    localStorage.removeItem('token');
+    localStorage.removeItem('bruker');
     
-    log.info('Demo utlogging - tilbake til demo bruker');
+    // Ryd Sentry
+    clearSentryUser();
+    
+    // Gå tilbake til demo-modus
+    setTimeout(aktiverDemoModus, 100);
+    
+    log.info('Utlogget');
   };
 
   const impersonateUser = async (userId: number) => {
-    // Demo implementasjon
-    log.info('Demo impersonation', { userId });
+    try {
+      // TODO: Implementer ekte impersonation
+      log.info('Impersonation forsøkt', { userId });
+    } catch (error) {
+      log.error('Impersonation feilet', error);
+    }
   };
 
   const stopImpersonate = async () => {
-    // Demo implementasjon
     setErImpersonert(false);
-    log.info('Demo stopp impersonation');
+    log.info('Stopp impersonation');
   };
 
   const hentBrukerInfo = async () => {
-    return Promise.resolve();
+    // I demo-modus, ikke gjør API-kall
+    if (demoModus) {
+      log.info('Demo-modus: Hopper over brukerinfo-henting');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token || token === DUMMY_TOKEN) return;
+      
+      // I demo-modus, ikke gjør ekte API-kall
+      log.info('Demo-modus aktivt, bruker eksisterende brukerdata');
+    } catch (error) {
+      log.error('Feil ved henting av brukerinfo', error);
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
         bruker,
-        erInnlogget: true, // Alltid innlogget i demo modus
+        erInnlogget: !!bruker,
         loading,
         erImpersonert,
+        demoModus,
         loggInn,
         loggUt,
         impersonateUser,

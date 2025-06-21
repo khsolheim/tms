@@ -120,7 +120,16 @@ interface ProtectedRouteProps {
 }
 
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  // Demo modus - ingen beskyttelse nødvendig
+  const { erInnlogget, loading } = useAuth();
+  
+  if (loading) {
+    return <PageLoadingSpinner />;
+  }
+  
+  if (!erInnlogget) {
+    return <Navigate to="/logg-inn" />;
+  }
+  
   return <>{children}</>;
 }
 

@@ -6,15 +6,14 @@
  */
 
 import { config } from 'dotenv';
-import { getEnvironment, isProduction, getRateLimitConfig } from './environment';
 
 // Load environment variables
 config();
 
 export const JWT_CONFIG = {
-  secret: getEnvironment().JWT_SECRET,
+  secret: process.env.JWT_SECRET || 'super-secret-jwt-key-minimum-32-characters-long-for-security',
   refreshSecret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
-  expiresIn: getEnvironment().JWT_EXPIRES_IN,
+  expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   issuer: 'tms-api',
   audience: 'tms-client',
@@ -50,8 +49,8 @@ export const PASSWORD_POLICY = {
 export const RATE_LIMITS = {
   // General API rate limiting
   api: {
-    windowMs: getRateLimitConfig().windowMs,
-    max: getRateLimitConfig().max,
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
     skipPaths: ['/health', '/api/health'],
   },
   
@@ -131,8 +130,8 @@ export const SECURITY_HEADERS = {
 // ============================================================================
 
 export const CORS_CONFIG = {
-  origin: isProduction() 
-    ? (getEnvironment().CORS_ORIGIN ? [getEnvironment().CORS_ORIGIN] : false)
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : false)
     : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
