@@ -14,7 +14,7 @@ NC='\033[0m'
 
 # Configuration
 VPS_USER="root"
-VPS_HOST=""
+VPS_HOST="http://srv845309.hstgr.cloud/"
 VPS_PORT="22"
 DEPLOY_DIR="/opt/tms"
 REPO_URL=""
