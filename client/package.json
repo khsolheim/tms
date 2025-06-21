@@ -1,0 +1,114 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@axe-core/react": "^4.10.2",
+    "@headlessui/react": "^2.2.4",
+    "@heroicons/react": "^2.2.0",
+    "@hookform/resolvers": "^3.10.0",
+    "@react-pdf/renderer": "^4.3.0",
+    "@sentry/react": "^9.28.1",
+    "@sentry/tracing": "^7.120.3",
+    "@tanstack/react-query": "^5.80.6",
+    "@tanstack/react-query-devtools": "^5.80.6",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.126",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/react-intl": "^2.3.18",
+    "@uiw/react-md-editor": "^4.0.7",
+    "ajv": "^8.17.1",
+    "axios": "^1.9.0",
+    "clsx": "^2.1.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "focus-trap-react": "^11.0.4",
+    "framer-motion": "^12.17.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-focus-trap": "^2.7.2",
+    "react-hook-form": "^7.57.0",
+    "react-hot-toast": "^2.5.2",
+    "react-icons": "4.10.1",
+    "react-intl": "^7.1.11",
+    "react-router-dom": "^7.6.1",
+    "react-scripts": "5.0.1",
+    "tailwind-merge": "^3.3.1",
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4",
+    "zod": "^3.25.61",
+    "zustand": "^5.0.5"
+  },
+  "scripts": {
+    "dev": "kill-port 3000 && react-scripts start",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "test:ci": "react-scripts test --ci --coverage --watchAll=false",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "eject": "react-scripts eject",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit",
+    "analyze": "npm run build && npx source-map-explorer 'build/static/js/*.js'",
+    "analyze:bundle": "npm run build && npx webpack-bundle-analyzer build/static/js/*.js",
+    "optimize:check": "npm run build && echo 'Bundle size analysis:' && du -h build/static/js/*.js | sort -hr | head -10",
+    "optimize:unused": "npx depcheck --ignore-dirs=build,node_modules",
+    "optimize:imports": "npx unimported",
+    "optimize:tree-shake": "ANALYZE=true npm run build",
+    "optimize:dependencies": "npm audit && npm outdated",
+    "optimize:size": "npm run build && npx bundlesize",
+    "perf:measure": "npm run build && echo 'Performance audit complete. Check build output above.'",
+    "perf:lighthouse": "npx lighthouse http://localhost:3000 --output=html --output-path=./lighthouse-report.html",
+    "bundle:analyze": "ANALYZE=true npm run build",
+    "bundle:size-limit": "npm run build && node scripts/check-bundle-size.js"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(msw|@bundled-es-modules)/)"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest-axe": "^3.5.9",
+    "@types/testing-library__jest-dom": "^5.14.9",
+    "@vue/preload-webpack-plugin": "^2.0.0",
+    "autoprefixer": "^10.4.14",
+    "babel-plugin-transform-remove-console": "^6.9.4",
+    "compression-webpack-plugin": "^10.0.0",
+    "css-minimizer-webpack-plugin": "^5.0.0",
+    "cssnano": "^6.0.1",
+    "depcheck": "^1.4.7",
+    "jest-axe": "^10.0.0",
+    "kill-port": "^2.0.1",
+    "mini-css-extract-plugin": "^2.7.5",
+    "msw": "^1.3.2",
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.3.0",
+    "terser-webpack-plugin": "^5.3.7",
+    "unimported": "^1.31.1",
+    "webpack-bundle-analyzer": "^4.10.2"
+  },
+  "proxy": "http://localhost:4000"
+}

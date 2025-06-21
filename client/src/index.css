@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* MDEditor CSS */
+@import '@uiw/react-md-editor/markdown-editor.css';
+
+/* Legg til global styling eller Tailwind-import her */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+/* Global spacing for kort-containere */
+.card-container {
+  @apply space-y-16;
+}
+
+.card-grid {
+  @apply gap-4;
+}
+
+/* Tailwind utilities for konsistent kort-spacing */
+@layer utilities {
+  .cards-spacing-vertical {
+    @apply space-y-6;
+  }
+  
+  .cards-spacing-grid {
+    @apply gap-4;
+  }
+  
+  .form-grid-layout {
+    @apply grid grid-cols-1 lg:grid-cols-3 gap-4;
+  }
+} 

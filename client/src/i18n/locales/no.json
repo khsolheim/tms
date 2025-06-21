@@ -1,0 +1,480 @@
+{
+  "common": {
+    "loading": "Laster...",
+    "welcome": "Velkommen",
+    "save": "Lagre",
+    "cancel": "Avbryt",
+    "actions": {
+      "save": "Lagre",
+      "cancel": "Avbryt"
+    },
+    "delete": "Slett",
+    "edit": "Rediger",
+    "add": "Legg til",
+    "search": "Søk",
+    "filter": "Filtrer",
+    "export": "Eksporter",
+    "import": "Importer",
+    "close": "Lukk",
+    "yes": "Ja",
+    "no": "Nei",
+    "confirm": "Bekreft",
+    "back": "Tilbake",
+    "next": "Neste",
+    "previous": "Forrige",
+    "refresh": "Oppdater",
+    "reset": "Tilbakestill",
+    "submit": "Send inn",
+    "login": "Logg inn",
+    "logout": "Logg ut",
+    "register": "Registrer",
+    "view": "Vis",
+    "download": "Last ned",
+    "upload": "Last opp",
+    "settings": "Innstillinger",
+    "profile": "Profil",
+    "help": "Hjelp",
+    "admin": "Admin",
+    "dashboard": "Oversikt",
+    "home": "Hjem",
+    "about": "Om oss",
+    "contact": "Kontakt",
+    "error": "Feil",
+    "success": "Suksess",
+    "warning": "Advarsel",
+    "info": "Informasjon",
+    "required": "Påkrevd",
+    "optional": "Valgfritt",
+    "email": "E-post",
+    "password": "Passord",
+    "name": "Navn",
+    "phone": "Telefon",
+    "address": "Adresse",
+    "city": "By",
+    "postalCode": "Postnummer",
+    "country": "Land",
+    "date": "Dato",
+    "time": "Tid",
+    "status": "Status",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "pending": "Venter",
+    "approved": "Godkjent",
+    "rejected": "Avvist",
+    "completed": "Fullført",
+    "cancelled": "Avbrutt"
+  },
+  "navigation": {
+    "overview": "Oversikt",
+    "companies": "Bedrifter",
+    "students": "Elever",
+    "employees": "Ansatte",
+    "contracts": "Kontrakter",
+    "tasks": "Oppgaver",
+    "safety": "Sikkerhet",
+    "quiz": "Quiz",
+    "reports": "Rapporter",
+    "settings": "Innstillinger",
+    "help": "Hjelp",
+    "overview.description": "Få en oversikt over alle aktiviteter og statistikk",
+    "companies.description": "Administrer bedrifter og kontaktinformasjon",
+    "contracts.description": "Opprett og administrer kontrakter"
+  },
+  "auth": {
+    "loginTitle": "Logg inn på TMS",
+    "loginSubtitle": "Skriv inn dine påloggingsopplysninger",
+    "emailLabel": "E-postadresse",
+    "passwordLabel": "Passord",
+    "loginButton": "Logg inn",
+    "forgotPassword": "Glemt passord?",
+    "rememberMe": "Husk meg",
+    "loginError": "Feil e-post eller passord",
+    "loginSuccess": "Velkommen tilbake!",
+    "logoutConfirm": "Er du sikker på at du vil logge ut?",
+    "sessionExpired": "Økten din har utløpt. Logg inn på nytt."
+  },
+  "companies": {
+    "title": "Bedrifter",
+    "add": "Legg til bedrift",
+    "edit": "Rediger bedrift",
+    "delete": "Slett bedrift",
+    "deleteConfirm": "Er du sikker på at du vil slette denne bedriften?",
+    "fields": {
+      "name": "Bedriftsnavn",
+      "orgNumber": "Organisasjonsnummer",
+      "email": "E-post",
+      "phone": "Telefon",
+      "address": "Adresse",
+      "contact": "Kontaktperson",
+      "employees": "Ansatte",
+      "students": "Elever",
+      "contracts": "Kontrakter"
+    },
+    "status": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "pending": "Venter godkjenning"
+    }
+  },
+  "students": {
+    "title": "Elever",
+    "add": "Legg til elev",
+    "edit": "Rediger elev",
+    "delete": "Slett elev",
+    "deleteConfirm": "Er du sikker på at du vil slette denne eleven?",
+    "fields": {
+      "firstName": "Fornavn",
+      "lastName": "Etternavn",
+      "personalNumber": "Personnummer",
+      "email": "E-post",
+      "phone": "Telefon",
+      "address": "Adresse",
+      "class": "Klasse",
+      "company": "Bedrift",
+      "startDate": "Startdato",
+      "endDate": "Sluttdato"
+    },
+    "status": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "graduated": "Uteksaminert",
+      "dropout": "Avbrutt"
+    }
+  },
+  "employees": {
+    "title": "Ansatte",
+    "add": "Legg til ansatt",
+    "edit": "Rediger ansatt",
+    "delete": "Slett ansatt",
+    "deleteConfirm": "Er du sikker på at du vil slette denne ansatte?",
+    "fields": {
+      "firstName": "Fornavn",
+      "lastName": "Etternavn",
+      "email": "E-post",
+      "phone": "Telefon",
+      "role": "Rolle",
+      "department": "Avdeling",
+      "company": "Bedrift",
+      "startDate": "Startdato"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "instructor": "Instruktør",
+      "manager": "Leder",
+      "employee": "Ansatt"
+    }
+  },
+  "contracts": {
+    "title": "Kontrakter",
+    "add": "Opprett kontrakt",
+    "edit": "Rediger kontrakt",
+    "delete": "Slett kontrakt",
+    "deleteConfirm": "Er du sikker på at du vil slette denne kontrakten?",
+    "view": "Vis kontrakt",
+    "pdf": "Last ned PDF",
+    "fields": {
+      "title": "Tittel",
+      "student": "Elev",
+      "company": "Bedrift",
+      "instructor": "Instruktør",
+      "startDate": "Startdato",
+      "endDate": "Sluttdato",
+      "amount": "Beløp",
+      "description": "Beskrivelse",
+      "terms": "Vilkår"
+    },
+    "status": {
+      "draft": "Utkast",
+      "pending": "Venter godkjenning",
+      "active": "Aktiv",
+      "completed": "Fullført",
+      "cancelled": "Avbrutt"
+    }
+  },
+  "safety": {
+    "title": "Sikkerhetskontroll",
+    "add": "Ny kontroll",
+    "edit": "Rediger kontroll",
+    "delete": "Slett kontroll",
+    "deleteConfirm": "Er du sikker på at du vil slette denne kontrollen?",
+    "fields": {
+      "title": "Tittel",
+      "description": "Beskrivelse",
+      "inspector": "Kontrollør",
+      "date": "Dato",
+      "location": "Sted",
+      "result": "Resultat",
+      "notes": "Merknader"
+    },
+    "results": {
+      "passed": "Bestått",
+      "failed": "Ikke bestått",
+      "partial": "Delvis bestått"
+    }
+  },
+  "quiz": {
+    "title": "Quiz",
+    "add": "Ny quiz",
+    "edit": "Rediger quiz",
+    "delete": "Slett quiz",
+    "deleteConfirm": "Er du sikker på at du vil slette denne quizen?",
+    "start": "Start quiz",
+    "submit": "Send inn svar",
+    "results": "Resultater",
+    "fields": {
+      "title": "Tittel",
+      "description": "Beskrivelse",
+      "category": "Kategori",
+      "timeLimit": "Tidsbegrensning",
+      "questions": "Spørsmål",
+      "attempts": "Forsøk"
+    },
+    "question": {
+      "add": "Legg til spørsmål",
+      "edit": "Rediger spørsmål",
+      "delete": "Slett spørsmål",
+      "type": "Type",
+      "text": "Spørsmåltekst",
+      "answer": "Svar",
+      "correct": "Riktig svar"
+    }
+  },
+  "reports": {
+    "title": "Rapporter",
+    "generate": "Generer rapport",
+    "export": "Eksporter",
+    "filter": "Filtrer data",
+    "dateRange": "Datoperiode",
+    "from": "Fra",
+    "to": "Til",
+    "types": {
+      "students": "Elevrapport",
+      "companies": "Bedriftsrapport",
+      "contracts": "Kontraktrapport",
+      "safety": "Sikkerhetsrapport",
+      "quiz": "Quiz-rapport"
+    }
+  },
+  "settings": {
+    "title": "Innstillinger",
+    "general": "Generelt",
+    "notifications": "Varsler",
+    "security": "Sikkerhet",
+    "language": "Språk",
+    "theme": "Tema",
+    "profile": "Profil",
+    "changePassword": "Endre passord",
+    "deleteAccount": "Slett konto",
+    "deleteAccountConfirm": "Er du sikker på at du vil slette kontoen din? Dette kan ikke angres."
+  },
+  "validation": {
+    "required": "Dette feltet er påkrevd",
+    "email": "Ugyldig e-postadresse",
+    "phone": "Ugyldig telefonnummer",
+    "personalNumber": "Ugyldig personnummer",
+    "orgNumber": "Ugyldig organisasjonsnummer",
+    "postalCode": "Ugyldig postnummer",
+    "minLength": "Må være minst {min} tegn",
+    "maxLength": "Kan ikke være mer enn {max} tegn",
+    "passwordTooWeak": "Passordet er for svakt",
+    "passwordsDoNotMatch": "Passordene stemmer ikke overens",
+    "invalidDate": "Ugyldig dato",
+    "dateInPast": "Datoen kan ikke være i fortiden",
+    "dateInFuture": "Datoen kan ikke være i fremtiden"
+  },
+  "errors": {
+    "general": "Noe gikk galt. Prøv igjen senere.",
+    "network": "Nettverksfeil. Sjekk internettforbindelsen.",
+    "unauthorized": "Du har ikke tilgang til denne ressursen.",
+    "forbidden": "Du har ikke rettigheter til å utføre denne handlingen.",
+    "notFound": "Ressursen ble ikke funnet.",
+    "validation": "Valideringsfeil i skjemaet.",
+    "serverError": "Intern serverfeil. Kontakt support hvis problemet vedvarer.",
+    "timeout": "Forespørselen tok for lang tid. Prøv igjen.",
+    "duplicate": "Denne oppføringen eksisterer allerede."
+  },
+  "success": {
+    "saved": "Lagret!",
+    "deleted": "Slettet!",
+    "updated": "Oppdatert!",
+    "created": "Opprettet!",
+    "imported": "Importert!",
+    "exported": "Eksportert!",
+    "sent": "Sendt!",
+    "passwordChanged": "Passord endret!",
+    "loginSuccess": "Logget inn!",
+    "logoutSuccess": "Logget ut!"
+  },
+  "dateTime": {
+    "now": "Nå",
+    "today": "I dag",
+    "yesterday": "I går",
+    "tomorrow": "I morgen",
+    "thisWeek": "Denne uken",
+    "lastWeek": "Forrige uke",
+    "nextWeek": "Neste uke",
+    "thisMonth": "Denne måneden",
+    "lastMonth": "Forrige måned",
+    "nextMonth": "Neste måned",
+    "thisYear": "I år",
+    "lastYear": "I fjor",
+    "nextYear": "Neste år",
+    "days": {
+      "monday": "Mandag",
+      "tuesday": "Tirsdag",
+      "wednesday": "Onsdag",
+      "thursday": "Torsdag",
+      "friday": "Fredag",
+      "saturday": "Lørdag",
+      "sunday": "Søndag"
+    },
+    "months": {
+      "january": "Januar",
+      "february": "Februar",
+      "march": "Mars",
+      "april": "April",
+      "may": "Mai",
+      "june": "Juni",
+      "july": "Juli",
+      "august": "August",
+      "september": "September",
+      "october": "Oktober",
+      "november": "November",
+      "december": "Desember"
+    }
+  },
+  "demo": {
+    "i18n": {
+      "title": "Internasjonalisering Demo",
+      "languageSelector": "Språkvelger",
+      "currentLocale": "Gjeldende språk",
+      "locale": "Språkkode",
+      "translations": "Oversettelser",
+      "welcome": "Velkommen",
+      "save": "Lagre",
+      "cancel": "Avbryt",
+      "companies": "Bedrifter",
+      "contracts": "Kontrakter",
+      "formatting": "Formatering",
+      "number": "Tall",
+      "currency": "Valuta",
+      "date": "Dato",
+      "relativeTime": "Relativ tid",
+      "variables": "Variabler",
+      "userGreeting": "Hei {name}! Du har {count} nye meldinger.",
+      "navigation": "Navigasjon",
+      "menuItems": "Menyelementer",
+      "descriptions": "Beskrivelser",
+      "success": "🎉 Internasjonalisering virker perfekt!"
+    }
+  },
+  "pwa": {
+    "install": {
+      "title": "Installer TMS",
+      "description": "Installer TMS som en app på enheten din for raskere tilgang og offline funksjonalitet.",
+      "button": "Installer app",
+      "installing": "Installerer...",
+      "dismiss": "Ikke nå",
+      "tooltip": "Installer TMS som app"
+    },
+    "update": {
+      "title": "Oppdatering tilgjengelig",
+      "description": "En ny versjon av TMS er tilgjengelig. Oppdater nå for å få de nyeste funksjonene.",
+      "button": "Oppdater nå",
+      "updating": "Oppdaterer...",
+      "later": "Senere"
+    },
+    "status": {
+      "online": "Online",
+      "offline": "Offline",
+      "syncing": "Synkroniserer...",
+      "cached": "Cached data"
+    },
+    "features": {
+      "offline": "Offline tilgang",
+      "notifications": "Push notifikasjoner",
+      "install": "App installasjon",
+      "updates": "Automatiske oppdateringer"
+    }
+  },
+  "navigation": {
+    "breadcrumbs": "Navigasjonssti",
+    "goTo": "Gå til {{page}}"
+  },
+  "help": {
+    "showHelp": "Vis hjelp",
+    "fieldHelp": "Felt hjelp",
+    "showFieldHelp": "Vis hjelp for {{field}}",
+    "whatIsThis": "Hva er dette?",
+    "example": "Eksempel",
+    "validation": "Validering",
+    "steps": "Steg",
+    "tips": "Tips",
+    "expand": "Utvid",
+    "collapse": "Skjul",
+    "tour": {
+      "skip": "Hopp over",
+      "previous": "Forrige",
+      "next": "Neste",
+      "finish": "Fullfør"
+    },
+    "context": {
+      "bedriftRegistrering": {
+        "title": "Registrering av bedrift",
+        "description": "Her registrerer du en ny bedrift i systemet. Fyll ut all nødvendig informasjon for å kunne opprette kontrakter og administrere ansatte.",
+        "steps": [
+          "Fyll ut grunnleggende bedriftsinformasjon",
+          "Legg til kontaktinformasjon",
+          "Velg bedriftstype og bransje",
+          "Bekreft og lagre bedriften"
+        ],
+        "tips": [
+          "Organisasjonsnummer må være gyldig",
+          "E-postadresse brukes for systemvarsler",
+          "Telefonnummer bør inkludere landkode"
+        ]
+      },
+      "kontraktOpprettelse": {
+        "title": "Opprettelse av kontrakt",
+        "description": "Opprett en ny kontrakt mellom din organisasjon og en bedrift. Definer tjenester, priser og vilkår.",
+        "steps": [
+          "Velg bedrift fra listen",
+          "Definer kontraktperiode",
+          "Spesifiser tjenester og priser",
+          "Legg til spesielle vilkår",
+          "Send kontrakt for godkjenning"
+        ],
+        "tips": [
+          "Kontroller at alle datoer er korrekte",
+          "Prisene blir automatisk beregnet basert på valgte tjenester",
+          "Kontrakten kan redigeres til den er signert"
+        ]
+      }
+    },
+    "fields": {
+      "organisasjonsnummer": {
+        "description": "Bedriftens unike organisasjonsnummer fra Brønnøysundregistrene",
+        "validation": "Må være 9 siffer",
+        "example": "123456789"
+      },
+      "epost": {
+        "description": "Hovedkontakt e-postadresse for bedriften",
+        "validation": "Må være en gyldig e-postadresse",
+        "example": "post@bedrift.no"
+      },
+      "telefon": {
+        "description": "Hovedtelefonnummer for bedriften",
+        "validation": "Må være et gyldig telefonnummer",
+        "example": "+47 12 34 56 78"
+      }
+    }
+  },
+  "undo": {
+    "undo": "Angre",
+    "redo": "Gjør om",
+    "noUndoActions": "Ingen handlinger å angre",
+    "noRedoActions": "Ingen handlinger å gjøre om",
+    "history": "Historikk",
+    "clear": "Tøm historikk"
+  }
+} 

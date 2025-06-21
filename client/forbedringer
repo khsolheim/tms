@@ -1,0 +1,132 @@
+Forbedringer for TMS
+
+Modul: Teoritrening for Elev
+Når eleven logger inn, møtes de av et oversiktlig og engasjerende dashbord.
+
+Dashbord
+Dette er en av sidene på eleven sin  "hjemmeside". Den bør gi rask oversikt og motivere til å fortsette.
+
+Siste resultater: Viser poengsummen fra de siste 3-5 prøvene eleven har tatt. Gir umiddelbar feedback.
+Din Progresjon: En visuell fremstilling av fremgang.
+Graf: En linjegraf som viser poengsummen ($_y_$) over tid ($_x_$). Dette viser tydelig om eleven blir bedre.
+Ferdighets-sirkel: En sirkelgraf som fylles opp mot 100% og viser total mestring av teoripensum.
+Mine svake punkter: Dette er veldig viktig for effektiv læring. Systemet analyserer feilsvar og lister opp de 3 emnene eleven sliter mest med (f.eks. "Vikeplikt", "Plassering", "Forbikjøring"). Hvert emne er en klikkbar lenke som starter en emneprøve.
+Klar for teoriprøven? En enkel "trafikklys"-indikator (rød, gul, grønn) som baserer seg på resultatene fra fulle teoriprøver. For eksempel:
+Grønn: Du har bestått 3 av de 3 siste fulle prøvene. God sjanse for å bestå den ekte prøven! ✅
+Gul: Du har bestått noen, men stryker fortsatt innimellom. Fortsett å øve! 🟡
+Rød: Du stryker på de fleste prøvene. Fokuser på svake punkter. 🔴
+Prøvevalg: Tydelige knapper for å starte de ulike testene.
+Ulike Typer Prøver (Gamification!)
+For å gjøre læringen morsom og variert, bør det finnes flere typer tester.
+
+Emneprøver:
+
+Korte tester (10-15 spørsmål) som kun fokuserer på ett spesifikt tema fra pensum (f.eks. "Bare skilt", "Vikeplikt og rundkjøringer", "Mørkekjøring"). Perfekt for målrettet øving.
+Skiltprøver:
+
+En rask og visuell test der eleven kun skal identifisere trafikkskilt. Kan ha moduser som "Hva betyr skiltet?" eller "Finn skiltet som betyr...".
+Full Teoriprøve:
+
+Simulerer den offisielle prøven fra Statens vegvesen. For klasse B er dette 45 spørsmål, der man kan ha maks 7 feil. Denne bør ha en tidsgrense for å etterligne den ekte situasjonen.
+"Dagens Utfordring":
+
+En ny, kort prøve hver dag med 10 blandede spørsmål. Gir eleven en grunn til å logge inn ofte. Man kan ha en "streak" (antall dager på rad man har tatt utfordringen) for å motivere. 🔥
+Intensivprøve ("Mine feil"):
+
+En test som kun består av spørsmål eleven tidligere har svart feil på. Utrolig effektivt for å tette kunnskapshull.
+Scenario-prøver:
+
+I stedet for enkle spørsmål, vis et bilde eller en kort video av en trafikksituasjon. Spørsmålet er "Hva gjør du nå?". Dette tester forståelse i praksis, ikke bare pugging.
+
+
+
+
+For Trafikklæreren
+Elevadministrasjon:
+
+For hver elev kan læreren se teoriprogresjon, loggføre kjøreprogresjon (fylle ut den praktiske oversikten), og skrive interne notater.
+
+
+For Administrasjonen (Skoleeier)
+
+Full oversikt:
+Dashbord med nøkkeltall: Antall aktive elever, antall bookede timer denne uken, inntekter, etc.
+Økonomistyring:
+Fakturering, betalingsoppfølging, rapporter.
+Brukeradministrasjon:
+Opprette og administrere elever, lærere og biler.
+
+
+
+
+
+Kjernen i konseptet: Sikkerhetskontroll
+Dette forblir hovedideen. Hver bil får en interaktiv profil i appen.
+
+Interaktiv bilmodell: Eleven ser en grafisk modell av sin tildelte bil. Dagens tilfeldige kontrollpunkter lyser opp som hotspots.
+Oppgavekort: Et trykk på et hotspot åpner et kort med:
+Video og tekst som forklarer hvordan punktet sjekkes.
+Input-felt for å loggføre at sjekken er utført, med dato og km-stand.
+"Meld Feil"-funksjon: Oppdager eleven eller læreren en feil (f.eks. lite luft, defekt lyspære), kan de trykke "Meld Feil". Dette flagger punktet med et rødt varsel i systemet og sender en notifikasjon til skolens administrator.
+Sesongbaserte Kontroller: Systemet legger automatisk til relevante sjekker, som å sjekke mønsterdybde på vinterdekk i oktober.
+Kontrollpunkt-bygger for skolen: Dere kan selv lage, endre og tildele kontrollpunkter til ulike bilmodeller og roller (Elev eller Lærer).
+Oppfølgingsliste for skolen: En automatisk generert liste som varsler om punkter som nærmer seg eller har passert sin utløpsdato/km-stand, eller som har en innmeldt feil.
+Flere Gøye Måter å Lære På (Gamification)
+La oss gjøre læringen til et spill.
+
+"Hva er feil?"-scenarioer 🤔
+
+Vis et bilde av et dashbord med en varsellampe som lyser, eller et dekk med åpenbart lite luft.
+Eleven må identifisere problemet fra en liste med svaralternativer. Dette tester forståelse, ikke bare prosedyre.
+Hukommelsestest 🧠
+
+Appen viser 5 kontrollpunkter på bilmodellen i 10 sekunder.
+Punktene forsvinner, og eleven må trykke på skjermen der de husker at punktene var.
+Hurtigkontroll på tid ⏱️
+
+"Du har 60 sekunder på å identifisere 5 kontrollpunkter!"
+Appen lister opp 5 punkter (f.eks. "Bremsevæske", "Spylervæske", "Hornet"), og eleven må trykke på riktig hotspot på bilen så fort som mulig.
+"Lås opp bilen"-progresjon 🔑
+
+Når en elev starter, er bare deler av den interaktive bilen "låst opp".
+For hver fullførte kontroll, låses nye deler eller kontrollpunkter opp. Målet er å mestre hele bilen. Dette skaper en følelse av progresjon og oppdagelse.
+Streaks og Leaderboards 🔥
+
+Innføre en "streak" for antall dager på rad eleven gjennomfører "Dagens Kontroll".
+En enkel, anonymisert leaderboard for skolen kan vise hvem som har lengst streak eller flest poeng, noe som skaper vennlig konkurranse.
+Komplett Idéliste for Sikkerhetskontroll-modulen
+Her er en oppsummering av alle funksjoner og ideer for denne modulen.
+
+For Eleven (Læring og Engasjement):
+
+[ ] Personlig Dashbord: Viser "Dagens Kontroll", progresjon og oppnådde medaljer.
+[ ] Interaktiv Bilmodell: Grafisk visning av bilen med klikkbare hotspots.
+[ ] Oppgavekort: Inneholder video, tekstinstruksjoner og felt for input.
+[ ] "Dagens Kontroll": Tilfeldig utvalgte punkter hver dag for å sikre variert læring.
+[ ] Loggføring: Eleven må legge inn km-stand og dato ved hver kontroll.
+[ ] Progresjonssporing: Visuell oversikt (f.eks. en sirkelgraf) som viser hvor mange av bilens punkter eleven har mestret.
+[ ] "Meld Feil"-knapp: Mulighet for å rapportere feil og mangler direkte fra appen.
+[ ] Trofésystem: Digitale medaljer for milepæler (f.eks. "Dekk-ekspert", "Motorrom-mester", "Første feilfrie uke").
+Gamification-elementer (Spill og Moro):
+
+[ ] "Hva er feil?"-scenarioer: Bildebaserte quiz-spørsmål for å teste diagnostisk forståelse.
+[ ] Hukommelsestest: Spill der man skal huske plasseringen av kontrollpunkter.
+[ ] Hurtigkontroll på tid: Test hvor raskt eleven kan identifisere punkter.
+[ ] "Lås opp bilen"-progresjon: Gradvis tilgang til flere kontrollpunkter etter hvert som man lærer.
+[ ] Streaks: Belønning for å bruke appen flere dager på rad.
+[ ] Leaderboard (valgfritt): Vennlig konkurranse mellom elevene på skolen.
+For Trafikkskolen (Administrasjon og Kontroll):
+
+[ ] Kontrollpunkt-bygger: Lag og rediger egne kontrollpunkter for hver bilmodell.
+[ ] Rolle-tildeling: Definer om et punkt skal sjekkes av Elev eller Lærer.
+[ ] Regelmotor: Sett utløpsregler basert på Tid (dager/uker) eller Kilometer.
+[ ] Kjøretøy-side ("Digital Tvilling"): Et dashbord for hver enkelt bil.
+[ ] Automatisk Oppfølgingsliste: Viser punkter som krever oppmerksomhet (utløpt, feilmelding, etc.).
+[ ] Full Kjøretøylogg: En komplett og søkbar historikk for hver bil.
+[ ] Varslingssystem: Få varsel når en feil blir meldt av en elev/lærer.
+[ ] Sesongbaserte sjekker: Mulighet for å legge inn automatiske påminnelser (f.eks. dekkskift).
+
+
+
+Bedrift sidene
+legg til mulighet for å laste opp logo til bedriftene.
