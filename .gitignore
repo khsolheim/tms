@@ -163,3 +163,7 @@ prisma/generated/
 server/logs/
 client/logs/
 *.log
+
+# macOS system files
+.DS_Store
+**/.DS_Store
