@@ -52,7 +52,7 @@ export default function Kalender() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
   const [filterType, setFilterType] = useState<string>('alle');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<KalenderEvent | null>(null);
@@ -78,6 +78,16 @@ export default function Kalender() {
       
       setEvents(data.events);
       setStatistikk(data.statistikk);
+      
+      // Konverter ressurser til riktig format
+      const konverterteRessurser: Ressurs[] = data.ressurser.map(ressurs => ({
+        id: ressurs.id,
+        navn: ressurs.navn,
+        type: ressurs.type === 'KJØRETØY' ? 'kjøretøy' : ressurs.type === 'ROM' ? 'rom' : 'utstyr',
+        status: ressurs.tilgjengelig ? 'ledig' : 'opptatt'
+      }));
+      
+      setRessurser(konverterteRessurser);
     } catch (error) {
       console.error('Feil ved henting av kalender-data:', error);
       setError('Kunne ikke laste kalender-data. Prøv igjen senere.');
@@ -353,19 +363,22 @@ export default function Kalender() {
 
                 {/* View mode selector */}
                 <div className="flex bg-gray-100 rounded-lg p-1">
-                  {(['day', 'week', 'month'] as ('day' | 'week' | 'month')[]).map((mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => setViewMode(mode)}
-                      className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                        viewMode === mode
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                    </button>
-                  ))}
+                  {(['day', 'week', 'month'] as ('day' | 'week' | 'month')[]).map((mode) => {
+                    const modeText = mode === 'day' ? 'Dag' : mode === 'week' ? 'Uke' : 'Måned';
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => setViewMode(mode)}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                          viewMode === mode
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        {modeText}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               
@@ -395,6 +408,7 @@ export default function Kalender() {
 
             {/* Kalender grid */}
             <div className="px-2 py-1">
+              {/* Månedsmodus */}
               {viewMode === 'month' && (
                 <div className="grid grid-cols-7 gap-1">
                   {/* Dag headers */}
@@ -441,6 +455,132 @@ export default function Kalender() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Ukemodus */}
+              {viewMode === 'week' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Uke {Math.ceil(selectedDate.getDate() / 7)}, {monthNames[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+                  </h3>
+                  <div className="space-y-2">
+                    {weekEvents.map(event => {
+                      const eventType = EVENT_TYPER[event.type];
+                      const IconComponent = eventType.icon;
+                      
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                          onClick={() => setSelectedEvent(event)}
+                        >
+                          <IconComponent className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-gray-900">{event.tittel}</h4>
+                            <p className="text-xs text-gray-500">{event.beskrivelse}</p>
+                            <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                              <span>
+                                {new Date(event.startTid).toLocaleDateString('nb-NO', { 
+                                  weekday: 'long', 
+                                  day: 'numeric', 
+                                  month: 'short' 
+                                })}
+                              </span>
+                              <span>
+                                {new Date(event.startTid).toLocaleTimeString('nb-NO', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })} - {new Date(event.sluttTid).toLocaleTimeString('nb-NO', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                              {event.lokasjon && (
+                                <span className="flex items-center">
+                                  <FaMapMarkerAlt className="h-3 w-3 mr-1" />
+                                  {event.lokasjon}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-1">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${eventType.farge}`}>
+                              {eventType.navn}
+                            </span>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_FARGER[event.status]}`}>
+                              {event.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {weekEvents.length === 0 && (
+                      <p className="text-center text-gray-500 py-8">Ingen aktiviteter denne uken</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Dagmodus */}
+              {viewMode === 'day' && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {selectedDate.toLocaleDateString('nb-NO', { 
+                      weekday: 'long', 
+                      day: 'numeric', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })}
+                  </h3>
+                  <div className="space-y-2">
+                    {todaysEvents.map(event => {
+                      const eventType = EVENT_TYPER[event.type];
+                      const IconComponent = eventType.icon;
+                      
+                      return (
+                        <div
+                          key={event.id}
+                          className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                          onClick={() => setSelectedEvent(event)}
+                        >
+                          <IconComponent className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-gray-900">{event.tittel}</h4>
+                            <p className="text-xs text-gray-500">{event.beskrivelse}</p>
+                            <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                              <span>
+                                {new Date(event.startTid).toLocaleTimeString('nb-NO', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })} - {new Date(event.sluttTid).toLocaleTimeString('nb-NO', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                              {event.lokasjon && (
+                                <span className="flex items-center">
+                                  <FaMapMarkerAlt className="h-3 w-3 mr-1" />
+                                  {event.lokasjon}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-1">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${eventType.farge}`}>
+                              {eventType.navn}
+                            </span>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_FARGER[event.status]}`}>
+                              {event.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {todaysEvents.length === 0 && (
+                      <p className="text-center text-gray-500 py-8">Ingen aktiviteter i dag</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

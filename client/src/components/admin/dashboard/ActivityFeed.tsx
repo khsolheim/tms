@@ -12,7 +12,7 @@ import {
   PencilIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
-import { ActivityItem } from '../../types/admin';
+import { ActivityItem } from '../../../types/admin';
 
 interface ActivityFeedProps {
   activities: ActivityItem[];

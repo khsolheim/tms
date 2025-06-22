@@ -20,11 +20,11 @@ import {
   BanknotesIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
-import { DataTable, Column } from '../../components/common/DataTable';
-import { StatCard } from '../../components/common/StatCard';
-import { usePaginatedApi } from '../../hooks/useApi';
-import { bedrifterService } from '../../services/bedrifter';
-import { Bedrift } from '../../types/admin';
+import { DataTable, Column } from '../../../components/admin/common/DataTable';
+import { StatCard } from '../../../components/admin/common/StatCard';
+import { usePaginatedApi } from '../../../hooks/admin/useApi';
+import { bedrifterService } from '../../../services/admin/bedrifter';
+import { Bedrift } from '../../../types/admin';
 
 export const BedrifterPage: React.FC = () => {
   const [selectedBedrifter, setSelectedBedrifter] = useState<Bedrift[]>([]);
@@ -372,10 +372,14 @@ export const BedrifterPage: React.FC = () => {
     );
   }
 
-  const activeBedrifter = (bedrifter as Bedrift[])?.filter((b) => b.status === 'ACTIVE').length || 0;
-  const suspendedBedrifter = (bedrifter as Bedrift[])?.filter((b) => b.status === 'SUSPENDED').length || 0;
-  const totalAnsatte = (bedrifter as Bedrift[])?.reduce((sum, b) => sum + b.ansatte, 0) || 0;
-  const totalElever = (bedrifter as Bedrift[])?.reduce((sum, b) => sum + b.elever, 0) || 0;
+  // Extract bedrifter array from paginated response
+  const bedrifterArray = bedrifter?.data || [];
+  
+  // Calculate statistics from the actual data array
+  const activeBedrifter = bedrifterArray.filter((b) => b.status === 'ACTIVE').length || 0;
+  const suspendedBedrifter = bedrifterArray.filter((b) => b.status === 'SUSPENDED').length || 0;
+  const totalAnsatte = bedrifterArray.reduce((sum, b) => sum + (b.ansatte || 0), 0) || 0;
+  const totalElever = bedrifterArray.reduce((sum, b) => sum + (b.elever || 0), 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -480,7 +484,7 @@ export const BedrifterPage: React.FC = () => {
 
           {/* Companies Table */}
           <DataTable
-            data={(bedrifter as Bedrift[]) || []}
+            data={bedrifterArray}
             columns={columns}
             loading={loading}
             pagination={{
@@ -518,7 +522,7 @@ export const BedrifterPage: React.FC = () => {
                   <span className="text-sm font-medium text-gray-900">{activeBedrifter}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full" style={{ width: `${(activeBedrifter / (bedrifter?.length || 1)) * 100}%` }}></div>
+                  <div className="bg-green-600 h-2 rounded-full" style={{ width: `${(activeBedrifter / (bedrifterArray.length || 1)) * 100}%` }}></div>
                 </div>
                 
                 <div className="flex justify-between items-center">
@@ -526,7 +530,7 @@ export const BedrifterPage: React.FC = () => {
                   <span className="text-sm font-medium text-gray-900">{suspendedBedrifter}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-yellow-600 h-2 rounded-full" style={{ width: `${(suspendedBedrifter / (bedrifter?.length || 1)) * 100}%` }}></div>
+                  <div className="bg-yellow-600 h-2 rounded-full" style={{ width: `${(suspendedBedrifter / (bedrifterArray.length || 1)) * 100}%` }}></div>
                 </div>
               </div>
             </div>
@@ -534,7 +538,7 @@ export const BedrifterPage: React.FC = () => {
             <div className="bg-white shadow rounded-lg p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Nylige Registreringer</h3>
               <div className="space-y-2">
-                {(bedrifter as Bedrift[])?.slice(0, 5).map((bedrift) => (
+                {bedrifterArray.slice(0, 5).map((bedrift) => (
                   <div key={bedrift.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="text-sm text-gray-900">{bedrift.navn}</span>
                     <span className="text-xs text-gray-500">
@@ -552,7 +556,7 @@ export const BedrifterPage: React.FC = () => {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Tjeneste Oversikt</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(bedrifter as Bedrift[])?.slice(0, 6).map((bedrift) => (
+            {bedrifterArray.slice(0, 6).map((bedrift) => (
               <div key={bedrift.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">{bedrift.navn}</h4>
@@ -644,7 +648,7 @@ export const BedrifterPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {(bedrifter as Bedrift[])?.slice(0, 10).map((bedrift) => (
+                  {bedrifterArray.slice(0, 10).map((bedrift) => (
                     <tr key={bedrift.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {bedrift.navn}

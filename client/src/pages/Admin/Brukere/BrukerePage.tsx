@@ -21,11 +21,11 @@ import {
   CogIcon,
   UserGroupIcon
 } from '@heroicons/react/24/outline';
-import { DataTable, Column } from '../../components/common/DataTable';
-import { StatCard } from '../../components/common/StatCard';
-import { usePaginatedApi } from '../../hooks/useApi';
-import { brukereService } from '../../services/brukere';
-import { Bruker } from '../../types/admin';
+import { DataTable, Column } from '../../../components/common/DataTable';
+import { StatCard } from '../../../components/admin/common/StatCard';
+import { usePaginatedApi } from '../../../hooks/admin/useApi';
+import { brukereService } from '../../../services/brukere';
+import { Bruker } from '../../../types/admin';
 
 export const BrukerePage: React.FC = () => {
   const [selectedBrukere, setSelectedBrukere] = useState<Bruker[]>([]);
@@ -289,59 +289,59 @@ export const BrukerePage: React.FC = () => {
   const actions = [
     {
       label: 'Detaljer',
-      icon: <EyeIcon className="w-4 h-4" />,
+      icon: EyeIcon,
       onClick: (bruker: Bruker) => {
         alert(`Åpner detaljer for ${bruker.fornavn} ${bruker.etternavn}`);
       },
-      className: 'text-blue-600 hover:text-blue-900'
+      variant: 'primary' as const
     },
     {
       label: 'Rediger',
-      icon: <PencilIcon className="w-4 h-4" />,
+      icon: PencilIcon,
       onClick: (bruker: Bruker) => {
         alert(`Redigerer ${bruker.fornavn} ${bruker.etternavn}`);
       },
-      className: 'text-green-600 hover:text-green-900'
+      variant: 'secondary' as const
     },
     {
       label: 'Aktiver',
-      icon: <CheckCircleIcon className="w-4 h-4" />,
+      icon: CheckCircleIcon,
       onClick: (bruker: Bruker) => handleBrukerAction(bruker, 'activate'),
-      show: (bruker: Bruker) => bruker.status !== 'ACTIVE',
-      className: 'text-green-600 hover:text-green-900'
+      disabled: (bruker: Bruker) => bruker.status === 'ACTIVE',
+      variant: 'secondary' as const
     },
     {
       label: 'Deaktiver',
-      icon: <XMarkIcon className="w-4 h-4" />,
+      icon: XMarkIcon,
       onClick: (bruker: Bruker) => handleBrukerAction(bruker, 'deactivate'),
-      show: (bruker: Bruker) => bruker.status === 'ACTIVE',
-      className: 'text-yellow-600 hover:text-yellow-900'
+      disabled: (bruker: Bruker) => bruker.status !== 'ACTIVE',
+      variant: 'secondary' as const
     },
     {
       label: 'Lås',
-      icon: <LockClosedIcon className="w-4 h-4" />,
+      icon: LockClosedIcon,
       onClick: (bruker: Bruker) => handleBrukerAction(bruker, 'lock'),
-      show: (bruker: Bruker) => bruker.status !== 'LOCKED',
-      className: 'text-red-600 hover:text-red-900'
+      disabled: (bruker: Bruker) => bruker.status === 'LOCKED',
+      variant: 'danger' as const
     },
     {
       label: 'Lås opp',
-      icon: <LockOpenIcon className="w-4 h-4" />,
+      icon: LockOpenIcon,
       onClick: (bruker: Bruker) => handleBrukerAction(bruker, 'unlock'),
-      show: (bruker: Bruker) => bruker.status === 'LOCKED',
-      className: 'text-green-600 hover:text-green-900'
+      disabled: (bruker: Bruker) => bruker.status !== 'LOCKED',
+      variant: 'secondary' as const
     },
     {
       label: 'Tilbakestill Passord',
-      icon: <KeyIcon className="w-4 h-4" />,
+      icon: KeyIcon,
       onClick: (bruker: Bruker) => handleBrukerAction(bruker, 'resetPassword'),
-      className: 'text-purple-600 hover:text-purple-900'
+      variant: 'secondary' as const
     },
     {
       label: 'Slett',
-      icon: <TrashIcon className="w-4 h-4" />,
+      icon: TrashIcon,
       onClick: (bruker: Bruker) => handleBrukerAction(bruker, 'delete'),
-      className: 'text-red-600 hover:text-red-900'
+      variant: 'danger' as const
     }
   ];
 
@@ -432,10 +432,10 @@ export const BrukerePage: React.FC = () => {
     );
   }
 
-  const activeBrukere = (brukere as Bruker[])?.filter((b) => b.status === 'ACTIVE').length || 0;
-  const lockedBrukere = (brukere as Bruker[])?.filter((b) => b.status === 'LOCKED').length || 0;
-  const pendingBrukere = (brukere as Bruker[])?.filter((b) => b.status === 'PENDING').length || 0;
-  const tofaUsers = (brukere as Bruker[])?.filter((b) => b.tofaAktivert).length || 0;
+  const activeBrukere = (brukere?.data || []).filter((b) => b.status === 'ACTIVE').length || 0;
+  const lockedBrukere = (brukere?.data || []).filter((b) => b.status === 'LOCKED').length || 0;
+  const pendingBrukere = (brukere?.data || []).filter((b) => b.status === 'PENDING').length || 0;
+  const tofaUsers = (brukere?.data || []).filter((b) => b.tofaAktivert).length || 0;
 
   return (
     <div className="space-y-6">
@@ -540,30 +540,21 @@ export const BrukerePage: React.FC = () => {
 
           {/* Users Table */}
           <DataTable
-            data={(brukere as Bruker[]) || []}
+            data={brukere?.data || []}
             columns={columns}
             loading={loading}
-            pagination={{
-              page,
-              limit,
-              total,
-              totalPages
-            }}
-            filters={tableFilters}
+            page={page}
+            limit={limit}
+            total={total}
+            totalPages={Math.ceil(total / limit)}
             actions={actions}
             selectable={true}
             selectedRows={selectedBrukere}
             onSelectionChange={setSelectedBrukere}
-            bulkActions={bulkActions}
             onPageChange={goToPage}
             onLimitChange={setLimit}
             emptyMessage="Ingen brukere funnet"
             className="bg-white"
-            rowClassName={(row) => 
-              row.status === 'LOCKED' ? 'bg-red-50 hover:bg-red-100' :
-              row.status === 'PENDING' ? 'bg-yellow-50 hover:bg-yellow-100' :
-              row.status === 'INACTIVE' ? 'bg-gray-50 hover:bg-gray-100' : ''
-            }
           />
         </div>
       )}
@@ -572,7 +563,7 @@ export const BrukerePage: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {['SUPER_ADMIN', 'ADMIN', 'HOVEDBRUKER', 'ANSATT', 'ELEV'].map((role) => {
-              const roleUsers = (brukere as Bruker[])?.filter((b) => b.rolle === role) || [];
+              const roleUsers = (brukere?.data || []).filter((b) => b.rolle === role) || [];
               const roleName = {
                 SUPER_ADMIN: 'Super Admin',
                 ADMIN: 'Admin',
@@ -620,7 +611,7 @@ export const BrukerePage: React.FC = () => {
             <div className="bg-white shadow rounded-lg p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Innloggingsaktivitet</h3>
               <div className="space-y-3">
-                {(brukere as Bruker[])?.filter((b) => b.sistInnlogget).slice(0, 8).map((bruker) => (
+                {(brukere?.data || []).filter((b) => b.sistInnlogget).slice(0, 8).map((bruker) => (
                   <div key={bruker.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <div>
                       <span className="text-sm font-medium text-gray-900">
@@ -637,9 +628,9 @@ export const BrukerePage: React.FC = () => {
             </div>
             
             <div className="bg-white shadow rounded-lg p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Nylige Registreringer</h3>
-              <div className="space-y-2">
-                {(brukere as Bruker[])?.slice(0, 8).map((bruker) => (
+                              <h3 className="text-lg font-medium text-gray-900 mb-4">Nylige Registreringer</h3>
+                <div className="space-y-2">
+                  {(brukere?.data || []).slice(0, 8).map((bruker) => (
                   <div key={bruker.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <div>
                       <span className="text-sm font-medium text-gray-900">
@@ -669,15 +660,15 @@ export const BrukerePage: React.FC = () => {
                   <span className="text-sm font-medium text-green-600">{tofaUsers}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full" style={{ width: `${(tofaUsers / (brukere?.length || 1)) * 100}%` }}></div>
+                  <div className="bg-green-600 h-2 rounded-full" style={{ width: `${(tofaUsers / (brukere?.data?.length || 1)) * 100}%` }}></div>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Ikke aktivert</span>
-                  <span className="text-sm font-medium text-red-600">{(brukere?.length || 0) - tofaUsers}</span>
+                  <span className="text-sm font-medium text-red-600">{(brukere?.data?.length || 0) - tofaUsers}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-red-600 h-2 rounded-full" style={{ width: `${((brukere?.length || 0) - tofaUsers) / (brukere?.length || 1) * 100}%` }}></div>
+                  <div className="bg-red-600 h-2 rounded-full" style={{ width: `${((brukere?.data?.length || 0) - tofaUsers) / (brukere?.data?.length || 1) * 100}%` }}></div>
                 </div>
               </div>
             </div>
@@ -746,7 +737,7 @@ export const BrukerePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {(brukere as Bruker[])?.filter((b) => !b.tofaAktivert).slice(0, 10).map((bruker) => (
+                  {(brukere?.data || []).filter((b) => !b.tofaAktivert).slice(0, 10).map((bruker) => (
                     <tr key={bruker.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">

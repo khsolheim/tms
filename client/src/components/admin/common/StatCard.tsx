@@ -4,151 +4,243 @@ import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from '@heroicons/react/24/outli
 export interface StatCardProps {
   title: string;
   value: string | number;
+  subtitle?: string;
+  icon?: React.ReactNode;
+  trend?: {
+    value: number;
+    direction: 'up' | 'down' | 'stable';
+    label?: string;
+  };
+  color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'gray';
+  className?: string;
+  onClick?: () => void;
+  loading?: boolean;
   change?: string;
   changeType?: 'increase' | 'decrease' | 'neutral';
-  icon?: React.ReactNode;
   description?: string;
-  loading?: boolean;
-  onClick?: () => void;
-  className?: string;
   valueColor?: string;
-  size?: 'sm' | 'md' | 'lg';
 }
 
-export const StatCard: React.FC<StatCardProps> = ({
+export function StatCard({
   title,
   value,
-  change,
-  changeType = 'neutral',
+  subtitle,
   icon,
-  description,
-  loading = false,
-  onClick,
+  trend,
+  color = 'blue',
   className = '',
-  valueColor,
-  size = 'md'
-}) => {
-  const sizeClasses = {
-    sm: 'p-4',
-    md: 'p-5',
-    lg: 'p-6'
-  };
-
-  const valueSizeClasses = {
-    sm: 'text-xl',
-    md: 'text-2xl',
-    lg: 'text-3xl'
-  };
-
-  const titleSizeClasses = {
-    sm: 'text-sm',
-    md: 'text-sm',
-    lg: 'text-base'
-  };
-
-  const getChangeIcon = () => {
-    switch (changeType) {
-      case 'increase':
-        return <ArrowUpIcon className="w-4 h-4" />;
-      case 'decrease':
-        return <ArrowDownIcon className="w-4 h-4" />;
-      default:
-        return <MinusIcon className="w-4 h-4" />;
+  onClick,
+  loading = false,
+  change,
+  changeType,
+  description,
+  valueColor
+}: StatCardProps) {
+  const colorClasses = {
+    blue: {
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      text: 'text-blue-900',
+      icon: 'text-blue-600',
+      accent: 'text-blue-600'
+    },
+    green: {
+      bg: 'bg-green-50',
+      border: 'border-green-200',
+      text: 'text-green-900',
+      icon: 'text-green-600',
+      accent: 'text-green-600'
+    },
+    yellow: {
+      bg: 'bg-yellow-50',
+      border: 'border-yellow-200',
+      text: 'text-yellow-900',
+      icon: 'text-yellow-600',
+      accent: 'text-yellow-600'
+    },
+    red: {
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      text: 'text-red-900',
+      icon: 'text-red-600',
+      accent: 'text-red-600'
+    },
+    purple: {
+      bg: 'bg-purple-50',
+      border: 'border-purple-200',
+      text: 'text-purple-900',
+      icon: 'text-purple-600',
+      accent: 'text-purple-600'
+    },
+    gray: {
+      bg: 'bg-gray-50',
+      border: 'border-gray-200',
+      text: 'text-gray-900',
+      icon: 'text-gray-600',
+      accent: 'text-gray-600'
     }
   };
 
-  const getChangeColor = () => {
-    switch (changeType) {
-      case 'increase':
-        return 'bg-green-100 text-green-800';
-      case 'decrease':
-        return 'bg-red-100 text-red-800';
+  const colors = colorClasses[color];
+
+  const getTrendIcon = () => {
+    if (!finalTrend) return null;
+    
+    switch (finalTrend.direction) {
+      case 'up':
+        return (
+          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17l5-5 5 5" />
+          </svg>
+        );
+      case 'down':
+        return (
+          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 7l-5 5-5-5" />
+          </svg>
+        );
+      case 'stable':
+        return (
+          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h8" />
+          </svg>
+        );
       default:
-        return 'bg-gray-100 text-gray-800';
+        return null;
     }
   };
 
-  const cardClasses = `
-    bg-white overflow-hidden shadow rounded-lg transition-all duration-200
-    ${onClick ? 'cursor-pointer hover:shadow-md hover:scale-105' : ''}
-    ${className}
-  `;
+  const getTrendColor = () => {
+    if (!finalTrend) return '';
+    
+    switch (finalTrend.direction) {
+      case 'up':
+        return 'text-green-600';
+      case 'down':
+        return 'text-red-600';
+      case 'stable':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
+  const formatValue = (val: string | number): string => {
+    if (typeof val === 'number') {
+      // Format large numbers with appropriate suffixes
+      if (val >= 1000000) {
+        return (val / 1000000).toFixed(1) + 'M';
+      } else if (val >= 1000) {
+        return (val / 1000).toFixed(1) + 'K';
+      }
+      return val.toString();
+    }
+    return val;
+  };
+
+  // Convert change and changeType to trend if not already provided
+  const finalTrend = trend || (change && changeType ? {
+    value: parseFloat(change.replace(/[^-\d.]/g, '')) || 0,
+    direction: changeType === 'increase' ? 'up' as const : 
+               changeType === 'decrease' ? 'down' as const : 'stable' as const,
+    label: change
+  } : undefined);
+
+  const finalSubtitle = subtitle || description;
 
   if (loading) {
     return (
-      <div className={cardClasses}>
-        <div className={sizeClasses[size]}>
-          <div className="animate-pulse">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                {icon ? (
-                  <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                ) : (
-                  <div className="w-6 h-6 bg-gray-200 rounded"></div>
-                )}
-              </div>
-              <div className="ml-3 flex-1">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-              </div>
+      <div className={`
+        ${colors.bg} ${colors.border} border rounded-lg p-6 
+        ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow duration-200' : ''}
+        ${className}
+      `}>
+        <div className="animate-pulse">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="h-4 bg-gray-300 rounded w-24 mb-2"></div>
+              <div className="h-8 bg-gray-300 rounded w-16"></div>
             </div>
-            {change && (
-              <div className="mt-2">
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              </div>
+            {icon && (
+              <div className="h-8 w-8 bg-gray-300 rounded"></div>
             )}
           </div>
+          {finalSubtitle && (
+            <div className="h-3 bg-gray-300 rounded w-32 mt-2"></div>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className={cardClasses} onClick={onClick}>
-      <div className={sizeClasses[size]}>
-        <div className="flex items-center">
-          {icon && (
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 flex items-center justify-center text-gray-400">
-                {icon}
-              </div>
-            </div>
+    <div 
+      className={`
+        ${colors.bg} ${colors.border} border rounded-lg p-6 
+        ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow duration-200' : ''}
+        ${className}
+      `}
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <p className={`text-sm font-medium ${colors.text}`}>
+            {title}
+          </p>
+          <p className={`text-2xl font-bold mt-1 ${valueColor || colors.text}`}>
+            {formatValue(value)}
+          </p>
+          
+          {finalSubtitle && (
+            <p className="text-sm text-gray-600 mt-1">
+              {finalSubtitle}
+            </p>
           )}
-          <div className={`${icon ? 'ml-3' : ''} flex-1 min-w-0`}>
-            <div className={`${titleSizeClasses[size]} font-medium text-gray-500 truncate`}>
-              {title}
-            </div>
-            <div className="mt-1 flex items-baseline justify-between">
-              <div className={`${valueSizeClasses[size]} font-semibold ${
-                valueColor || 'text-gray-900'
-              }`}>
-                {typeof value === 'number' ? value.toLocaleString('nb-NO') : value}
-              </div>
-              {change && (
-                <div className={`inline-flex items-baseline px-2.5 py-0.5 rounded-full text-sm font-medium ${getChangeColor()}`}>
-                  {getChangeIcon()}
-                  <span className="ml-1">{change}</span>
-                </div>
+          
+          {finalTrend && (
+            <div className="flex items-center mt-2">
+              {getTrendIcon()}
+              <span className={`text-sm font-medium ml-1 ${getTrendColor()}`}>
+                {finalTrend.value > 0 ? '+' : ''}{finalTrend.value}%
+              </span>
+              {finalTrend.label && (
+                <span className="text-sm text-gray-500 ml-1">
+                  {finalTrend.label}
+                </span>
               )}
             </div>
-            {description && (
-              <div className="mt-1 text-xs text-gray-500 truncate">
-                {description}
-              </div>
-            )}
-          </div>
+          )}
         </div>
+        
+        {icon && (
+          <div className={`${colors.icon} ml-4`}>
+            {icon}
+          </div>
+        )}
       </div>
     </div>
   );
-};
-
-// Specialized stat cards
-export interface MetricCardProps extends Omit<StatCardProps, 'icon'> {
-  metric: 'users' | 'companies' | 'services' | 'uptime' | 'performance' | 'security';
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({ metric, ...props }) => {
+// Convenience wrapper for metric cards
+export interface MetricCardProps {
+  title: string;
+  value: string | number;
+  previousValue?: number;
+  unit?: string;
+  icon?: React.ReactNode;
+  color?: StatCardProps['color'];
+  className?: string;
+  onClick?: () => void;
+  loading?: boolean;
+  metric: 'users' | 'companies' | 'services' | 'uptime' | 'performance' | 'security';
+  change?: string;
+  changeType?: 'increase' | 'decrease' | 'neutral';
+  description?: string;
+  valueColor?: string;
+}
+
+export const MetricCard: React.FC<MetricCardProps> = ({ metric, title, value, change, changeType, description, valueColor, loading, ...props }) => {
   const getMetricIcon = () => {
     switch (metric) {
       case 'users':
@@ -193,7 +285,25 @@ export const MetricCard: React.FC<MetricCardProps> = ({ metric, ...props }) => {
     }
   };
 
-  return <StatCard {...props} icon={getMetricIcon()} />;
+  // Convert change and changeType to trend format
+  const trend = change && changeType ? {
+    value: parseFloat(change.replace(/[^-\d.]/g, '')) || 0,
+    direction: changeType === 'increase' ? 'up' as const : 
+               changeType === 'decrease' ? 'down' as const : 'stable' as const,
+    label: change
+  } : undefined;
+
+  return (
+    <StatCard
+      title={title}
+      value={value}
+      subtitle={description}
+      trend={trend}
+      icon={getMetricIcon()}
+      loading={loading}
+      {...props}
+    />
+  );
 };
 
 // Grid layout for stat cards

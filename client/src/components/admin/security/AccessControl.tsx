@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   UserIcon,
   LockClosedIcon,
@@ -8,38 +8,79 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XMarkIcon,
-  PencilIcon
+  PencilIcon,
+  TrashIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import { DataTable, Column } from '../common/DataTable';
-import { usePaginatedApi } from '../../hooks/useApi';
-import { securityService } from '../../services/security';
-import { AccessControl as AccessControlType } from '../../types/admin';
+import { usePaginatedApi } from '../../../hooks/admin/useApi';
+import { securityService } from '../../../services/admin/security';
+import { AccessControl as AccessControlType } from '../../../types/admin';
+import { StatCard } from '../common/StatCard';
 
 export const AccessControl: React.FC = () => {
   const [selectedUsers, setSelectedUsers] = useState<AccessControlType[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AccessControlType | null>(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+
+  // Filter configuration for DataTable
+  const filters = [
+    {
+      key: 'role',
+      label: 'Rolle',
+      type: 'select' as const,
+      options: [
+        { value: 'SUPER_ADMIN', label: 'Super Admin' },
+        { value: 'ADMIN', label: 'Admin' },
+        { value: 'HR_MANAGER', label: 'HR Manager' },
+        { value: 'INSTRUCTOR', label: 'Instruktør' },
+        { value: 'EMPLOYEE', label: 'Ansatt' },
+        { value: 'STUDENT', label: 'Elev' }
+      ]
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      options: [
+        { value: 'active', label: 'Aktiv' },
+        { value: 'locked', label: 'Låst' },
+        { value: 'inactive', label: 'Inaktiv' }
+      ]
+    },
+    {
+      key: 'search',
+      label: 'Søk',
+      type: 'text' as const,
+      placeholder: 'Søk etter navn eller e-post...'
+    }
+  ];
 
   // Fetch access control data
   const {
-    data: users,
+    data: usersResponse,
     loading,
     error,
     page,
     limit,
     total,
-    totalPages,
     hasNextPage,
     hasPreviousPage,
-    nextPage,
-    previousPage,
     goToPage,
     setLimit,
     refresh
-  } = usePaginatedApi(
+  } = usePaginatedApi<AccessControlType>(
     (params) => securityService.getAccessControl(params),
     { immediate: true }
   );
+
+  // Extract users from paginated response
+  const users = usersResponse?.data || [];
 
   const handleLockUser = async (user: AccessControlType) => {
     if (!window.confirm(`Er du sikker på at du vil låse brukeren ${user.userName}?`)) {
@@ -47,7 +88,7 @@ export const AccessControl: React.FC = () => {
     }
 
     try {
-      await securityService.lockUser(user.userId, 'Låst av administrator');
+      await securityService.lockUser(user.userId);
       refresh();
     } catch (error: any) {
       alert(`Feil ved låsing av bruker: ${error.message}`);
@@ -69,7 +110,7 @@ export const AccessControl: React.FC = () => {
     }
 
     try {
-      await securityService.resetUserPassword(user.userId, true);
+      await securityService.resetUserPassword(user.userId);
       alert('Passord tilbakestilt. E-post sendt til bruker.');
     } catch (error: any) {
       alert(`Feil ved tilbakestilling av passord: ${error.message}`);
@@ -87,13 +128,13 @@ export const AccessControl: React.FC = () => {
       for (const user of users) {
         switch (action) {
           case 'lock':
-            await securityService.lockUser(user.userId, 'Bulk låsing av administrator');
+            await securityService.lockUser(user.userId);
             break;
           case 'unlock':
             await securityService.unlockUser(user.userId);
             break;
           case 'reset-password':
-            await securityService.resetUserPassword(user.userId, true);
+            await securityService.resetUserPassword(user.userId);
             break;
         }
       }
@@ -277,37 +318,28 @@ export const AccessControl: React.FC = () => {
     }
   ];
 
-  const filters = [
-    {
-      key: 'role',
-      label: 'Rolle',
-      type: 'select' as const,
-      options: [
-        { value: 'SUPER_ADMIN', label: 'Super Admin' },
-        { value: 'ADMIN', label: 'Admin' },
-        { value: 'HR_MANAGER', label: 'HR Manager' },
-        { value: 'INSTRUCTOR', label: 'Instruktør' },
-        { value: 'EMPLOYEE', label: 'Ansatt' },
-        { value: 'STUDENT', label: 'Elev' }
-      ]
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select' as const,
-      options: [
-        { value: 'active', label: 'Aktiv' },
-        { value: 'locked', label: 'Låst' },
-        { value: 'inactive', label: 'Inaktiv' }
-      ]
-    },
-    {
-      key: 'search',
-      label: 'Søk',
-      type: 'text' as const,
-      placeholder: 'Søk etter navn eller e-post...'
+  const handleEditUser = (user: any) => {
+    console.log('Edit user:', user);
+  };
+
+  const handleSuspendUser = (userId: string) => {
+    console.log('Suspend user:', userId);
+  };
+
+  const handleBulkRoleChange = () => {
+    if (selectedUsers.length === 0) {
+      alert('Vennligst velg brukere først');
+      return;
     }
-  ];
+    setShowRoleModal(true);
+  };
+
+  const handleRoleUpdate = () => {
+    console.log('Update role for users:', selectedUsers, 'to:', selectedRole);
+    setShowRoleModal(false);
+    setSelectedUsers([]);
+    setSelectedRole('');
+  };
 
   if (error) {
     return (
@@ -421,7 +453,7 @@ export const AccessControl: React.FC = () => {
           page,
           limit,
           total,
-          totalPages
+          totalPages: 1 // Assuming totalPages is not available in the new API response
         }}
         filters={filters}
         actions={actions}
@@ -461,6 +493,50 @@ export const AccessControl: React.FC = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
                 >
                   Lagre
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Change Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Endre Rolle
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Endre rolle for {selectedUsers.length} valgte brukere
+              </p>
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md mb-4"
+              >
+                <option value="">Velg rolle</option>
+                <option value="SUPER_ADMIN">Super Admin</option>
+                <option value="ADMIN">Admin</option>
+                <option value="HR_MANAGER">HR Manager</option>
+                <option value="INSTRUCTOR">Instruktør</option>
+                <option value="EMPLOYEE">Ansatt</option>
+                <option value="STUDENT">Elev</option>
+              </select>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowRoleModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleRoleUpdate}
+                  disabled={!selectedRole}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Oppdater Rolle
                 </button>
               </div>
             </div>

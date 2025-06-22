@@ -156,6 +156,16 @@ class KjøretøyService {
     }
   }
 
+  async hentKjøretøyFraVegvesen(registreringsnummer: string): Promise<any> {
+    try {
+      const response = await api.get(`/bedrifter/vegvesen/kjoretoy/${registreringsnummer}`);
+      return response.data;
+    } catch (error) {
+      console.error('Feil ved henting av kjøretøy fra Vegvesen:', error);
+      throw error;
+    }
+  }
+
   private hentMockKjøretøy(): Kjøretøy[] {
     return [
       {

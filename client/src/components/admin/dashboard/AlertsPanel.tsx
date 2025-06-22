@@ -8,8 +8,8 @@ import {
   EyeIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import { Alert } from '../../types/admin';
-import { dashboardService } from '../../services/dashboard';
+import { Alert } from '../../../types/admin';
+import { dashboardService } from '../../../services/admin/dashboard';
 
 interface AlertsPanelProps {
   alerts: Alert[];

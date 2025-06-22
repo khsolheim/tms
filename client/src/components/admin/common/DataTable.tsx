@@ -8,6 +8,7 @@ export interface Column<T> {
   width?: string;
   render?: (value: any, row: T, index: number) => React.ReactNode;
   className?: string;
+  align?: 'left' | 'center' | 'right';
 }
 
 export interface PaginationConfig {
@@ -51,6 +52,12 @@ export interface DataTableProps<T> {
   selectedRows?: T[];
   onSelectionChange?: (selectedRows: T[]) => void;
   bulkActions?: ActionConfig<T[]>[];
+  selectedRowKeys?: React.Key[];
+  onRowClick?: (record: T, index: number) => void;
+  rowKey?: keyof T | ((record: T) => React.Key);
+  size?: 'small' | 'middle' | 'large';
+  bordered?: boolean;
+  emptyText?: string;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -70,7 +77,13 @@ export function DataTable<T extends Record<string, any>>({
   selectable = false,
   selectedRows = [],
   onSelectionChange,
-  bulkActions
+  bulkActions,
+  selectedRowKeys = [],
+  onRowClick,
+  rowKey = 'id' as keyof T,
+  size = 'middle',
+  bordered = true,
+  emptyText = 'Ingen data'
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -107,6 +120,31 @@ export function DataTable<T extends Record<string, any>>({
 
   const isAllSelected = selectedRows.length === data.length && data.length > 0;
   const isIndeterminate = selectedRows.length > 0 && selectedRows.length < data.length;
+
+  const getRowKey = (record: T, index: number): React.Key => {
+    if (typeof rowKey === 'function') {
+      return rowKey(record);
+    }
+    return record[rowKey] || index;
+  };
+
+  const handleRowSelection = (record: T, selected: boolean) => {
+    if (!onSelectionChange) return;
+
+    const key = getRowKey(record, 0);
+    let newSelectedKeys: React.Key[];
+    let newSelectedRows: T[];
+
+    if (selected) {
+      newSelectedKeys = [...selectedRowKeys, key];
+      newSelectedRows = [...data.filter(item => selectedRowKeys.includes(getRowKey(item, 0))), record];
+    } else {
+      newSelectedKeys = selectedRowKeys.filter(k => k !== key);
+      newSelectedRows = data.filter(item => newSelectedKeys.includes(getRowKey(item, 0)));
+    }
+
+    onSelectionChange(newSelectedRows);
+  };
 
   const renderCell = (column: Column<T>, row: T, index: number) => {
     const value = typeof column.key === 'string' && column.key.includes('.') 
@@ -230,6 +268,29 @@ export function DataTable<T extends Record<string, any>>({
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Laster...</span>
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="text-center p-8 text-gray-500 bg-gray-50 rounded-lg border">
+        {emptyText}
+      </div>
+    );
+  }
+
+  const sizeClasses = {
+    small: 'text-sm',
+    middle: 'text-base',
+    large: 'text-lg'
+  };
+
   return (
     <div className={`bg-white shadow rounded-lg ${className}`}>
       {/* Filters */}
@@ -297,7 +358,7 @@ export function DataTable<T extends Record<string, any>>({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className={`min-w-full ${bordered ? 'border border-gray-200' : ''} ${sizeClasses[size]}`}>
           <thead className="bg-gray-50">
             <tr>
               {selectable && (
@@ -353,41 +414,27 @@ export function DataTable<T extends Record<string, any>>({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length + (selectable ? 1 : 0) + (actions ? 1 : 0)}
-                  className="px-6 py-12 text-center text-gray-500"
-                >
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <span className="ml-2">Laster...</span>
-                  </div>
-                </td>
-              </tr>
-            ) : data.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length + (selectable ? 1 : 0) + (actions ? 1 : 0)}
-                  className="px-6 py-12 text-center text-gray-500"
-                >
-                  {emptyMessage}
-                </td>
-              </tr>
-            ) : (
-              data.map((row, index) => (
+            {data.map((row, index) => {
+              const key = getRowKey(row, index);
+              const isSelected = selectedRowKeys.includes(key);
+              
+              return (
                 <tr
-                  key={index}
-                  className={`hover:bg-gray-50 ${
-                    rowClassName ? rowClassName(row, index) : ''
-                  }`}
+                  key={key}
+                  className={`
+                    ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                    ${onRowClick ? 'cursor-pointer' : ''}
+                    transition-colors duration-150
+                  `}
+                  onClick={() => onRowClick?.(row, index)}
                 >
                   {selectable && (
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedRows.includes(row)}
-                        onChange={(e) => handleSelectRow(row, e.target.checked)}
+                        checked={isSelected}
+                        onChange={(e) => handleRowSelection(row, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
                     </td>
@@ -410,7 +457,10 @@ export function DataTable<T extends Record<string, any>>({
                           .map((action, actionIndex) => (
                             <button
                               key={actionIndex}
-                              onClick={() => action.onClick(row)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                action.onClick(row);
+                              }}
                               className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-md ${
                                 action.className ||
                                 'text-blue-600 hover:text-blue-900 hover:bg-blue-50'
@@ -426,8 +476,8 @@ export function DataTable<T extends Record<string, any>>({
                     </td>
                   )}
                 </tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>

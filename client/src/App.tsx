@@ -21,9 +21,36 @@ import { AdminWrapper } from './components/AdminWrapper';
 // Lazy load alle sider for code splitting
 const Oversikt = lazy(() => import('./pages/Oversikt/Index'));
 const Oppgaver = lazy(() => import('./pages/Oppgaver/Index'));
+
+// Oppgaver forslag
+const OppgaverForslag1 = lazy(() => import('./pages/Oppgaver/Forslag1_Kanban'));
+const OppgaverForslag2 = lazy(() => import('./pages/Oppgaver/Forslag2_Liste'));
+const OppgaverForslag3 = lazy(() => import('./pages/Oppgaver/Forslag3_Kalender'));
 const Kalender = lazy(() => import('./pages/Kalender/Index'));
 const Nyheter = lazy(() => import('./pages/Nyheter/Index'));
 const Quiz = lazy(() => import('./pages/Quiz/Index'));
+
+// Quiz forslag - Brukerforslag
+const BrukerForslag1_Gamification = lazy(() => import('./pages/Quiz/BrukerForslag1_Gamification'));
+const BrukerForslag2_Adaptive = lazy(() => import('./pages/Quiz/BrukerForslag2_Adaptive'));
+const BrukerForslag3_Social = lazy(() => import('./pages/Quiz/BrukerForslag3_Social'));
+const BrukerForslag4_Mobile = lazy(() => import('./pages/Quiz/BrukerForslag4_Mobile'));
+const BrukerForslag5_VR = lazy(() => import('./pages/Quiz/BrukerForslag5_VR'));
+
+// Quiz forslag - Lærerforslag
+const LaererForslag1_Dashboard = lazy(() => import('./pages/Quiz/LaererForslag1_Dashboard'));
+const LaererForslag2_Builder = lazy(() => import('./pages/Quiz/LaererForslag2_Builder'));
+const LaererForslag3_Analytics = lazy(() => import('./pages/Quiz/LaererForslag3_Analytics'));
+const LaererForslag4_Collaboration = lazy(() => import('./pages/Quiz/LaererForslag4_Collaboration'));
+const LaererForslag5_Assessment = lazy(() => import('./pages/Quiz/LaererForslag5_Assessment'));
+
+// Quiz forslag - Admin-forslag
+const AdminQuizForslag1_System = lazy(() => import('./pages/Quiz/AdminForslag1_System'));
+const AdminQuizForslag2_Analytics = lazy(() => import('./pages/Quiz/AdminForslag2_Analytics'));
+const AdminQuizForslag3_Platform = lazy(() => import('./pages/Quiz/AdminForslag3_Platform'));
+const AdminQuizForslag4_Security = lazy(() => import('./pages/Quiz/AdminForslag4_Security'));
+const AdminQuizForslag5_AI = lazy(() => import('./pages/Quiz/AdminForslag5_AI'));
+
 const QuizOversikt = lazy(() => import('./pages/Quiz/QuizOversikt'));
 const TaQuiz = lazy(() => import('./pages/Quiz/TaQuiz'));
 const Sporsmalsbibliotek = lazy(() => import('./pages/Quiz/Sporsmalsbibliotek'));
@@ -38,6 +65,7 @@ const KundeDetaljer = lazy(() => import('./pages/Kunde/KundeDetaljer'));
 const Bedrifter = lazy(() => import('./pages/Bedrifter'));
 const Ansatte = lazy(() => import('./pages/Ansatte'));
 const BedriftDetaljer = lazy(() => import('./pages/BedriftDetaljer'));
+const Sikkerhetskontroll = lazy(() => import('./pages/Sikkerhetskontroll/Sikkerhetskontroll'));
 const AdminOversikt = lazy(() => import('./pages/Sikkerhetskontroll/Admin/AdminOversikt'));
 const SjekkpunktBibliotek = lazy(() => import('./pages/Sikkerhetskontroll/Admin/SjekkpunktBibliotek'));
 const OpprettSjekkpunkt = lazy(() => import('./pages/Sikkerhetskontroll/Admin/OpprettSjekkpunkt'));
@@ -80,6 +108,8 @@ const SidebarAdmin = lazy(() => import('./pages/Innstillinger/System/SidebarAdmi
 
 // Nye undersider
 const BedriftKjøretøy = lazy(() => import('./pages/Bedrifter/BedriftKjøretøy'));
+const KjoretoyOversikt = lazy(() => import('./pages/Bedrifter/KjoretoyOversikt'));
+const KjoretoyRegistrering = lazy(() => import('./pages/Bedrifter/KjoretoyRegistrering'));
 const BedriftFakturering = lazy(() => import('./pages/Bedrifter/BedriftFakturering'));
 const BedriftHistorikk = lazy(() => import('./pages/Bedrifter/BedriftHistorikk'));
 const BedriftElevStatistikk = lazy(() => import('./pages/Bedrifter/BedriftElevStatistikk'));
@@ -105,6 +135,18 @@ const KategoriTest = lazy(() => import('./pages/Sikkerhetskontroll/Elev/Kategori
 const TestkandidatTest = lazy(() => import('./pages/Sikkerhetskontroll/Elev/TestkandidatTest'));
 const MesterTest = lazy(() => import('./pages/Sikkerhetskontroll/Elev/MesterTest'));
 const Leaderboard = lazy(() => import('./pages/Sikkerhetskontroll/Elev/Leaderboard'));
+
+// Sikkerhetskontroll forslag
+const SikkerhetskontrollForslag1 = lazy(() => import('./pages/Sikkerhetskontroll/Forslag1_Dashboard'));
+const SikkerhetskontrollForslag2 = lazy(() => import('./pages/Sikkerhetskontroll/Forslag2_Gamification'));
+const SikkerhetskontrollForslag3 = lazy(() => import('./pages/Sikkerhetskontroll/Forslag3_Analyse'));
+const SikkerhetskontrollForslag4 = lazy(() => import('./pages/Sikkerhetskontroll/Forslag4_Mobil'));
+const SikkerhetskontrollForslag5 = lazy(() => import('./pages/Sikkerhetskontroll/Forslag5_AI'));
+
+// Admin forslag
+const AdminForslag1 = lazy(() => import('./pages/Sikkerhetskontroll/AdminForslag1_Management'));
+const AdminForslag2 = lazy(() => import('./pages/Sikkerhetskontroll/AdminForslag2_Builder'));
+const AdminForslag3 = lazy(() => import('./pages/Sikkerhetskontroll/AdminForslag3_Analytics'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
@@ -160,12 +202,37 @@ export default function App() {
                     <Route path="/logg-inn" element={<LoggInn />} />
                     <Route path="/oversikt" element={<Oversikt />} />
                     <Route path="/oppgaver" element={<Oppgaver />} />
+                    <Route path="/oppgaver/forslag1" element={<OppgaverForslag1 />} />
+                    <Route path="/oppgaver/forslag2" element={<OppgaverForslag2 />} />
+                    <Route path="/oppgaver/forslag3" element={<OppgaverForslag3 />} />
                     <Route path="/kalender" element={<Kalender />} />
                     <Route path="/nyheter" element={<Nyheter />} />
                     <Route path="/quiz" element={<Quiz />} />
                     <Route path="/quiz/ta-quiz" element={<TaQuiz />} />
                     <Route path="/quiz/oversikt" element={<QuizOversikt />} />
                     <Route path="/quiz/oversikt/:tab" element={<QuizOversikt />} />
+                    
+                    {/* Quiz forslag - Brukerforslag */}
+                    <Route path="/quiz/bruker-forslag1" element={<BrukerForslag1_Gamification />} />
+                    <Route path="/quiz/bruker-forslag2" element={<BrukerForslag2_Adaptive />} />
+                    <Route path="/quiz/bruker-forslag3" element={<BrukerForslag3_Social />} />
+                    <Route path="/quiz/bruker-forslag4" element={<BrukerForslag4_Mobile />} />
+                    <Route path="/quiz/bruker-forslag5" element={<BrukerForslag5_VR />} />
+                    
+                    {/* Quiz forslag - Lærerforslag */}
+                    <Route path="/quiz/laerer-forslag1" element={<LaererForslag1_Dashboard />} />
+                    <Route path="/quiz/laerer-forslag2" element={<LaererForslag2_Builder />} />
+                    <Route path="/quiz/laerer-forslag3" element={<LaererForslag3_Analytics />} />
+                    <Route path="/quiz/laerer-forslag4" element={<LaererForslag4_Collaboration />} />
+                    <Route path="/quiz/laerer-forslag5" element={<LaererForslag5_Assessment />} />
+                    
+                    {/* Quiz forslag - Admin-forslag */}
+                    <Route path="/quiz/admin-forslag1" element={<AdminQuizForslag1_System />} />
+                    <Route path="/quiz/admin-forslag2" element={<AdminQuizForslag2_Analytics />} />
+                    <Route path="/quiz/admin-forslag3" element={<AdminQuizForslag3_Platform />} />
+                    <Route path="/quiz/admin-forslag4" element={<AdminQuizForslag4_Security />} />
+                    <Route path="/quiz/admin-forslag5" element={<AdminQuizForslag5_AI />} />
+                    
                     <Route path="/quiz/sporsmalsbibliotek" element={<Sporsmalsbibliotek />} />
                     <Route path="/quiz/kategorier" element={<Kategorier />} />
                     <Route path="/quiz/opprett-sporsmal" element={<OpprettSporsmal />} />
@@ -181,7 +248,7 @@ export default function App() {
                     <Route path="/bedrifter/:id" element={<BedriftDetaljer />} />
                     <Route path="/bedrifter/:id/:tab" element={<BedriftDetaljer />} />
                     <Route path="/bedrifter/:id/rediger" element={<BedriftRediger />} />
-                    <Route path="/sikkerhetskontroll" element={<AdminOversikt />} />
+                    <Route path="/sikkerhetskontroll" element={<Sikkerhetskontroll />} />
                     <Route path="/sikkerhetskontroll/sjekkpunktbibliotek" element={<SjekkpunktBibliotek />} />
                     <Route path="/sikkerhetskontroll/opprett-sjekkpunkt" element={<OpprettSjekkpunkt />} />
                     <Route path="/sikkerhetskontroll/sjekkpunkt/:id" element={<RedigerSjekkpunkt />} />
@@ -189,6 +256,18 @@ export default function App() {
                     <Route path="/sikkerhetskontroll/kontroller" element={<KontrollerOversikt />} />
                     <Route path="/sikkerhetskontroll/liste-bibliotek" element={<ListeBibliotek />} />
                     <Route path="/sikkerhetskontroll/mal/opprett" element={<OpprettKontrollMal />} />
+                    
+                    {/* Sikkerhetskontroll forslag */}
+                    <Route path="/sikkerhetskontroll/forslag1" element={<SikkerhetskontrollForslag1 />} />
+                    <Route path="/sikkerhetskontroll/forslag2" element={<SikkerhetskontrollForslag2 />} />
+                    <Route path="/sikkerhetskontroll/forslag3" element={<SikkerhetskontrollForslag3 />} />
+                    <Route path="/sikkerhetskontroll/forslag4" element={<SikkerhetskontrollForslag4 />} />
+                    <Route path="/sikkerhetskontroll/forslag5" element={<SikkerhetskontrollForslag5 />} />
+                    
+                    {/* Admin forslag */}
+                    <Route path="/sikkerhetskontroll/admin-forslag1" element={<AdminForslag1 />} />
+                    <Route path="/sikkerhetskontroll/admin-forslag2" element={<AdminForslag2 />} />
+                    <Route path="/sikkerhetskontroll/admin-forslag3" element={<AdminForslag3 />} />
                     
                     {/* Admin routes */}
                     <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
@@ -243,6 +322,8 @@ export default function App() {
                     
                     {/* Undersider */}
                     <Route path="/bedrifter/:bedriftId/kjøretøy" element={<BedriftKjøretøy />} />
+                    <Route path="/bedrifter/:bedriftId/kjoretoy" element={<KjoretoyOversikt />} />
+                  <Route path="/bedrifter/:bedriftId/kjoretoy/ny" element={<KjoretoyRegistrering />} />
                     <Route path="/bedrifter/:bedriftId/fakturering" element={<BedriftFakturering />} />
                     <Route path="/bedrifter/:bedriftId/historikk" element={<BedriftHistorikk />} />
                     <Route path="/bedrifter/:bedriftId/elever" element={<BedriftElevStatistikk />} />

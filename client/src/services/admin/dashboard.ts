@@ -62,6 +62,70 @@ export class DashboardService extends AdminApiService {
   async exportSystemReport(format = 'pdf'): Promise<ApiResponse<any>> {
     return this.post('/reports/system/export', { format });
   }
+
+  async getAlerts(): Promise<ApiResponse<Alert[]>> {
+    try {
+      // Mock alerts data
+      const mockAlerts: Alert[] = [
+        {
+          id: '1',
+          type: 'warning',
+          title: 'Høy CPU-bruk',
+          message: 'Server CPU-bruk er over 85%',
+          timestamp: new Date().toISOString(),
+          acknowledged: false,
+          severity: 'high'
+        },
+        {
+          id: '2',
+          type: 'error',
+          title: 'Database tilkobling feilet',
+          message: 'Kan ikke koble til primær database',
+          timestamp: new Date(Date.now() - 300000).toISOString(),
+          acknowledged: false,
+          severity: 'critical'
+        },
+        {
+          id: '3',
+          type: 'info',
+          title: 'Planlagt vedlikehold',
+          message: 'Systemvedlikehold planlagt for i morgen kl 02:00',
+          timestamp: new Date(Date.now() - 600000).toISOString(),
+          acknowledged: true,
+          severity: 'low'
+        }
+      ];
+
+      return {
+        success: true,
+        data: mockAlerts
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        errors: ['Failed to fetch alerts']
+      };
+    }
+  }
+
+  async resolveAlert(alertId: string): Promise<ApiResponse<boolean>> {
+    try {
+      // Mock resolve alert
+      return {
+        success: true,
+        data: true,
+        message: 'Alert resolved successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: false,
+        errors: ['Failed to resolve alert']
+      };
+    }
+  }
 }
 
-export const dashboardService = new DashboardService(); 
+export const dashboardService = new DashboardService();
+export default dashboardService; 

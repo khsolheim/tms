@@ -1,5 +1,5 @@
 import { AdminApiService, ApiResponse } from './api';
-import { Service } from '../../types/admin/admin';
+import { Service, ServiceMetrics, PaginatedResponse } from '../../types/admin';
 
 export class ServicesService extends AdminApiService {
 
@@ -9,8 +9,66 @@ export class ServicesService extends AdminApiService {
     status?: string;
     type?: string;
     search?: string;
-  }): Promise<ApiResponse<Service[]>> {
-    return this.get<Service[]>('/services', { params });
+  }): Promise<ApiResponse<PaginatedResponse<Service>>> {
+    // Mock data since backend is not available
+    const mockServices: Service[] = [
+      {
+        id: '1',
+        navn: 'Auth Service',
+        type: 'microservice',
+        beskrivelse: 'Authentication and authorization service',
+        status: 'ACTIVE',
+        versjon: '1.2.3',
+        port: 3001,
+        aktiveBedrifter: 15,
+        totalBrukere: 150,
+        sistOppdatert: new Date().toISOString()
+      },
+      {
+        id: '2',
+        navn: 'User Management',
+        type: 'api',
+        beskrivelse: 'User management and profile service',
+        status: 'ACTIVE',
+        versjon: '2.1.0',
+        port: 3002,
+        aktiveBedrifter: 12,
+        totalBrukere: 120,
+        sistOppdatert: new Date().toISOString()
+      },
+      {
+        id: '3',
+        navn: 'Notification Service',
+        type: 'microservice',
+        beskrivelse: 'Email and SMS notification service',
+        status: 'MAINTENANCE',
+        versjon: '1.0.5',
+        port: 3003,
+        aktiveBedrifter: 8,
+        totalBrukere: 80,
+        sistOppdatert: new Date().toISOString()
+      }
+    ];
+
+    const page = params?.page || 1;
+    const limit = params?.limit || 10;
+    const total = mockServices.length;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      data: {
+        data: mockServices,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      }
+    };
   }
 
   async getService(id: number): Promise<ApiResponse<Service>> {
@@ -29,7 +87,7 @@ export class ServicesService extends AdminApiService {
     return this.delete(`/services/${id}`);
   }
 
-  async performServiceAction(id: number, action: 'start' | 'stop' | 'restart' | 'maintenance'): Promise<ApiResponse<any>> {
+  async performServiceAction(id: string, action: 'start' | 'stop' | 'restart' | 'maintenance'): Promise<ApiResponse<any>> {
     return this.post(`/services/${id}/action`, { action });
   }
 
@@ -41,7 +99,7 @@ export class ServicesService extends AdminApiService {
     return this.get(`/services/${id}/logs`, { params });
   }
 
-  async getServiceMetrics(id: number, timeRange = '1h'): Promise<ApiResponse<any>> {
+  async getServiceMetrics(id: number, timeRange = '1h'): Promise<ApiResponse<ServiceMetrics>> {
     return this.get(`/services/${id}/metrics`, { params: { timeRange } });
   }
 

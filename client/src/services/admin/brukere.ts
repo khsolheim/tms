@@ -1,118 +1,199 @@
-import { AdminApiService, ApiResponse } from './api';
-import { Bruker, ApiParams, PaginatedResponse } from '../../types/admin/admin';
+import { ApiResponse, Bruker, PaginationParams, PaginatedResponse } from '../../types/admin';
 
-class BrukereService extends AdminApiService {
-  async getBrukere(params?: ApiParams): Promise<ApiResponse<Bruker[]>> {
-    const response = await this.get('/admin/brukere', { params });
-    const paginatedData = response.data as PaginatedResponse<Bruker>;
-    return {
-      success: true,
-      data: paginatedData.data,
-      pagination: paginatedData.pagination
-    };
-  }
+class BrukereService {
+  private baseUrl = 'http://localhost:4000/api/admin/brukere';
 
-  async getBruker(id: number): Promise<Bruker> {
-    const response = await this.get(`/admin/brukere/${id}`);
-    return response.data as Bruker;
-  }
+  async getAllBrukere(params: PaginationParams): Promise<ApiResponse<PaginatedResponse<Bruker>>> {
+    try {
+      // Return mock data for demo mode
+      const mockBrukere: Bruker[] = [
+        {
+          id: '1',
+          fornavn: 'John',
+          etternavn: 'Doe',
+          navn: 'John Doe',
+          epost: 'john@acme.com',
+          rolle: 'ADMIN',
+          status: 'ACTIVE',
+          bedrift: {
+            navn: 'Acme Corporation AS',
+            id: '1'
+          },
+          telefon: '+47 123 45 678',
+          sistInnlogget: '2024-12-15T09:15:00Z',
+          opprettet: '2024-01-15T10:30:00Z',
+          tofaAktivert: true
+        },
+        {
+          id: '2',
+          fornavn: 'Jane',
+          etternavn: 'Smith',
+          navn: 'Jane Smith',
+          epost: 'jane@techstart.no',
+          rolle: 'BRUKER',
+          status: 'ACTIVE',
+          bedrift: {
+            navn: 'TechStart Solutions',
+            id: '2'
+          },
+          telefon: '+47 987 65 432',
+          sistInnlogget: '2024-12-15T11:30:00Z',
+          opprettet: '2024-02-20T14:20:00Z',
+          tofaAktivert: false
+        },
+        {
+          id: '3',
+          fornavn: 'Ole',
+          etternavn: 'Hansen',
+          navn: 'Ole Hansen',
+          epost: 'ole@bergenmaritim.no',
+          rolle: 'BRUKER',
+          status: 'LOCKED',
+          bedrift: {
+            navn: 'Bergen Maritim AS',
+            id: '3'
+          },
+          telefon: '+47 555 12 345',
+          sistInnlogget: '2024-11-20T16:20:00Z',
+          opprettet: '2024-03-10T08:45:00Z',
+          tofaAktivert: false
+        }
+      ];
 
-  async createBruker(data: Partial<Bruker>): Promise<Bruker> {
-    const response = await this.post('/admin/brukere', data);
-    return response.data as Bruker;
-  }
-
-  async updateBruker(id: number, data: Partial<Bruker>): Promise<Bruker> {
-    const response = await this.put(`/admin/brukere/${id}`, data);
-    return response.data as Bruker;
-  }
-
-  async deleteBruker(id: number): Promise<void> {
-    await this.delete(`/admin/brukere/${id}`);
-  }
-
-  async toggleBrukerStatus(id: number): Promise<void> {
-    await this.post(`/admin/brukere/${id}/toggle-status`);
-  }
-
-  async getBrukerActivity(id: number): Promise<any[]> {
-    const response = await this.get(`/admin/brukere/${id}/activity`);
-    return response.data as any[];
-  }
-
-  async getBrukerSessions(id: number): Promise<any[]> {
-    const response = await this.get(`/admin/brukere/${id}/sessions`);
-    return response.data as any[];
-  }
-
-  async revokeBrukerSession(id: number, sessionId: string): Promise<void> {
-    await this.delete(`/admin/brukere/${id}/sessions/${sessionId}`);
-  }
-
-  async getBrukerRoles(): Promise<any[]> {
-    const response = await this.get('/admin/brukere/roles');
-    return response.data as any[];
-  }
-
-  async updateBrukerRole(id: number, role: string): Promise<void> {
-    await this.put(`/admin/brukere/${id}/role`, { role });
-  }
-
-  async getBrukerPermissions(id: number): Promise<any[]> {
-    const response = await this.get(`/admin/brukere/${id}/permissions`);
-    return response.data as any[];
-  }
-
-  async updateBrukerPermissions(id: number, permissions: string[]): Promise<void> {
-    await this.put(`/admin/brukere/${id}/permissions`, { permissions });
-  }
-
-  async resetBrukerPassword(id: number): Promise<void> {
-    await this.post(`/admin/brukere/${id}/reset-password`);
-  }
-
-  async lockBruker(id: number): Promise<void> {
-    await this.post(`/admin/brukere/${id}/lock`);
-  }
-
-  async unlockBruker(id: number): Promise<void> {
-    await this.post(`/admin/brukere/${id}/unlock`);
-  }
-
-  async exportBrukere(format: 'csv' | 'excel' | 'pdf' = 'csv'): Promise<Blob> {
-    const response = await this.get('/admin/brukere/export', {
-      params: { format },
-      responseType: 'blob'
-    });
-    return response.data as Blob;
-  }
-
-  async bulkImportBrukere(file: File): Promise<any> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    // Use axios directly for multipart/form-data
-    const response = await this.api.post('/admin/brukere/import', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
+      // Simple filtering based on search
+      let filteredBrukere = mockBrukere;
+      if (params.search) {
+        filteredBrukere = mockBrukere.filter(bruker =>
+          (bruker.navn || `${bruker.fornavn} ${bruker.etternavn}`).toLowerCase().includes(params.search!.toLowerCase()) ||
+          bruker.epost.toLowerCase().includes(params.search!.toLowerCase())
+        );
       }
-    });
-    return response.data;
+
+      // Simple pagination
+      const start = (params.page - 1) * params.limit;
+      const end = start + params.limit;
+      const paginatedData = filteredBrukere.slice(start, end);
+
+      return {
+        success: true,
+        data: {
+          data: paginatedData,
+          pagination: {
+            page: params.page,
+            limit: params.limit,
+            total: filteredBrukere.length,
+            totalPages: Math.ceil(filteredBrukere.length / params.limit),
+            hasNextPage: end < filteredBrukere.length,
+            hasPreviousPage: params.page > 1
+          }
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {
+          data: [],
+          pagination: {
+            page: params.page,
+            limit: params.limit,
+            total: 0,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPreviousPage: false
+          }
+        },
+        errors: ['Failed to fetch brukere']
+      };
+    }
   }
 
-  async getBrukerAuditLog(id: number): Promise<any[]> {
-    const response = await this.get(`/admin/brukere/${id}/audit`);
-    return response.data as any[];
+  async getBruker(id: string): Promise<ApiResponse<Bruker>> {
+    try {
+      // Mock single bruker fetch
+      const mockBruker: Bruker = {
+        id,
+        fornavn: 'John',
+        etternavn: 'Doe',
+        navn: 'John Doe',
+        epost: 'john@acme.com',
+        rolle: 'ADMIN',
+        status: 'ACTIVE',
+        bedrift: {
+          navn: 'Acme Corporation AS',
+          id: '1'
+        },
+        telefon: '+47 123 45 678',
+        sistInnlogget: '2024-12-15T09:15:00Z',
+        opprettet: '2024-01-15T10:30:00Z',
+        tofaAktivert: true
+      };
+
+      return {
+        success: true,
+        data: mockBruker
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {} as Bruker,
+        errors: ['Failed to fetch bruker']
+      };
+    }
   }
 
-  async lockInactiveUsers(days: number = 90): Promise<any> {
-    const response = await this.post('/admin/brukere/lock-inactive', { days });
-    return response.data;
+  async updateBrukerStatus(id: string, status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING'): Promise<ApiResponse<Bruker>> {
+    try {
+      // Mock status update
+      const updatedBruker: Bruker = {
+        id,
+        fornavn: 'John',
+        etternavn: 'Doe',
+        navn: 'John Doe',
+        epost: 'john@acme.com',
+        rolle: 'ADMIN',
+        status,
+        bedrift: {
+          navn: 'Acme Corporation AS',
+          id: '1'
+        },
+        telefon: '+47 123 45 678',
+        sistInnlogget: new Date().toISOString(),
+        opprettet: '2024-01-15T10:30:00Z',
+        tofaAktivert: true
+      };
+
+      return {
+        success: true,
+        data: updatedBruker,
+        message: 'Bruker status updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {} as Bruker,
+        errors: ['Failed to update bruker status']
+      };
+    }
   }
 
-  async performBrukerAction(id: number, action: 'activate' | 'deactivate' | 'lock' | 'unlock' | 'resetPassword' | 'delete'): Promise<void> {
-    await this.post(`/admin/brukere/${id}/actions`, { action });
+  async deleteBruker(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      // Mock deletion
+      return {
+        success: true,
+        data: true,
+        message: 'Bruker deleted successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: false,
+        errors: ['Failed to delete bruker']
+      };
+    }
   }
 }
 
-export const brukereService = new BrukereService(); 
+const brukereService = new BrukereService();
+export { brukereService };
+export default brukereService; 

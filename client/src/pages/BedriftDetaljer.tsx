@@ -1193,10 +1193,10 @@ export default function BedriftDetaljer() {
                   <FaCar /> Kjøretøy ({kjøretøy.length})
                 </h2>
                 <button 
-                  onClick={() => setVisKjøretøyDialog(true)}
+                  onClick={() => navigate(`/bedrifter/${bedrift?.id}/kjoretoy`)}
                   className="bg-green-600 text-white px-2 py-1 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
                 >
-                  <FaPlus /> Legg til kjøretøy
+                  <FaCar /> Se alle kjøretøy
                 </button>
               </div>
 
@@ -1216,80 +1216,48 @@ export default function BedriftDetaljer() {
                   </button>
                 </div>
               ) : kjøretøy.length > 0 ? (
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Reg.nr</th>
-                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Kjøretøy</th>
-                          <th className="text-center py-1 px-2 font-semibold text-gray-700">År</th>
-                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Type</th>
-                          <th className="text-center py-1 px-2 font-semibold text-gray-700">Status</th>
-                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Klasser</th>
-                          <th className="text-center py-1 px-2 font-semibold text-gray-700">Handlinger</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {kjøretøy.map((k) => (
-                          <tr key={k.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                            <td className="py-1 px-2">
-                              <span className="font-semibold text-[#003366]">{k.registreringsnummer}</span>
-                            </td>
-                            <td className="py-1 px-2">
-                              <div>
-                                <div className="font-medium text-gray-900">{k.merke} {k.modell}</div>
-                                <div className="text-sm text-gray-500">Opprettet: {k.opprettet}</div>
-                              </div>
-                            </td>
-                            <td className="py-1 px-2 text-center">
-                              <span className="text-gray-900">{k.årsmodell}</span>
-                            </td>
-                            <td className="py-1 px-2">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                                {k.type}
+                <div className="space-y-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {kjøretøy.slice(0, 6).map((k) => (
+                        <div key={k.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-[#003366]">{k.registreringsnummer}</h4>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              k.status === 'Godkjent' ? 'bg-green-100 text-green-800' : 
+                              k.status === 'Under reparasjon' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {k.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-900 mb-1">{k.merke} {k.modell} ({k.årsmodell})</p>
+                          <p className="text-sm text-gray-600 mb-2">{k.type}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {k.førerkortklass.slice(0, 3).map((klass) => (
+                              <span key={klass} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                {klass}
                               </span>
-                            </td>
-                            <td className="py-1 px-2 text-center">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                k.status === 'Godkjent' ? 'bg-green-100 text-green-800' : 
-                                k.status === 'Under reparasjon' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {k.status}
-                              </span>
-                            </td>
-                            <td className="py-1 px-2">
-                              <div className="flex gap-2 flex-wrap">
-                                {k.førerkortklass.map((klass) => (
-                                  <span key={klass} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                    {klass}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="py-1 px-2">
-                              <div className="flex justify-center gap-2">
-                                <button
-                                  onClick={() => setRedigerKjøretøy(k)}
-                                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded transition-colors"
-                                  title="Endre kjøretøy"
-                                >
-                                  <FaEdit />
-                                </button>
-                                <button
-                                  onClick={() => slettKjøretøy(k.id)}
-                                  className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded transition-colors"
-                                  title="Slett kjøretøy"
-                                >
-                                  <FaTrash />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            ))}
+                            {k.førerkortklass.length > 3 && (
+                              <span className="text-xs text-gray-500">+{k.førerkortklass.length - 3} til</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {kjøretøy.length > 6 && (
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-gray-600 mb-2">Viser {Math.min(6, kjøretøy.length)} av {kjøretøy.length} kjøretøy</p>
+                        <button
+                          onClick={() => navigate(`/bedrifter/${bedrift?.id}/kjoretoy`)}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Se alle kjøretøy →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1298,10 +1266,10 @@ export default function BedriftDetaljer() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Ingen kjøretøy registrert</h3>
                   <p className="text-gray-600 mb-6">Legg til det første kjøretøyet for å komme i gang</p>
                   <button 
-                    onClick={() => setVisKjøretøyDialog(true)}
+                    onClick={() => navigate(`/bedrifter/${bedrift?.id}/kjoretoy`)}
                     className="bg-green-600 text-white px-2 py-1 rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    Legg til første kjøretøy
+                    Gå til kjøretøy-oversikt
                   </button>
                 </div>
               )}

@@ -1,18 +1,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
-import serverConfigManager from '../config/server-config';
+import { PaginatedResponse } from '../../types/admin';
 
 export interface ApiError {
   message: string;
   code?: string;
   details?: any;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
 }
 
 export interface ApiResponse<T> {
@@ -38,7 +30,7 @@ export class AdminApiService {
 
   constructor() {
     // Bruk serverConfigManager for backend URL
-    const baseURL = serverConfigManager.getBackendApiUrl();
+    const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
     
     this.api = axios.create({
       baseURL,
@@ -103,7 +95,7 @@ export class AdminApiService {
               throw new Error('No refresh token available');
             }
 
-            const authServiceUrl = serverConfigManager.getServiceEndpoint('auth', 'refresh');
+            const authServiceUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/auth/refresh`;
             const response = await axios.post(authServiceUrl || '/api/admin/auth/refresh', {
               refreshToken
             });
@@ -192,7 +184,7 @@ export class AdminApiService {
     data?: any,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    const serviceUrl = serverConfigManager.getServiceEndpoint(serviceName, endpoint);
+    const serviceUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/${serviceName}/${endpoint}`;
     
     if (!serviceUrl) {
       throw new Error(`Service endpoint not found: ${serviceName}/${endpoint}`);
@@ -214,11 +206,15 @@ export class AdminApiService {
 
   // Health check
   async checkHealth(): Promise<Record<string, boolean>> {
-    const healthChecks = serverConfigManager.getHealthCheckUrls();
+    const healthChecks = {
+      'database': `${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/health/database`,
+      'redis': `${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/health/redis`,
+      'storage': `${process.env.REACT_APP_API_URL || 'http://localhost:4000/api'}/health/storage`
+    };
     const results: Record<string, boolean> = {};
 
     await Promise.all(
-      Object.entries(healthChecks).map(async ([service, url]: [string, string]) => {
+      Object.entries(healthChecks).map(async ([service, url]) => {
         try {
           await axios.get(url, { timeout: 5000 });
           results[service] = true;

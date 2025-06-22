@@ -8,21 +8,32 @@ import {
   EyeIcon,
   MapPinIcon,
   ClockIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 import { DataTable, Column } from '../common/DataTable';
-import { usePaginatedApi } from '../../hooks/useApi';
-import { securityService } from '../../services/security';
-import { SecurityThreat } from '../../types/admin';
+import { usePaginatedApi } from '../../../hooks/admin/useApi';
+import { securityService } from '../../../services/admin/security';
+import { SecurityThreat, ThreatAlert } from '../../../types/admin';
 
-export const ThreatMonitoring: React.FC = () => {
-  const [selectedThreats, setSelectedThreats] = useState<SecurityThreat[]>([]);
+interface ThreatMonitoringProps {
+  threats?: ThreatAlert[];
+  loading?: boolean;
+}
+
+export const ThreatMonitoring: React.FC<ThreatMonitoringProps> = ({ 
+  threats = [], 
+  loading = false 
+}) => {
+  const [selectedThreats, setSelectedThreats] = useState<ThreatAlert[]>([]);
   const [mitigating, setMitigating] = useState<string | null>(null);
+  const [selectedThreat, setSelectedThreat] = useState<ThreatAlert | null>(null);
+  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
   // Fetch security threats
   const {
-    data: threats,
-    loading,
+    data: threatsData,
+    loading: apiLoading,
     error,
     page,
     limit,
@@ -36,8 +47,89 @@ export const ThreatMonitoring: React.FC = () => {
     { immediate: true }
   );
 
-  const handleMitigateThreat = async (threat: SecurityThreat, action: string) => {
-    if (!window.confirm(`Er du sikker på at du vil ${action} truslen "${threat.description}"?`)) {
+  // Mock data if no threats provided
+  const mockThreats: ThreatAlert[] = [
+    {
+      id: '1',
+      type: 'BRUTE_FORCE',
+      severity: 'high',
+      title: 'Brute Force Attack Detected',
+      description: 'Multiple failed login attempts from IP 203.0.113.45',
+      timestamp: '2024-12-15T11:30:00Z',
+      source: '203.0.113.45',
+      status: 'active',
+      affectedResource: 'Authentication System',
+      riskScore: 85,
+      details: {
+        attempts: 25,
+        timeWindow: '5 minutes',
+        targetAccounts: ['admin', 'user123', 'service@example.com']
+      }
+    },
+    {
+      id: '2',
+      type: 'SUSPICIOUS_ACTIVITY',
+      severity: 'medium',
+      title: 'Unusual Data Access Pattern',
+      description: 'User accessing unusually large amounts of data outside normal hours',
+      timestamp: '2024-12-15T11:15:00Z',
+      source: '192.168.1.150',
+      status: 'investigating',
+      affectedResource: 'Database',
+      riskScore: 65,
+      details: {
+        userId: 'user456',
+        dataVolume: '2.5 GB',
+        normalVolume: '50 MB',
+        timeOfAccess: '02:30 AM'
+      }
+    },
+    {
+      id: '3',
+      type: 'MALWARE',
+      severity: 'high',
+      title: 'Potential Malware Upload',
+      description: 'Suspicious file uploaded with potential malware signatures',
+      timestamp: '2024-12-15T11:00:00Z',
+      source: '198.51.100.23',
+      status: 'blocked',
+      affectedResource: 'File Upload System',
+      riskScore: 90,
+      details: {
+        fileName: 'document.pdf.exe',
+        fileSize: '1.2 MB',
+        detectedSignatures: ['Trojan.Generic', 'Backdoor.Win32'],
+        uploadPath: '/uploads/temp/'
+      }
+    },
+    {
+      id: '4',
+      type: 'PRIVILEGE_ESCALATION',
+      severity: 'medium',
+      title: 'Privilege Escalation Attempt',
+      description: 'User attempting to access admin functions without proper authorization',
+      timestamp: '2024-12-15T10:45:00Z',
+      source: '192.168.1.101',
+      status: 'resolved',
+      affectedResource: 'Admin Panel',
+      riskScore: 70,
+      details: {
+        userId: 'user789',
+        attemptedActions: ['user_management', 'system_config'],
+        currentRole: 'user',
+        requiredRole: 'admin'
+      }
+    }
+  ];
+
+  const displayThreats = threats.length > 0 ? threats : mockThreats;
+  const filteredThreats = displayThreats.filter(threat => {
+    if (filter === 'all') return true;
+    return threat.severity === filter;
+  });
+
+  const handleMitigateThreat = async (threat: ThreatAlert, action: string) => {
+    if (!window.confirm(`Er du sikker på at du vil ${action} truslen "${threat.title}"?`)) {
       return;
     }
 
@@ -52,8 +144,8 @@ export const ThreatMonitoring: React.FC = () => {
     }
   };
 
-  const handleMarkFalsePositive = async (threat: SecurityThreat) => {
-    if (!window.confirm(`Er du sikker på at du vil markere "${threat.description}" som falsk positiv?`)) {
+  const handleMarkFalsePositive = async (threat: ThreatAlert) => {
+    if (!window.confirm(`Er du sikker på at du vil markere "${threat.title}" som falsk positiv?`)) {
       return;
     }
 
@@ -65,7 +157,7 @@ export const ThreatMonitoring: React.FC = () => {
     }
   };
 
-  const handleBulkMitigation = async (action: string, threats: SecurityThreat[]) => {
+  const handleBulkMitigation = async (action: string, threats: ThreatAlert[]) => {
     if (!window.confirm(`Er du sikker på at du vil ${action} ${threats.length} trusler?`)) {
       return;
     }
@@ -82,8 +174,8 @@ export const ThreatMonitoring: React.FC = () => {
     }
   };
 
-  const getSeverityIcon = (severity: SecurityThreat['severity']) => {
-    switch (severity) {
+  const getSeverityIcon = (severity: string) => {
+    switch (severity.toLowerCase()) {
       case 'critical':
         return <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />;
       case 'high':
@@ -97,8 +189,8 @@ export const ThreatMonitoring: React.FC = () => {
     }
   };
 
-  const getSeverityColor = (severity: SecurityThreat['severity']) => {
-    switch (severity) {
+  const getSeverityColor = (severity: string) => {
+    switch (severity.toLowerCase()) {
       case 'critical':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'high':
@@ -112,34 +204,46 @@ export const ThreatMonitoring: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: SecurityThreat['status']) => {
-    switch (status) {
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
       case 'active':
         return <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />;
       case 'mitigated':
         return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
       case 'false_positive':
         return <XMarkIcon className="w-4 h-4 text-gray-500" />;
+      case 'investigating':
+        return <ShieldExclamationIcon className="w-4 h-4 text-yellow-500" />;
+      case 'resolved':
+        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+      case 'blocked':
+        return <NoSymbolIcon className="w-4 h-4 text-blue-500" />;
       default:
         return <ClockIcon className="w-4 h-4 text-yellow-500" />;
     }
   };
 
-  const getStatusColor = (status: SecurityThreat['status']) => {
-    switch (status) {
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
       case 'active':
         return 'bg-red-100 text-red-800';
       case 'mitigated':
         return 'bg-green-100 text-green-800';
       case 'false_positive':
         return 'bg-gray-100 text-gray-800';
+      case 'investigating':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'resolved':
+        return 'bg-green-100 text-green-800';
+      case 'blocked':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-yellow-100 text-yellow-800';
     }
   };
 
-  const getTypeIcon = (type: SecurityThreat['type']) => {
-    switch (type) {
+  const getTypeIcon = (type: string) => {
+    switch (type.toLowerCase()) {
       case 'brute_force':
         return '🔨';
       case 'suspicious_activity':
@@ -150,6 +254,8 @@ export const ThreatMonitoring: React.FC = () => {
         return '💥';
       case 'unauthorized_access':
         return '🚫';
+      case 'privilege_escalation':
+        return '🔓';
       default:
         return '⚠️';
     }
@@ -172,7 +278,21 @@ export const ThreatMonitoring: React.FC = () => {
     return time.toLocaleDateString('nb-NO');
   };
 
-  const columns: Column<SecurityThreat>[] = [
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString('nb-NO');
+  };
+
+  const formatThreatType = (type: string) => {
+    return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getRiskScoreColor = (score: number) => {
+    if (score >= 80) return 'text-red-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
+  const columns: Column<ThreatAlert>[] = [
     {
       key: 'timestamp',
       title: 'Tidspunkt',
@@ -198,9 +318,9 @@ export const ThreatMonitoring: React.FC = () => {
       sortable: true,
       render: (value) => (
         <div className="flex items-center space-x-2">
-          <span className="text-lg">{getTypeIcon(value)}</span>
+          <span className="text-lg">{getTypeIcon(value.type)}</span>
           <span className="text-sm font-medium text-gray-900 capitalize">
-            {value.replace('_', ' ')}
+            {formatThreatType(value.type)}
           </span>
         </div>
       )
@@ -211,11 +331,9 @@ export const ThreatMonitoring: React.FC = () => {
       sortable: true,
       render: (value) => (
         <div className="flex items-center space-x-2">
-          {getSeverityIcon(value)}
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(value)}`}>
-            {value === 'critical' ? 'Kritisk' : 
-             value === 'high' ? 'Høy' :
-             value === 'medium' ? 'Medium' : 'Lav'}
+          {getSeverityIcon(value.severity)}
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(value.severity)}`}>
+            {value.severity.toUpperCase()}
           </span>
         </div>
       )
@@ -226,7 +344,7 @@ export const ThreatMonitoring: React.FC = () => {
       render: (value) => (
         <div className="flex items-center space-x-1">
           <MapPinIcon className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-mono text-gray-600">{value}</span>
+          <span className="text-sm font-mono text-gray-600">{value.source}</span>
         </div>
       )
     },
@@ -234,7 +352,7 @@ export const ThreatMonitoring: React.FC = () => {
       key: 'target',
       title: 'Mål',
       render: (value) => (
-        <span className="text-sm text-gray-900">{value}</span>
+        <span className="text-sm text-gray-900">{value.affectedResource}</span>
       )
     },
     {
@@ -242,8 +360,8 @@ export const ThreatMonitoring: React.FC = () => {
       title: 'Beskrivelse',
       render: (value) => (
         <div className="max-w-xs">
-          <p className="text-sm text-gray-900 truncate" title={value}>
-            {value}
+          <p className="text-sm text-gray-900 truncate" title={value.description}>
+            {value.description}
           </p>
         </div>
       )
@@ -254,10 +372,21 @@ export const ThreatMonitoring: React.FC = () => {
       sortable: true,
       render: (value) => (
         <div className="flex items-center space-x-2">
-          {getStatusIcon(value)}
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
-            {value === 'active' ? 'Aktiv' :
-             value === 'mitigated' ? 'Håndtert' : 'Falsk positiv'}
+          {getStatusIcon(value.status)}
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(value.status)}`}>
+            {value.status.toUpperCase()}
+          </span>
+        </div>
+      )
+    },
+    {
+      key: 'riskScore',
+      title: 'Risk Score',
+      sortable: true,
+      render: (value) => (
+        <div className="flex items-center space-x-2">
+          <span className={`font-medium ${getRiskScoreColor(value)}`}>
+            {value}
           </span>
         </div>
       )
@@ -267,12 +396,12 @@ export const ThreatMonitoring: React.FC = () => {
       title: 'Handlinger',
       render: (value, row) => (
         <div className="flex flex-wrap gap-1">
-          {row.actions.slice(0, 2).map((action, index) => (
+          {row.actions?.slice(0, 2).map((action, index) => (
             <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
               {action}
             </span>
           ))}
-          {row.actions.length > 2 && (
+          {row.actions && row.actions.length > 2 && (
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
               +{row.actions.length - 2}
             </span>
@@ -286,30 +415,30 @@ export const ThreatMonitoring: React.FC = () => {
     {
       label: 'Detaljer',
       icon: <EyeIcon className="w-4 h-4" />,
-      onClick: (threat: SecurityThreat) => {
-        alert(`Detaljer for trussel: ${JSON.stringify(threat, null, 2)}`);
+      onClick: (threat: ThreatAlert) => {
+        setSelectedThreat(threat);
       },
       className: 'text-blue-600 hover:text-blue-900'
     },
     {
       label: 'Blokker IP',
       icon: <NoSymbolIcon className="w-4 h-4" />,
-      onClick: (threat: SecurityThreat) => handleMitigateThreat(threat, 'block_ip'),
-      show: (threat: SecurityThreat) => threat.status === 'active' && Boolean(threat.source),
+      onClick: (threat: ThreatAlert) => handleMitigateThreat(threat, 'block_ip'),
+      show: (threat: ThreatAlert) => threat.status === 'active' && Boolean(threat.source),
       className: 'text-red-600 hover:text-red-900'
     },
     {
       label: 'Håndter',
       icon: <CheckCircleIcon className="w-4 h-4" />,
-      onClick: (threat: SecurityThreat) => handleMitigateThreat(threat, 'mitigate'),
-      show: (threat: SecurityThreat) => threat.status === 'active',
+      onClick: (threat: ThreatAlert) => handleMitigateThreat(threat, 'mitigate'),
+      show: (threat: ThreatAlert) => threat.status === 'active',
       className: 'text-green-600 hover:text-green-900'
     },
     {
       label: 'Falsk Positiv',
       icon: <XMarkIcon className="w-4 h-4" />,
       onClick: handleMarkFalsePositive,
-      show: (threat: SecurityThreat) => threat.status === 'active',
+      show: (threat: ThreatAlert) => threat.status === 'active',
       className: 'text-gray-600 hover:text-gray-900'
     }
   ];
@@ -318,19 +447,19 @@ export const ThreatMonitoring: React.FC = () => {
     {
       label: 'Håndter Valgte',
       icon: <CheckCircleIcon className="w-4 h-4" />,
-      onClick: (threats: SecurityThreat[]) => handleBulkMitigation('mitigate', threats),
+      onClick: (threats: ThreatAlert[]) => handleBulkMitigation('mitigate', threats),
       className: 'bg-green-600 text-white hover:bg-green-700'
     },
     {
       label: 'Blokker IP-er',
       icon: <NoSymbolIcon className="w-4 h-4" />,
-      onClick: (threats: SecurityThreat[]) => handleBulkMitigation('block_ip', threats),
+      onClick: (threats: ThreatAlert[]) => handleBulkMitigation('block_ip', threats),
       className: 'bg-red-600 text-white hover:bg-red-700'
     },
     {
       label: 'Marker som Falsk Positiv',
       icon: <XMarkIcon className="w-4 h-4" />,
-      onClick: (threats: SecurityThreat[]) => handleBulkMitigation('false_positive', threats),
+      onClick: (threats: ThreatAlert[]) => handleBulkMitigation('false_positive', threats),
       className: 'bg-gray-600 text-white hover:bg-gray-700'
     }
   ];
@@ -345,7 +474,8 @@ export const ThreatMonitoring: React.FC = () => {
         { value: 'suspicious_activity', label: 'Mistenkelig Aktivitet' },
         { value: 'malware', label: 'Malware' },
         { value: 'ddos', label: 'DDoS' },
-        { value: 'unauthorized_access', label: 'Uautorisert Tilgang' }
+        { value: 'unauthorized_access', label: 'Uautorisert Tilgang' },
+        { value: 'privilege_escalation', label: 'Privilege Escalation' }
       ]
     },
     {
@@ -366,7 +496,10 @@ export const ThreatMonitoring: React.FC = () => {
       options: [
         { value: 'active', label: 'Aktiv' },
         { value: 'mitigated', label: 'Håndtert' },
-        { value: 'false_positive', label: 'Falsk Positiv' }
+        { value: 'false_positive', label: 'Falsk Positiv' },
+        { value: 'investigating', label: 'Under undersøkelse' },
+        { value: 'resolved', label: 'Løst' },
+        { value: 'blocked', label: 'Blokkert' }
       ]
     }
   ];
@@ -389,9 +522,9 @@ export const ThreatMonitoring: React.FC = () => {
     );
   }
 
-  const activeThreatCount = threats?.filter(t => t.status === 'active').length || 0;
-  const criticalThreatCount = threats?.filter(t => t.severity === 'critical').length || 0;
-  const mitigatedThreatCount = threats?.filter(t => t.status === 'mitigated').length || 0;
+  const activeThreatCount = threats.filter(t => t.status === 'active').length;
+  const criticalThreatCount = threats.filter(t => t.severity === 'critical').length;
+  const mitigatedThreatCount = threats.filter(t => t.status === 'mitigated').length;
 
   return (
     <div className="space-y-6">
@@ -548,7 +681,7 @@ export const ThreatMonitoring: React.FC = () => {
 
       {/* Threats Table */}
       <DataTable
-        data={threats || []}
+        data={filteredThreats}
         columns={columns}
         loading={loading}
         pagination={{
@@ -572,6 +705,110 @@ export const ThreatMonitoring: React.FC = () => {
           row.severity === 'high' ? 'bg-yellow-50 hover:bg-yellow-100' : ''
         }
       />
+
+      {/* Modal for threat details */}
+      {selectedThreat && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Trussel Detaljer</h3>
+                <button
+                  onClick={() => setSelectedThreat(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-3 rounded-full ${getSeverityColor(selectedThreat.severity)}`}>
+                    {getSeverityIcon(selectedThreat.severity)}
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900">{selectedThreat.title}</h4>
+                    <p className="text-sm text-gray-600">{formatThreatType(selectedThreat.type)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Alvorlighetsgrad</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(selectedThreat.severity)}`}>
+                      {selectedThreat.severity.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedThreat.status)}`}>
+                      {selectedThreat.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Kilde</label>
+                    <p className="mt-1 text-sm text-gray-900 font-mono">{selectedThreat.source}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Risk Score</label>
+                    <p className={`mt-1 text-sm font-medium ${getRiskScoreColor(selectedThreat.riskScore || 0)}`}>
+                      {selectedThreat.riskScore}/100
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Berørt Ressurs</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedThreat.affectedResource}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Tidspunkt</label>
+                    <p className="mt-1 text-sm text-gray-900">{formatTimestamp(selectedThreat.timestamp)}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Beskrivelse</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedThreat.description}</p>
+                </div>
+
+                {selectedThreat.details && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Tekniske Detaljer</label>
+                    <pre className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded-md overflow-x-auto">
+                      {JSON.stringify(selectedThreat.details, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-between">
+                <div className="flex space-x-2">
+                  {selectedThreat.status === 'active' && (
+                    <>
+                      <button className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        Start Undersøkelse
+                      </button>
+                      <button className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Blokker Kilde
+                      </button>
+                    </>
+                  )}
+                  {selectedThreat.status === 'investigating' && (
+                    <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                      Marker som Løst
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedThreat(null)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Lukk
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

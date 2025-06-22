@@ -16,11 +16,11 @@ import {
   CloudIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
-import { DataTable, Column } from '../../components/common/DataTable';
-import { StatCard } from '../../components/common/StatCard';
-import { usePaginatedApi } from '../../hooks/useApi';
-import { servicesService } from '../../services/services';
-import { Service } from '../../types/admin';
+import { DataTable, Column } from '../../../components/common/DataTable';
+import { StatCard } from '../../../components/common/StatCard';
+import { usePaginatedApi } from '../../../hooks/admin/useApi';
+import { servicesService } from '../../../services/admin/services';
+import { Service } from '../../../types/admin';
 
 export const ServicesPage: React.FC = () => {
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
@@ -40,7 +40,7 @@ export const ServicesPage: React.FC = () => {
     setLimit,
     refresh
   } = usePaginatedApi(
-    (params) => servicesService.getServices(params).then(data => ({ success: true, data: data.data, pagination: data.pagination })),
+    (params) => servicesService.getServices(params),
     { immediate: true }
   );
 
@@ -209,68 +209,68 @@ export const ServicesPage: React.FC = () => {
   const actions = [
     {
       label: 'Detaljer',
-      icon: <EyeIcon className="w-4 h-4" />,
+      icon: EyeIcon,
       onClick: (service: Service) => {
         alert(`Detaljer for tjeneste: ${JSON.stringify(service, null, 2)}`);
       },
-      className: 'text-blue-600 hover:text-blue-900'
+      variant: 'primary' as const
     },
     {
       label: 'Start',
-      icon: <PlayIcon className="w-4 h-4" />,
+      icon: PlayIcon,
       onClick: (service: Service) => handleServiceAction(service, 'start'),
-      show: (service: Service) => service.status !== 'ACTIVE',
-      className: 'text-green-600 hover:text-green-900'
+      disabled: (service: Service) => service.status === 'ACTIVE',
+      variant: 'secondary' as const
     },
     {
       label: 'Stopp',
-      icon: <StopIcon className="w-4 h-4" />,
+      icon: StopIcon,
       onClick: (service: Service) => handleServiceAction(service, 'stop'),
-      show: (service: Service) => service.status === 'ACTIVE',
-      className: 'text-red-600 hover:text-red-900'
+      disabled: (service: Service) => service.status !== 'ACTIVE',
+      variant: 'danger' as const
     },
     {
       label: 'Restart',
-      icon: <ArrowPathIcon className="w-4 h-4" />,
+      icon: ArrowPathIcon,
       onClick: (service: Service) => handleServiceAction(service, 'restart'),
-      show: (service: Service) => service.status === 'ACTIVE',
-      className: 'text-orange-600 hover:text-orange-900'
+      disabled: (service: Service) => service.status !== 'ACTIVE',
+      variant: 'secondary' as const
     },
     {
       label: 'Vedlikehold',
-      icon: <WrenchIcon className="w-4 h-4" />,
+      icon: WrenchIcon,
       onClick: (service: Service) => handleServiceAction(service, 'maintenance'),
-      show: (service: Service) => service.status === 'ACTIVE',
-      className: 'text-yellow-600 hover:text-yellow-900'
+      disabled: (service: Service) => service.status !== 'ACTIVE',
+      variant: 'secondary' as const
     },
     {
       label: 'Konfigurasjon',
-      icon: <CogIcon className="w-4 h-4" />,
+      icon: CogIcon,
       onClick: (service: Service) => {
         alert(`Åpner konfigurasjon for ${service.navn}`);
       },
-      className: 'text-purple-600 hover:text-purple-900'
+      variant: 'primary' as const
     }
   ];
 
   const bulkActions = [
     {
       label: 'Start Valgte',
-      icon: <PlayIcon className="w-4 h-4" />,
+      icon: PlayIcon,
       onClick: (services: Service[]) => handleBulkAction('start', services),
-      className: 'bg-green-600 text-white hover:bg-green-700'
+      variant: 'secondary' as const
     },
     {
       label: 'Stopp Valgte',
-      icon: <StopIcon className="w-4 h-4" />,
+      icon: StopIcon,
       onClick: (services: Service[]) => handleBulkAction('stop', services),
-      className: 'bg-red-600 text-white hover:bg-red-700'
+      variant: 'danger' as const
     },
     {
       label: 'Restart Valgte',
-      icon: <ArrowPathIcon className="w-4 h-4" />,
+      icon: ArrowPathIcon,
       onClick: (services: Service[]) => handleBulkAction('restart', services),
-      className: 'bg-orange-600 text-white hover:bg-orange-700'
+      variant: 'secondary' as const
     }
   ];
 
@@ -323,10 +323,14 @@ export const ServicesPage: React.FC = () => {
     );
   }
 
-  const activeServices = services?.filter(s => s.status === 'ACTIVE').length || 0;
-  const inactiveServices = services?.filter(s => s.status === 'INACTIVE').length || 0;
-  const maintenanceServices = services?.filter(s => s.status === 'MAINTENANCE').length || 0;
-  const totalUsers = services?.reduce((sum, s) => sum + s.totalBrukere, 0) || 0;
+  // Extract services array from paginated response
+  const servicesArray = services?.data || [];
+  
+  // Calculate statistics from the actual data array
+  const activeServices = servicesArray.filter(s => s.status === 'ACTIVE').length || 0;
+  const inactiveServices = servicesArray.filter(s => s.status === 'INACTIVE').length || 0;
+  const maintenanceServices = servicesArray.filter(s => s.status === 'MAINTENANCE').length || 0;
+  const totalUsers = servicesArray.reduce((sum, s) => sum + s.totalBrukere, 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -441,29 +445,21 @@ export const ServicesPage: React.FC = () => {
 
           {/* Services Table */}
           <DataTable
-            data={services || []}
+            data={servicesArray}
             columns={columns}
             loading={loading}
-            pagination={{
-              page,
-              limit,
-              total,
-              totalPages
-            }}
-            filters={tableFilters}
+            page={page}
+            limit={limit}
+            total={total}
+            totalPages={totalPages}
             actions={actions}
             selectable={true}
             selectedRows={selectedServices}
             onSelectionChange={setSelectedServices}
-            bulkActions={bulkActions}
             onPageChange={goToPage}
             onLimitChange={setLimit}
             emptyMessage="Ingen tjenester funnet"
             className="bg-white"
-            rowClassName={(row) => 
-              row.status === 'INACTIVE' ? 'bg-red-50 hover:bg-red-100' :
-              row.status === 'MAINTENANCE' ? 'bg-yellow-50 hover:bg-yellow-100' : ''
-            }
           />
         </div>
       )}
@@ -472,7 +468,7 @@ export const ServicesPage: React.FC = () => {
         <div className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Microservices Arkitektur</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services?.filter(s => s.type === 'microservice').map((service) => (
+            {servicesArray.filter(s => s.type === 'microservice').map((service) => (
               <div key={service.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">{service.navn}</h4>
@@ -546,7 +542,7 @@ export const ServicesPage: React.FC = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Tjeneste Helse</h4>
               <div className="space-y-2">
-                {services?.slice(0, 5).map((service) => (
+                {servicesArray.slice(0, 5).map((service) => (
                   <div key={service.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <span className="text-sm text-gray-900">{service.navn}</span>
                     <div className="flex items-center space-x-2">
@@ -570,7 +566,7 @@ export const ServicesPage: React.FC = () => {
             <div className="flex space-x-4">
               <select className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                 <option>Alle tjenester</option>
-                {services?.map((service) => (
+                {servicesArray.map((service) => (
                   <option key={service.id} value={service.id}>{service.navn}</option>
                 ))}
               </select>

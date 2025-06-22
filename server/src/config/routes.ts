@@ -2,6 +2,7 @@ import { Express, Request, Response } from "express";
 import authRoutes from "../routes/auth";
 import bedrifterRoutes from "../routes/bedrifter";
 import sikkerhetskontrollLaeringRoutes from "../routes/sikkerhetskontroll-laering.routes";
+import dashboardRoutes from "../routes/dashboard.routes";
 import logger from "../utils/logger";
 
 export function configureRoutes(app: Express): void {
@@ -24,6 +25,9 @@ export function configureRoutes(app: Express): void {
   
   // Sikkerhetskontroll læring routes
   app.use('/api/sikkerhetskontroll-laering', sikkerhetskontrollLaeringRoutes);
+  
+  // Dashboard routes
+  app.use('/api/dashboard', dashboardRoutes);
 
   console.log('✅ Routes konfigurert!');
 }

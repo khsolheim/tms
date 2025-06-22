@@ -22,11 +22,12 @@ import {
   EnvelopeIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
-import { StatCard } from '../../components/common/StatCard';
-import { DataTable, Column } from '../../components/common/DataTable';
-import { useApi, usePaginatedApi } from '../../hooks/useApi';
-import { systemService } from '../../services/system';
-import { SystemConfiguration, BackupInfo, SystemLog } from '../../types/admin';
+import { StatCard } from '../../../components/common/StatCard';
+import { DataTable, Column } from '../../../components/common/DataTable';
+import { useApi, usePaginatedApi } from '../../../hooks/admin/useApi';
+import { systemService } from '../../../services/admin/system';
+import { SystemConfiguration, SystemLog } from '../../../types/admin';
+import { BackupInfo } from '../../../types/admin/index';
 
 export const SystemPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'configuration' | 'backups' | 'logs' | 'maintenance'>('configuration');
@@ -38,7 +39,7 @@ export const SystemPage: React.FC = () => {
     loading: configLoading,
     error: configError,
     refresh: refreshConfig
-  } = useApi(() => systemService.getSystemConfiguration().then(data => ({ success: true, data })), { immediate: true });
+  } = useApi(() => systemService.getSystemConfiguration().then(data => ({ success: true, data })), [], { immediate: true });
 
   // Fetch backups
   const {
@@ -46,7 +47,7 @@ export const SystemPage: React.FC = () => {
     loading: backupsLoading,
     error: backupsError,
     refresh: refreshBackups
-  } = useApi(() => systemService.getBackups().then(data => ({ success: true, data })), { immediate: true });
+  } = useApi(() => systemService.getBackups().then(data => ({ success: true, data })), [], { immediate: true });
 
   // Fetch logs with pagination
   const {
@@ -61,7 +62,7 @@ export const SystemPage: React.FC = () => {
     setLimit,
     refresh: refreshLogs
   } = usePaginatedApi(
-    (params) => systemService.getLogs(params).then(data => ({ success: true, data: data.data, pagination: data.pagination })),
+    (params) => systemService.getLogs(params).then(data => ({ success: true, data })),
     { immediate: true }
   );
 

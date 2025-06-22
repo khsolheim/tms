@@ -190,7 +190,9 @@ const kjoretoyBaseSchema = z.object({
     .trim(),
   aarsmodell: z.number()
     .min(1900, "Årsmodell må være 1900 eller nyere")
-    .max(new Date().getFullYear() + 1, "Årsmodell kan ikke være i fremtiden"),
+    .max(new Date().getFullYear() + 1, "Årsmodell kan ikke være i fremtiden")
+    .nullable()
+    .transform(val => val || new Date().getFullYear()),
   type: z.enum(['Personbil', 'Motorsykkel', 'Lastebil', 'Buss', 'Traktor']),
   status: z.enum(['AKTIV', 'INAKTIV', 'SERVICE', 'SOLGT']),
   forerkortklass: z.array(

@@ -8,7 +8,7 @@ import {
   CircleStackIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
-import { SystemHealth as SystemHealthType } from '../../types/admin';
+import { SystemHealth as SystemHealthType } from '../../../types/admin';
 
 interface SystemHealthProps {
   data?: SystemHealthType;
@@ -189,7 +189,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
             <div>
               <h4 className="text-sm font-medium text-gray-900 mb-3">Mikrotjenester</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {data.services.map((service: { name: string; status: 'healthy' | 'warning' | 'error'; uptime: number; lastCheck: string }, index: number) => (
+                {data.services.map((service: { name: string; status: 'healthy' | 'warning' | 'error'; uptime: number; lastCheck?: string }, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <ServerIcon className="w-4 h-4 text-gray-400" />
@@ -208,7 +208,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
                         {getStatusText(service.status)}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {new Date(service.lastCheck).toLocaleTimeString('nb-NO')}
+                        {service.lastCheck ? new Date(service.lastCheck).toLocaleTimeString('nb-NO') : 'Ukjent'}
                       </div>
                     </div>
                   </div>

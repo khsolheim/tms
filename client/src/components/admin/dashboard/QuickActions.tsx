@@ -9,7 +9,7 @@ import {
   ShieldCheckIcon,
   ServerIcon
 } from '@heroicons/react/24/outline';
-import { dashboardService } from '../../services/dashboard';
+import { dashboardService } from '../../../services/admin/dashboard';
 
 interface QuickActionsProps {
   onRefresh?: () => void;

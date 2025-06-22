@@ -276,13 +276,15 @@ export interface SystemConfiguration {
 
 export interface BackupInfo {
   id: string;
+  filename: string;
   type: 'full' | 'incremental' | 'differential';
   size: number;
   timestamp: string;
+  created: string;
   status: 'completed' | 'failed' | 'in_progress';
   duration: number;
   location: string;
-  checksum: string;
+  checksum?: string;
   description?: string;
 }
 
@@ -306,6 +308,8 @@ export interface PaginatedResponse<T> {
     limit: number;
     total: number;
     totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
   };
 }
 

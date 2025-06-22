@@ -28,7 +28,7 @@ const Dashboard = () => {
     refresh: refreshStats
   } = usePollingApi(
     () => dashboardService.getOverview(),
-    { interval: 30000 }
+    30000
   );
 
   const {
@@ -37,7 +37,7 @@ const Dashboard = () => {
     refresh: refreshHealth
   } = usePollingApi(
     () => dashboardService.getSystemHealth(),
-    { interval: 10000 }
+    10000
   );
 
   const {
@@ -46,7 +46,7 @@ const Dashboard = () => {
     refresh: refreshActivity
   } = usePollingApi(
     () => dashboardService.getRecentActivity(10),
-    { interval: 15000 }
+    15000
   );
 
   const {
@@ -55,7 +55,7 @@ const Dashboard = () => {
     refresh: refreshAlerts
   } = usePollingApi(
     () => dashboardService.getActiveAlerts(),
-    { interval: 20000 }
+    20000
   );
 
   const handleRefreshAll = async () => {

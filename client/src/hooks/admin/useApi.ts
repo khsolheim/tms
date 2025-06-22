@@ -1,57 +1,229 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ApiResponse } from '../services/api';
+import { ApiResponse, PaginationParams, PaginatedResponse } from '../../types/admin';
 
-export interface UseApiOptions {
-  immediate?: boolean;
-  dependencies?: any[];
-  onSuccess?: (data: any) => void;
-  onError?: (error: Error) => void;
-}
-
+// Base API hook
 export interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
-  execute: (...args: any[]) => Promise<void>;
-  refresh: () => Promise<void>;
-  reset: () => void;
+  refresh: () => void;
+  execute: () => void;
 }
 
 export function useApi<T>(
-  apiFunction: (...args: any[]) => Promise<ApiResponse<T>>,
-  options: UseApiOptions = {}
+  apiCall: () => Promise<ApiResponse<T>>,
+  dependencies: any[] = [],
+  options: { immediate?: boolean } = { immediate: true }
 ): UseApiResult<T> {
-  const { immediate = true, dependencies = [], onSuccess, onError } = options;
-  
   const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiCall();
+      
+      if (response.success) {
+        setData(response.data);
+      } else {
+        setError(response.errors?.[0] || 'Unknown error occurred');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+      console.error('API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall]);
+
+  useEffect(() => {
+    if (options.immediate !== false) {
+      fetchData();
+    }
+  }, [...dependencies, fetchData]);
+
+  const refresh = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return {
+    data,
+    loading,
+    error,
+    refresh,
+    execute: fetchData
+  };
+}
+
+// Paginated API hook
+export interface UsePaginatedApiResult<T> extends UseApiResult<PaginatedResponse<T>> {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  setPage: (page: number) => void;
+  goToPage: (page: number) => void;
+  setLimit: (limit: number) => void;
+  nextPage: () => void;
+  previousPage: () => void;
+}
+
+export function usePaginatedApi<T>(
+  apiCall: (params: PaginationParams) => Promise<ApiResponse<PaginatedResponse<T>>>,
+  initialParams: Partial<PaginationParams> & { immediate?: boolean } = {},
+  dependencies: any[] = []
+): UsePaginatedApiResult<T> {
+  const { immediate, ...paginationParams } = initialParams;
+  const [params, setParams] = useState<PaginationParams>({
+    page: 1,
+    limit: 10,
+    ...paginationParams
+  });
+
+  const apiResult = useApi(
+    () => apiCall(params),
+    [params, ...dependencies],
+    { immediate }
+  );
+
+  const setPage = useCallback((page: number) => {
+    setParams(prev => ({ ...prev, page }));
+  }, []);
+
+  const goToPage = useCallback((page: number) => {
+    setParams(prev => ({ ...prev, page }));
+  }, []);
+
+  const setLimit = useCallback((limit: number) => {
+    setParams(prev => ({ ...prev, limit, page: 1 }));
+  }, []);
+
+  const nextPage = useCallback(() => {
+    if (apiResult.data?.pagination.hasNextPage) {
+      setPage(params.page + 1);
+    }
+  }, [apiResult.data?.pagination.hasNextPage, params.page, setPage]);
+
+  const previousPage = useCallback(() => {
+    if (apiResult.data?.pagination.hasPreviousPage) {
+      setPage(params.page - 1);
+    }
+  }, [apiResult.data?.pagination.hasPreviousPage, params.page, setPage]);
+
+  return {
+    ...apiResult,
+    page: params.page,
+    limit: params.limit,
+    total: apiResult.data?.pagination.total || 0,
+    totalPages: apiResult.data?.pagination.totalPages || 0,
+    hasNextPage: apiResult.data?.pagination.hasNextPage || false,
+    hasPreviousPage: apiResult.data?.pagination.hasPreviousPage || false,
+    setPage,
+    goToPage,
+    setLimit,
+    nextPage,
+    previousPage
+  };
+}
+
+// Polling API hook
+export interface UsePollingApiResult<T> extends UseApiResult<T> {
+  start: () => void;
+  stop: () => void;
+  isPolling: boolean;
+}
+
+export function usePollingApi<T>(
+  apiCall: () => Promise<ApiResponse<T>>,
+  interval: number = 5000,
+  autoStart: boolean = true,
+  dependencies: any[] = []
+): UsePollingApiResult<T> {
+  const [isPolling, setIsPolling] = useState(autoStart);
+  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  
+  const apiResult = useApi(apiCall, dependencies);
+
+  const start = useCallback(() => {
+    if (!isPolling) {
+      setIsPolling(true);
+      const id = setInterval(() => {
+        apiResult.refresh();
+      }, interval);
+      setIntervalId(id);
+    }
+  }, [isPolling, interval, apiResult.refresh]);
+
+  const stop = useCallback(() => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      setIntervalId(null);
+    }
+    setIsPolling(false);
+  }, [intervalId]);
+
+  useEffect(() => {
+    if (autoStart) {
+      start();
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [autoStart, start, intervalId]);
+
+  return {
+    ...apiResult,
+    start,
+    stop,
+    isPolling
+  };
+}
+
+// Mutation hook for creating/updating/deleting data
+export interface UseMutationResult<TData, TVariables> {
+  mutate: (variables: TVariables) => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  data: TData | null;
+  reset: () => void;
+}
+
+export function useMutation<TData, TVariables>(
+  mutationFn: (variables: TVariables) => Promise<ApiResponse<TData>>
+): UseMutationResult<TData, TVariables> {
+  const [data, setData] = useState<TData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const execute = useCallback(async (...args: any[]) => {
+  const mutate = useCallback(async (variables: TVariables) => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await apiFunction(...args);
+      const response = await mutationFn(variables);
       
       if (response.success) {
         setData(response.data);
-        onSuccess?.(response.data);
       } else {
-        const errorMessage = response.message || (response.errors && response.errors[0]) || 'En feil oppstod';
-        setError(errorMessage);
-        onError?.(new Error(errorMessage));
+        setError(response.errors?.[0] || 'Mutation failed');
+        throw new Error(response.errors?.[0] || 'Mutation failed');
       }
-    } catch (err: any) {
-      const errorMessage = err.message || 'En feil oppstod';
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Network error';
       setError(errorMessage);
-      onError?.(err);
+      console.error('Mutation Error:', err);
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [apiFunction, onSuccess, onError]);
-
-  const refresh = useCallback(() => execute(), [execute]);
+  }, [mutationFn]);
 
   const reset = useCallback(() => {
     setData(null);
@@ -59,130 +231,11 @@ export function useApi<T>(
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (immediate) {
-      execute();
-    }
-  }, dependencies);
-
   return {
-    data,
+    mutate,
     loading,
     error,
-    execute,
-    refresh,
+    data,
     reset
   };
-}
-
-// Specialized hook for paginated data
-export interface UsePaginatedApiOptions extends UseApiOptions {
-  initialPage?: number;
-  initialLimit?: number;
-}
-
-export interface UsePaginatedApiResult<T> extends UseApiResult<T[]> {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  nextPage: () => void;
-  previousPage: () => void;
-  goToPage: (page: number) => void;
-  setLimit: (limit: number) => void;
-}
-
-export function usePaginatedApi<T>(
-  apiFunction: (params: { page: number; limit: number; [key: string]: any }) => Promise<ApiResponse<T[]>>,
-  options: UsePaginatedApiOptions = {}
-): UsePaginatedApiResult<T> {
-  const { initialPage = 1, initialLimit = 10, ...apiOptions } = options;
-  
-  const [page, setPage] = useState(initialPage);
-  const [limit, setLimit] = useState(initialLimit);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-
-  const apiResult = useApi(
-    (params = {}) => apiFunction({ page, limit, ...params }),
-    {
-      ...apiOptions,
-      dependencies: [page, limit, ...(apiOptions.dependencies || [])],
-      onSuccess: (response: any) => {
-        if (response.pagination) {
-          setTotal(response.pagination.total);
-          setTotalPages(response.pagination.totalPages);
-        }
-        apiOptions.onSuccess?.(response);
-      }
-    }
-  );
-
-  const nextPage = useCallback(() => {
-    if (page < totalPages) {
-      setPage(page + 1);
-    }
-  }, [page, totalPages]);
-
-  const previousPage = useCallback(() => {
-    if (page > 1) {
-      setPage(page - 1);
-    }
-  }, [page]);
-
-  const goToPage = useCallback((newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setPage(newPage);
-    }
-  }, [totalPages]);
-
-  const setLimitAndReset = useCallback((newLimit: number) => {
-    setLimit(newLimit);
-    setPage(1);
-  }, []);
-
-  return {
-    ...apiResult,
-    page,
-    limit,
-    total,
-    totalPages,
-    hasNextPage: page < totalPages,
-    hasPreviousPage: page > 1,
-    nextPage,
-    previousPage,
-    goToPage,
-    setLimit: setLimitAndReset
-  };
-}
-
-// Hook for real-time data with polling
-export interface UsePollingApiOptions extends UseApiOptions {
-  interval?: number;
-  enabled?: boolean;
-}
-
-export function usePollingApi<T>(
-  apiFunction: () => Promise<ApiResponse<T>>,
-  options: UsePollingApiOptions = {}
-): UseApiResult<T> {
-  const { interval = 5000, enabled = true, ...apiOptions } = options;
-  
-  const apiResult = useApi(apiFunction, apiOptions);
-
-  useEffect(() => {
-    if (!enabled) return;
-
-    const intervalId = setInterval(() => {
-      if (!apiResult.loading) {
-        apiResult.refresh();
-      }
-    }, interval);
-
-    return () => clearInterval(intervalId);
-  }, [enabled, interval, apiResult.loading, apiResult.refresh]);
-
-  return apiResult;
 } 

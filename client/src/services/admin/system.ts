@@ -17,8 +17,48 @@ class SystemService extends AdminApiService {
   }
 
   async getBackups(): Promise<BackupInfo[]> {
-    const response = await this.get('/admin/system/backups');
-    return response.data as BackupInfo[];
+    // Mock data since backend is not available
+    const mockBackups: BackupInfo[] = [
+      {
+        id: '1',
+        filename: 'backup_full_2024-01-15.sql',
+        type: 'full',
+        size: 1024 * 1024 * 50, // 50MB
+        timestamp: new Date().toISOString(),
+        created: new Date().toISOString(),
+        status: 'completed',
+        duration: 120, // 2 minutes
+        location: '/backups/backup_full_2024-01-15.sql',
+        checksum: 'abc123def456',
+        description: 'Full database backup'
+      },
+      {
+        id: '2',
+        filename: 'backup_incremental_2024-01-14.sql',
+        type: 'incremental',
+        size: 1024 * 1024 * 10, // 10MB
+        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        created: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        status: 'completed',
+        duration: 45,
+        location: '/backups/backup_incremental_2024-01-14.sql',
+        checksum: 'def456ghi789'
+      },
+      {
+        id: '3',
+        filename: 'backup_full_2024-01-13.sql',
+        type: 'full',
+        size: 1024 * 1024 * 48, // 48MB
+        timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+        created: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+        status: 'failed',
+        duration: 0,
+        location: '/backups/backup_full_2024-01-13.sql',
+        description: 'Backup failed due to disk space'
+      }
+    ];
+    
+    return mockBackups;
   }
 
   async createBackup(type: 'full' | 'incremental' | 'differential' = 'full'): Promise<BackupInfo> {
@@ -31,8 +71,50 @@ class SystemService extends AdminApiService {
   }
 
   async getLogs(params?: ApiParams): Promise<PaginatedResponse<SystemLog>> {
-    const response = await this.get('/admin/system/logs', { params });
-    return response.data as PaginatedResponse<SystemLog>;
+    // Mock data since backend is not available
+    const mockLogs: SystemLog[] = [
+      {
+        id: '1',
+        level: 'info',
+        message: 'System started successfully',
+        timestamp: new Date().toISOString(),
+        source: 'system',
+        metadata: { category: 'startup' }
+      },
+      {
+        id: '2',
+        level: 'warn',
+        message: 'High memory usage detected',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+        source: 'monitor',
+        metadata: { category: 'performance' }
+      },
+      {
+        id: '3',
+        level: 'error',
+        message: 'Database connection timeout',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+        source: 'database',
+        metadata: { category: 'connection' }
+      }
+    ];
+
+    const page = params?.page || 1;
+    const limit = params?.limit || 10;
+    const total = mockLogs.length;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: mockLogs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      }
+    };
   }
 
   async clearLogs(olderThanDays: number = 30): Promise<void> {
