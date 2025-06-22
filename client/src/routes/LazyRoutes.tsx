@@ -7,6 +7,7 @@
 
 import React, { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import lazyWithRetry from '../utils/lazyWithRetry';
 
 // ============================================================================
 // LOADING COMPONENTS
@@ -82,7 +83,7 @@ export const LazyRoutes: React.FC = () => {
         path="/bedrifter" 
         element={
           <LazyWrapper>
-            {React.createElement(React.lazy(() => import('../pages/Bedrifter')))}
+            {React.createElement(lazyWithRetry(() => import('../pages/Bedrifter')))}
           </LazyWrapper>
         } 
       />

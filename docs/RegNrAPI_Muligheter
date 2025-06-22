@@ -1,0 +1,114 @@
+Felt som inneholder samlinger er merket med ☐ (tabell/array), underfeltene er innrykket.
+Generelle identifikatorer
+kjennemerke
+registreringsnummer (alias)
+understellsnummer
+fabrikantnavn
+merke
+handelsbetegnelse / modellbetegnelse
+variant / versjon
+kjøretøygruppe
+kjøretøyklasse
+avgiftsklasse
+bruksgruppe
+Registrerings- og statusopplysninger
+forstegangsregistrertDato
+sistGodkjentDato (siste EU-kontroll)
+nesteFristEu
+registreringsstatusKode & ­Beskrivelse
+avregistrertDato / avskiltetDato
+registrertSomVrakt (bool)
+sperret (bool) + sperretFra / sperretTil
+opprettetDato, endretDato, sistOppdatertFraAutosys
+Tekniske hoveddata
+arsmodell
+drivstoffListe ☐
+ ◦ drivstoffKode
+ ◦ drivstoffBeskrivelse
+hybridBatterikapasitetKwh
+slagvolumCm3
+effektKw (hp i egen undernøkkel)
+motorkode
+turbo / overladingType
+sylindre
+Miljø- / utslippsdata
+co2UtslippKombinertGKm
+noxUtslippGKm
+partikkelUtslippGKm
+forbrukKombinertLMil
+euroKlasse
+partikkelfilter (bool)
+katalysator (bool)
+støyDb
+Drivverk & gir
+hjuldriftKode / ­Beskrivelse (forhjul, bakhjul, 4×4)
+girkasse → girkasseTypeKode, ­Beskrivelse, antallGirar
+Mål & vekt
+lengdeMm
+breddeMm
+høydeMm
+akselavstandMm
+egenvektKg
+egenvektMedFørerKg
+tillattTotalvektKg
+nyttelastKg
+tillattTogvektKg
+Tilhengervekt / laster
+hengervektMedBremsKg
+hengervektUtenBremsKg
+maksVertikalLastKg
+tilhengervektPåkobletBobilKg
+Aksler ☐
+ ◦ akselNr
+ ◦ tillattAksellastKg
+ ◦ kalkulatoriskAksellastKg
+ ◦ dekkdimensjon
+ ◦ sporviddeMm
+ ◦ hjuldrift (driven/non-driven)
+Dekk & felg
+dekkdimensjonForan / Bak
+felgDimensjonForan / Bak
+hastighetsindeksForan / ­Bak
+lastindeksForan / ­Bak
+Plasser & karosseri
+antallDører
+antallSitteplasser
+antallStåplasser
+antallSoveplasser
+karosseritypeKode / ­Beskrivelse
+fargeKode / fargeBeskrivelse
+Godkjenninger ☐
+ ◦ godkjenningTypeKode / ­Beskrivelse
+ ◦ godkjenningDato
+ ◦ journalnummer / vedtaksnummer
+EU-kontroll
+euSistGodkjentDato
+euNesteFristDato
+euSistIkkeGodkjentDato
+KilometerstandHistorikk ☐
+ ◦ dato
+ ◦ kilometerstand
+Eier- og medeierhistorikk ☐
+ ◦ rolle (eier/medeier/leaser)
+ ◦ organisasjonsnummer / fødselsnummer maskert
+ ◦ kommuneNr / landkode
+ ◦ registrertDato
+Forsikring
+forsikringsselskapNavn
+forsikretFomDato
+forsikretTomDato
+Avgifts- og gebyrdata
+engangsavgiftGrunnlagKg
+arsavgiftGrunnlagKg
+vektårsavgiftSats
+Diverse sikkerhet & utstyr
+antallAirbag
+antallIsoFix
+antallSetebelter
+ABS (bool)
+ESP (bool)
+tilpassetHandikap (bool)
+Intern metadata
+datasettVersjon
+kildeSystem
+hentetTidspunkt
