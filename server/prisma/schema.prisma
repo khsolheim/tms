@@ -28,6 +28,18 @@ model User {
   // Multi-tenancy relations
   userTenants       UserTenant[]
   invitedUserTenants UserTenant[] @relation("UserTenantInviter")
+  
+  // Two-factor authentication
+  twoFactor         UserTwoFactor?
+  twoFactorAttempts TwoFactorAttempt[]
+  
+  // Adaptive learning
+  knowledgeStates   UserKnowledgeState[]
+  learningEvents    LearningEvent[]
+  learningPathways  LearningPathway[]
+  riskAssessments   UserRiskAssessment[]
+  interventions     Intervention[]
+  executedInterventions Intervention[] @relation("InterventionExecutor")
 }
 
 model Sjekkpunkt {
@@ -1681,4 +1693,148 @@ enum ServiceStatus {
   INACTIVE
   MAINTENANCE
   DEPRECATED
+}
+
+// Two-Factor Authentication models
+model UserTwoFactor {
+  id           String   @id @default(cuid())
+  userId       Int      @unique
+  secret       String   // Encrypted TOTP secret
+  backupCodes  String[] // Encrypted backup codes
+  smsEnabled   Boolean  @default(false)
+  phoneNumber  String?
+  isActive     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+}
+
+model TwoFactorAttempt {
+  id          String   @id @default(cuid())
+  userId      Int
+  attemptType String   // 'totp', 'sms', 'backup'
+  success     Boolean
+  ipAddress   String?
+  userAgent   String?
+  attemptedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([attemptedAt])
+  @@index([success])
+}
+
+// Adaptive Learning Engine models
+model UserKnowledgeState {
+  id             String   @id @default(cuid())
+  userId         Int
+  topicId        Int      // Reference to SikkerhetskontrollKategori or topics
+  masteryLevel   Float    @default(0.0) // 0.0 to 1.0
+  confidence     Float    @default(0.0) // 0.0 to 1.0
+  lastUpdated    DateTime @default(now()) @updatedAt
+  attempts       Int      @default(0)
+  correctAttempts Int     @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@index([userId])
+  @@index([topicId])
+  @@index([masteryLevel])
+}
+
+model LearningEvent {
+  id              String    @id @default(cuid())
+  userId          Int
+  eventType       String    // 'question_answered', 'module_completed', 'session_started', etc.
+  contentId       String?   // ID of the content (question, module, etc.)
+  performanceData Json?
+  timestamp       DateTime  @default(now())
+  sessionId       String?
+  difficulty      Float?
+  timeSpent       Int?      // in seconds
+  result          Boolean?  // success/failure for the event
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model LearningPathway {
+  id              String   @id @default(cuid())
+  userId          Int
+  goalId          String?  // Learning goal identifier
+  moduleSequence  Json     // Ordered array of module/content IDs
+  currentPosition Int      @default(0)
+  adaptationRules Json?    // Rules for adapting the pathway
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([goalId])
+}
+
+model MLModel {
+  id              String   @id @default(cuid())
+  name            String
+  version         String
+  modelType       String   // 'dropout_predictor', 'performance_forecaster', etc.
+  filePath        String   // Path to the model file
+  accuracyMetrics Json?
+  trainingDate    DateTime
+  isActive        Boolean  @default(false)
+  parameters      Json?
+  createdAt       DateTime @default(now())
+
+  @@index([name, version])
+  @@index([isActive])
+}
+
+model UserRiskAssessment {
+  id                       String   @id @default(cuid())
+  userId                   Int
+  assessmentDate           DateTime @default(now())
+  dropoutProbability       Float
+  performanceTrend         String   // 'improving', 'stable', 'declining'
+  confidenceScore          Float
+  riskFactors              Json?
+  interventionsRecommended Json?
+  modelVersion             String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([assessmentDate])
+  @@index([dropoutProbability])
+}
+
+model Intervention {
+  id                  String    @id @default(cuid())
+  userId              Int
+  interventionType    String
+  priority            String    // 'low', 'medium', 'high', 'urgent'
+  action              String
+  message             String?
+  status              String    @default("pending") // 'pending', 'executed', 'dismissed'
+  createdAt           DateTime  @default(now())
+  executedAt          DateTime?
+  executedBy          Int?
+  effectivenessScore  Float?
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executor User? @relation("InterventionExecutor", fields: [executedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
 }

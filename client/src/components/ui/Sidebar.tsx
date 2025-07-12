@@ -121,6 +121,14 @@ export default function Sidebar() {
             Oversikt
           </MenuItem>
 
+          <MenuItem 
+            to="/dashboard/avansert" 
+            icon={ChartBarIcon} 
+            activeIcon={ChartBarSolidIcon}
+          >
+            Avansert Dashboard
+          </MenuItem>
+
           <RoleBased roles={['HOVEDBRUKER', 'TRAFIKKLARER', 'ADMIN']}>
             <MenuItem 
               to="/oppgaver" 

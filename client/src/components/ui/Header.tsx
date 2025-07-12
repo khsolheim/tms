@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { Alert } from './index';
+import ThemeToggle from './ThemeToggle';
 
 interface Bruker {
   id: number;
@@ -120,6 +121,7 @@ export default function Header() {
         <div className="flex-1" />
         
         <div className="flex items-center gap-x-4 py-1">
+          <ThemeToggle className="text-white" size="md" />
           <FaBell className="text-xl hover:text-blue-300 cursor-pointer" />
           <FaQuestionCircle className="text-xl hover:text-blue-300 cursor-pointer" />
           <FaCog className="text-xl hover:text-blue-300 cursor-pointer" />
