@@ -54,7 +54,7 @@ model Sjekkpunkt {
   systemId             Int?                      // Reference to SjekkpunktSystem
   intervallKm          Int?
   intervallTid         Int?
-  forerkortklass       String[]                  @default([])
+  forerkortklass       String                    @default("[]")
   kjoretoyRegNr        String?
   kjoretoyklass        String?
   kjoretoymerke        String?
@@ -65,7 +65,7 @@ model Sjekkpunkt {
   unikForMerke         Boolean                   @default(false)
   unikForRegnr         Boolean                   @default(false)
   unikForType          Boolean                   @default(false)
-  konsekvens           String[]                  @default([])
+  konsekvens           String                    @default("[]")
   // Soft delete fields
   deletedAt            DateTime?
   deletedBy            Int?
@@ -85,7 +85,7 @@ model KontrollMal {
   navn          String
   beskrivelse   String?
   kategori      String
-  tags          String[]             @default([])
+  tags          String               @default("[]")
   opprettetAvId Int
   offentlig     Boolean              @default(true)
   aktiv         Boolean              @default(true)
@@ -239,7 +239,7 @@ model Ansatt {
   etternavn                      String
   epost                          String               @unique
   passordHash                    String
-  tilganger                      String[]             @default([])
+  tilganger                      String               @default("[]")
   bedriftId                      Int?
   opprettet                      DateTime             @default(now())
   oppdatert                      DateTime             @default(now()) @updatedAt
@@ -248,8 +248,8 @@ model Ansatt {
   postnummer                     String?
   poststed                       String?
   rolle                           AnsattRolle          @default(TRAFIKKLARER)
-  klasser                        String[]             @default([])
-  kjoretoy                        Int[]                @default([])
+  klasser                        String               @default("[]")
+  kjoretoy                        String               @default("[]")
   hovedkjoretoy                   Int?
   aktiv                          Boolean              @default(true)
   sisteInnlogging                DateTime?
@@ -347,7 +347,7 @@ model Kjoretoy {
   aarsmodell          Int
   type                String
   status              String
-  forerkortklass      String[]
+  forerkortklass      String               @default("[]")
   bedriftId           Int
   opprettet           DateTime @default(now())
   oppdatert           DateTime @default(now()) @updatedAt
@@ -409,11 +409,11 @@ model QuizKategori {
 model QuizSporsmal {
   id               Int           @id @default(autoincrement())
   tekst            String
-  svaralternativer String[]
+  svaralternativer String               @default("[]")
   riktigSvar       Int
   bildeUrl         String?
   forklaring       String?
-  klasser          String[]
+  klasser          String               @default("[]")
   kategoriId       Int?
   vanskelighetsgrad String?      @default("Middels") // Lett, Middels, Vanskelig
   mediaType        String?       // video, audio, interactive, image
@@ -587,7 +587,7 @@ model QuizRecommendation {
   id            String        @id @default(cuid())
   userId        Int
   kategoriId    Int?
-  questionIds   Int[]         // Recommended question IDs
+  questionIds   String        @default("[]") // Recommended question IDs as JSON
   reason        String        // Algorithm reason for recommendation
   priority      Int           @default(1) // 1-5 priority level
   confidence    Float         // Algorithm confidence
@@ -740,7 +740,7 @@ model BildeLibrary {
   mimeType    String
   bredde      Int?
   hoyde       Int?
-  tags        String[] @default([])
+  tags        String   @default("[]")
   opprettet   DateTime @default(now())
   oppdatert   DateTime @default(now()) @updatedAt
   deletedAt   DateTime?  // Soft delete timestamp
@@ -1030,7 +1030,7 @@ model EmailTemplate {
   navn        String   @unique
   emne        String
   innhold     String   // HTML template with placeholders
-  variabler   String[] @default([]) // Available template variables
+  variabler   String   @default("[]") // Available template variables
   kategori    String   // "KONTRAKT", "FAKTURA", "PÅMINNELSE", "SYSTEM"
   aktiv       Boolean  @default(true)
   systemMal   Boolean  @default(false) // Cannot be deleted if true
@@ -1643,7 +1643,7 @@ model ForerkortKlasse {
   beskrivelse    String?
   kategori       String?  // 'Motorsykkel', 'Bil', 'Lastebil', 'Buss'
   minimumsalder  Int?
-  krav           String[] @default([])
+  krav           String   @default("[]")
   aktiv          Boolean  @default(true)
   opprettet      DateTime @default(now())
   oppdatert      DateTime @default(now()) @updatedAt
@@ -1679,7 +1679,7 @@ model Nyhet {
   publiseringsdato  DateTime?
   forfatter         String
   kategori          String     @default("GENERELT")
-  tags              String[]   @default([])
+  tags              String     @default("[]")
   prioritet         Int        @default(1)
   visning           String     @default("ALLE") // "ALLE", "BEDRIFT", "ADMIN"
   bedriftId         Int?
@@ -1710,7 +1710,7 @@ model KalenderEvent {
   lokasjon          String?
   type              String     @default("UNDERVISNING") // "UNDERVISNING", "MØTE", "EKSAMEN", "FERIE"
   status            String     @default("PLANLAGT") // "PLANLAGT", "BEKREFTET", "AVLYST", "GJENNOMFØRT"
-  deltakere         String[]   @default([])
+  deltakere         String     @default("[]")
   instruktorId      Int?
   elevId            Int?
   kjoretoyId        Int?
@@ -1753,8 +1753,8 @@ model Oppgave {
   tildeltTil        Int?
   opprettetAv       Int
   kategori          String     @default("GENERELT")
-  tags              String[]   @default([])
-  vedlegg           String[]   @default([])
+  tags              String     @default("[]")
+  vedlegg           String     @default("[]")
   kommentarer       Json       @default("[]")
   bedriftId         Int
   relatertTabell    String?    // "Elev", "Kontrakt", etc.
@@ -1790,7 +1790,7 @@ model Prosjekt {
   budget            Int?       // øre
   forbruktBudget    Int        @default(0)
   prosjektleder     Int?
-  teammedlemmer     Int[]      @default([])
+  teammedlemmer     String     @default("[]")
   kategori          String     @default("GENERELT")
   prioritet         String     @default("MEDIUM") // "LAV", "MEDIUM", "HOY"
   progresjon        Int        @default(0) // 0-100%
@@ -1895,10 +1895,10 @@ model HjelpArtikkel {
   innhold                String
   kategori               String
   underkategori          String?
-  tags                   String[]      @default([])
+  tags                   String        @default("[]")
   visningsrekkefolge     Int           @default(0)
   publisert              Boolean       @default(false)
-  sokeord                String[]      @default([])
+  sokeord                String        @default("[]")
   opprettetAv            Int
   opprettet              DateTime      @default(now())
   oppdatert              DateTime      @default(now()) @updatedAt
@@ -2083,7 +2083,7 @@ model UserTwoFactor {
   id           String   @id @default(cuid())
   userId       Int      @unique
   secret       String   // Encrypted TOTP secret
-  backupCodes  String[] // Encrypted backup codes
+  backupCodes  String   @default("[]") // Encrypted backup codes as JSON
   smsEnabled   Boolean  @default(false)
   phoneNumber  String?
   isActive     Boolean  @default(false)
