@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -303,6 +303,20 @@ model Ansatt {
   // Service management relations
   activatedBedriftServices         BedriftService[]     @relation("BedriftServiceActivatedBy")
   deactivatedBedriftServices       BedriftService[]     @relation("BedriftServiceDeactivatedBy")
+  
+  // Quiz system relations
+  quizSessions                     QuizSession[]        @relation("QuizSessionUser")
+  userAchievements                 UserAchievement[]    @relation("UserAchievements")
+  quizXP                           QuizXP[]             @relation("UserQuizXP")
+  difficultyAdjustments            DifficultyAdjustment[] @relation("UserDifficultyAdjustments")
+  userPreferences                  UserPreferences?     @relation("UserPreferences")
+  quizRecommendations              QuizRecommendation[] @relation("UserQuizRecommendations")
+  ownedQuizCollaborations          QuizCollaboration[]  @relation("QuizCollaborationOwner")
+  authoredQuizVersions             QuizVersion[]        @relation("QuizVersionAuthor")
+  securityEvents                   SecurityEvent[]      @relation("UserSecurityEvents")
+  reviewedSecurityEvents           SecurityEvent[]      @relation("SecurityEventReviewer")
+  performanceMetrics               PerformanceMetrics[] @relation("UserPerformanceMetrics")
+  learningPatterns                 LearningPattern[]    @relation("UserLearningPatterns")
 
   @@index([bedriftId, rolle])
   @@index([epost])
@@ -360,7 +374,13 @@ model QuizKategori {
   id              Int            @id @default(autoincrement())
   navn            String
   klasse          String
+  beskrivelse     String?
+  farge           String?        @default("#3B82F6")
+  ikon            String?
   hovedkategoriId Int?
+  moduleType      String?        @default("standard") // standard, micro, adaptive
+  estimatedDuration Int?         // Estimated duration in minutes
+  aktiv           Boolean        @default(true)
   opprettet       DateTime       @default(now())
   oppdatert       DateTime       @default(now()) @updatedAt
   deletedAt       DateTime?      // Soft delete timestamp
@@ -371,10 +391,16 @@ model QuizKategori {
   underkategorier QuizKategori[] @relation("KategoriHierarki")
   sporsmal        QuizSporsmal[] @relation("SporsmalKategori")
   deletedByUser   Ansatt?        @relation("QuizKategoriDeletedBy", fields: [deletedBy], references: [id])
+  quizSessions    QuizSession[]
+  difficultyAdjustments DifficultyAdjustment[]
+  quizRecommendations QuizRecommendation[]
+  performanceMetrics PerformanceMetrics[]
 
   @@index([klasse])
   @@index([hovedkategoriId])
   @@index([navn])
+  @@index([moduleType])
+  @@index([aktiv])
   @@index([isDeleted])
   @@index([deletedAt])
   @@unique([navn, klasse], name: "unique_kategori_per_klasse")
@@ -389,6 +415,13 @@ model QuizSporsmal {
   forklaring       String?
   klasser          String[]
   kategoriId       Int?
+  vanskelighetsgrad String?      @default("Middels") // Lett, Middels, Vanskelig
+  mediaType        String?       // video, audio, interactive, image
+  mediaUrl         String?
+  mediaMetadata    Json?         // Metadata for media files
+  aiGenerated      Boolean       @default(false)
+  kvalitetsscore   Float?        // For AI-generated questions
+  estimertTid      Int?          // Estimated time in seconds
   opprettet        DateTime      @default(now())
   oppdatert        DateTime      @default(now()) @updatedAt
   deletedAt        DateTime?     // Soft delete timestamp
@@ -397,11 +430,304 @@ model QuizSporsmal {
   
   kategori         QuizKategori? @relation("SporsmalKategori", fields: [kategoriId], references: [id], onDelete: SetNull)
   deletedByUser    Ansatt?       @relation("QuizSporsmalDeletedBy", fields: [deletedBy], references: [id])
+  quizSessionAnswers QuizSessionAnswer[]
 
   @@index([kategoriId])
   @@index([klasser])
+  @@index([vanskelighetsgrad])
+  @@index([aiGenerated])
   @@index([isDeleted])
   @@index([deletedAt])
+}
+
+// Quiz Session Management
+model QuizSession {
+  id                String         @id @default(cuid())
+  userId            Int
+  kategoriId        Int?
+  quizType          String         @default("standard") // standard, adaptive, micro, collaborative
+  startTime         DateTime       @default(now())
+  endTime           DateTime?
+  completed         Boolean        @default(false)
+  score             Float?
+  maxScore          Float?
+  percentage        Float?
+  timeSpent         Int?           // Time in seconds
+  questionsTotal    Int?
+  questionsAnswered Int?
+  questionsCorrect  Int?
+  difficulty        String?        @default("Middels")
+  adaptiveData      Json?          // Stores adaptive learning data
+  sessionIntegrity  String?        // Integrity hash for anti-cheat
+  ipAddress         String?
+  userAgent         String?
+  browserFingerprint String?
+  
+  // Relations
+  user              Ansatt         @relation("QuizSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  kategori          QuizKategori?  @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
+  answers           QuizSessionAnswer[]
+  securityEvents    SecurityEvent[]
+  
+  @@index([userId])
+  @@index([kategoriId])
+  @@index([startTime])
+  @@index([completed])
+  @@index([quizType])
+}
+
+model QuizSessionAnswer {
+  id              String        @id @default(cuid())
+  sessionId       String
+  questionId      Int
+  userAnswer      Int
+  correctAnswer   Int
+  isCorrect       Boolean
+  timeSpent       Int           // Time in seconds
+  answeredAt      DateTime      @default(now())
+  confidence      Float?        // User confidence level (1-5)
+  
+  // Relations
+  session         QuizSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question        QuizSporsmal  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([questionId])
+  @@index([answeredAt])
+}
+
+// Gamification System
+model UserAchievement {
+  id            String        @id @default(cuid())
+  userId        Int
+  achievementId String
+  unlockedAt    DateTime      @default(now())
+  progress      Float         @default(100) // Progress percentage
+  metadata      Json?         // Additional achievement data
+  
+  // Relations
+  user          Ansatt        @relation("UserAchievements", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([unlockedAt])
+}
+
+model QuizXP {
+  id          String        @id @default(cuid())
+  userId      Int
+  sessionId   String?
+  xpGained    Int
+  xpType      String        // quiz_completion, perfect_score, streak, etc.
+  source      String?       // Source of XP (quiz_id, achievement_id, etc.)
+  earnedAt    DateTime      @default(now())
+  
+  // Relations
+  user        Ansatt        @relation("UserQuizXP", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([earnedAt])
+  @@index([xpType])
+}
+
+model Leaderboard {
+  id          String        @id @default(cuid())
+  name        String
+  type        String        // daily, weekly, monthly, all_time
+  category    String?       // Category filter
+  period      String        // Date period identifier
+  rankings    Json          // Ranking data
+  updatedAt   DateTime      @default(now()) @updatedAt
+  
+  @@index([type])
+  @@index([category])
+  @@index([period])
+}
+
+// Adaptive Learning System
+model DifficultyAdjustment {
+  id            String        @id @default(cuid())
+  userId        Int
+  kategoriId    Int?
+  fromDifficulty String
+  toDifficulty  String
+  reason        String        // performance_based, time_based, etc.
+  confidence    Float         // Algorithm confidence in adjustment
+  performanceData Json        // Historical performance data
+  adjustedAt    DateTime      @default(now())
+  
+  // Relations
+  user          Ansatt        @relation("UserDifficultyAdjustments", fields: [userId], references: [id], onDelete: Cascade)
+  kategori      QuizKategori? @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([kategoriId])
+  @@index([adjustedAt])
+}
+
+// Personalization System
+model UserPreferences {
+  id                String        @id @default(cuid())
+  userId            Int           @unique
+  preferredDifficulty String?     @default("Middels")
+  learningStyle     String?       // visual, auditory, kinesthetic, reading
+  studyTimePreference String?     // morning, afternoon, evening
+  sessionDuration   Int?          // Preferred session duration in minutes
+  notifications     Json?         // Notification preferences
+  accessibility     Json?         // Accessibility settings
+  themes            Json?         // UI theme preferences
+  
+  // Relations
+  user              Ansatt        @relation("UserPreferences", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model QuizRecommendation {
+  id            String        @id @default(cuid())
+  userId        Int
+  kategoriId    Int?
+  questionIds   Int[]         // Recommended question IDs
+  reason        String        // Algorithm reason for recommendation
+  priority      Int           @default(1) // 1-5 priority level
+  confidence    Float         // Algorithm confidence
+  metadata      Json?         // Additional recommendation data
+  presented     Boolean       @default(false)
+  accepted      Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  expiresAt     DateTime?
+  
+  // Relations
+  user          Ansatt        @relation("UserQuizRecommendations", fields: [userId], references: [id], onDelete: Cascade)
+  kategori      QuizKategori? @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([kategoriId])
+  @@index([createdAt])
+  @@index([priority])
+}
+
+// Collaboration System
+model QuizCollaboration {
+  id            String        @id @default(cuid())
+  quizId        String        // Reference to quiz or category
+  ownerId       Int
+  collaborators Json          // Array of collaborator user IDs and permissions
+  permissions   Json          // Permission matrix
+  status        String        @default("active") // active, archived, suspended
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+  
+  // Relations
+  owner         Ansatt        @relation("QuizCollaborationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  versions      QuizVersion[]
+  
+  @@index([ownerId])
+  @@index([status])
+}
+
+model QuizVersion {
+  id              String            @id @default(cuid())
+  collaborationId String?
+  versionNumber   Int
+  title           String
+  description     String?
+  content         Json              // Quiz content
+  changelog       String?
+  authorId        Int
+  status          String            @default("draft") // draft, review, published, archived
+  createdAt       DateTime          @default(now())
+  
+  // Relations
+  collaboration   QuizCollaboration? @relation(fields: [collaborationId], references: [id], onDelete: SetNull)
+  author          Ansatt            @relation("QuizVersionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@index([collaborationId])
+  @@index([authorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Security and Anti-Cheat System
+model SecurityEvent {
+  id              String        @id @default(cuid())
+  sessionId       String?
+  userId          Int
+  eventType       String        // suspicious_timing, tab_switch, copy_paste, etc.
+  severity        String        @default("low") // low, medium, high, critical
+  description     String
+  metadata        Json?         // Event-specific data
+  automaticAction String?       // Action taken automatically
+  reviewStatus    String        @default("pending") // pending, reviewed, dismissed
+  reviewedBy      Int?
+  reviewedAt      DateTime?
+  detectedAt      DateTime      @default(now())
+  
+  // Relations
+  session         QuizSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user            Ansatt        @relation("UserSecurityEvents", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer        Ansatt?       @relation("SecurityEventReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  
+  @@index([sessionId])
+  @@index([userId])
+  @@index([eventType])
+  @@index([severity])
+  @@index([detectedAt])
+}
+
+model SessionIntegrity {
+  id              String        @id @default(cuid())
+  sessionId       String        @unique
+  integrityHash   String
+  checksumData    Json          // Checksum verification data
+  validationPassed Boolean      @default(true)
+  anomaliesDetected Int         @default(0)
+  lastValidated   DateTime      @default(now())
+  
+  @@index([sessionId])
+  @@index([validationPassed])
+}
+
+// Analytics and Performance
+model PerformanceMetrics {
+  id              String        @id @default(cuid())
+  userId          Int
+  kategoriId      Int?
+  period          String        // daily, weekly, monthly
+  periodDate      DateTime      // Start of period
+  totalSessions   Int           @default(0)
+  averageScore    Float?
+  averageTime     Float?        // Average time per question
+  improvementRate Float?
+  streakCount     Int           @default(0)
+  metadata        Json?         // Additional metrics
+  
+  // Relations
+  user            Ansatt        @relation("UserPerformanceMetrics", fields: [userId], references: [id], onDelete: Cascade)
+  kategori        QuizKategori? @relation(fields: [kategoriId], references: [id], onDelete: SetNull)
+  
+  @@unique([userId, kategoriId, period, periodDate])
+  @@index([userId])
+  @@index([kategoriId])
+  @@index([periodDate])
+}
+
+model LearningPattern {
+  id              String        @id @default(cuid())
+  userId          Int
+  patternType     String        // learning_style, difficulty_preference, time_preference
+  patternData     Json          // Pattern-specific data
+  confidence      Float         // Algorithm confidence in pattern
+  strength        Float         // Strength of pattern (0-1)
+  lastUpdated     DateTime      @default(now()) @updatedAt
+  validUntil      DateTime?     // Pattern expiration
+  
+  // Relations
+  user            Ansatt        @relation("UserLearningPatterns", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([patternType])
+  @@index([lastUpdated])
 }
 
 model BildeLibrary {
@@ -1693,6 +2019,63 @@ enum ServiceStatus {
   INACTIVE
   MAINTENANCE
   DEPRECATED
+}
+
+enum QuizDifficulty {
+  LETT
+  MIDDELS
+  VANSKELIG
+}
+
+enum QuizType {
+  STANDARD
+  ADAPTIVE
+  MICRO
+  COLLABORATIVE
+  ASSESSMENT
+}
+
+enum QuizMediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  INTERACTIVE
+  NONE
+}
+
+enum SecurityEventType {
+  SUSPICIOUS_TIMING
+  TAB_SWITCH
+  COPY_PASTE
+  MULTIPLE_SESSIONS
+  BROWSER_FINGERPRINT_CHANGE
+  UNUSUAL_NAVIGATION
+  RAPID_CLICKING
+}
+
+enum SecuritySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum LearningStyle {
+  VISUAL
+  AUDITORY
+  KINESTHETIC
+  READING
+  MIXED
+}
+
+enum AchievementType {
+  QUIZ_COMPLETION
+  PERFECT_SCORE
+  STREAK
+  TIME_BASED
+  CATEGORY_MASTERY
+  IMPROVEMENT
+  COLLABORATION
 }
 
 // Two-Factor Authentication models
