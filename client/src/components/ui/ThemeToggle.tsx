@@ -1,179 +1,117 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
-import {
-  SunIcon,
-  MoonIcon,
-  ComputerDesktopIcon,
-  ChevronDownIcon
-} from '@heroicons/react/24/outline';
+import React from 'react';
+import { useDarkMode } from '../../hooks/useDarkMode';
 
-interface ThemeOption {
-  value: 'light' | 'dark' | 'system';
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
+interface ThemeToggleProps {
+  className?: string;
+  showLabel?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-const ThemeToggle: React.FC = () => {
-  const { theme, actualTheme, setTheme } = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+const ThemeToggle: React.FC<ThemeToggleProps> = ({ 
+  className = '', 
+  showLabel = false,
+  size = 'md'
+}) => {
+  const { theme, isDark, toggleTheme } = useDarkMode();
 
-  const themeOptions: ThemeOption[] = [
-    {
-      value: 'light',
-      label: 'Lys',
-      icon: SunIcon,
-      description: 'Alltid lyst tema'
-    },
-    {
-      value: 'dark',
-      label: 'Mørk',
-      icon: MoonIcon,
-      description: 'Alltid mørkt tema'
-    },
-    {
-      value: 'system',
-      label: 'System',
-      icon: ComputerDesktopIcon,
-      description: 'Følg systeminnstillinger'
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5',
+    lg: 'w-6 h-6'
+  };
+
+  const buttonSizeClasses = {
+    sm: 'p-1',
+    md: 'p-2',
+    lg: 'p-3'
+  };
+
+  const getIcon = () => {
+    switch (theme) {
+      case 'light':
+        return (
+          <svg 
+            className={sizeClasses[size]} 
+            fill="currentColor" 
+            viewBox="0 0 20 20"
+            aria-label="Light mode"
+          >
+            <path 
+              fillRule="evenodd" 
+              d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+        );
+      case 'dark':
+        return (
+          <svg 
+            className={sizeClasses[size]} 
+            fill="currentColor" 
+            viewBox="0 0 20 20"
+            aria-label="Dark mode"
+          >
+            <path 
+              d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" 
+            />
+          </svg>
+        );
+      case 'system':
+      default:
+        return (
+          <svg 
+            className={sizeClasses[size]} 
+            fill="currentColor" 
+            viewBox="0 0 20 20"
+            aria-label="System theme"
+          >
+            <path 
+              fillRule="evenodd" 
+              d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7l.159-.636L9.297 11h1.406l.367.364L11.229 12H8.77z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+        );
     }
-  ];
+  };
 
-  const currentOption = themeOptions.find(option => option.value === theme);
-  const CurrentIcon = currentOption?.icon || SunIcon;
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Close dropdown on Escape key
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+  const getThemeLabel = () => {
+    switch (theme) {
+      case 'light':
+        return 'Lys';
+      case 'dark':
+        return 'Mørk';
+      case 'system':
+        return 'System';
+      default:
+        return 'Tema';
     }
-  }, [isOpen]);
-
-  const handleThemeSelect = (newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme);
-    setIsOpen(false);
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={`flex items-center ${className}`}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleTheme}
         className={`
-          inline-flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-md transition-colors
-          ${actualTheme === 'dark' 
-            ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-600' 
-            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-          }
+          ${buttonSizeClasses[size]}
+          rounded-lg 
+          bg-gray-100 dark:bg-gray-800 
+          text-gray-900 dark:text-gray-100
+          hover:bg-gray-200 dark:hover:bg-gray-700
+          focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400
+          transition-all duration-200 ease-in-out
+          flex items-center justify-center
         `}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-label="Velg tema"
+        title={`Bytt til ${theme === 'light' ? 'mørk' : theme === 'dark' ? 'system' : 'lys'} modus`}
+        aria-label={`Bytt tema. Nåværende: ${getThemeLabel()}`}
       >
-        <CurrentIcon className="h-4 w-4" />
-        <span className="hidden sm:inline">{currentOption?.label}</span>
-        <ChevronDownIcon 
-          className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
-        />
+        {getIcon()}
       </button>
-
-      {isOpen && (
-        <div className={`
-          absolute right-0 mt-2 w-56 rounded-md shadow-lg z-50 border
-          ${actualTheme === 'dark' 
-            ? 'bg-gray-800 border-gray-600' 
-            : 'bg-white border-gray-200'
-          }
-        `}>
-          <div className="py-1" role="listbox">
-            <div className={`px-3 py-2 text-xs font-semibold uppercase tracking-wide border-b ${
-              actualTheme === 'dark' 
-                ? 'text-gray-400 border-gray-600' 
-                : 'text-gray-500 border-gray-200'
-            }`}>
-              Velg tema
-            </div>
-            
-            {themeOptions.map((option) => {
-              const Icon = option.icon;
-              const isSelected = theme === option.value;
-              
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => handleThemeSelect(option.value)}
-                  className={`
-                    w-full text-left px-3 py-3 text-sm transition-colors flex items-start space-x-3
-                    ${isSelected 
-                      ? (actualTheme === 'dark' 
-                          ? 'bg-blue-600 text-white' 
-                          : 'bg-blue-50 text-blue-700')
-                      : (actualTheme === 'dark' 
-                          ? 'text-gray-200 hover:bg-gray-700' 
-                          : 'text-gray-700 hover:bg-gray-50')
-                    }
-                  `}
-                  role="option"
-                  aria-selected={isSelected}
-                >
-                  <Icon className={`h-5 w-5 mt-0.5 ${
-                    isSelected && actualTheme === 'light' ? 'text-blue-600' : ''
-                  }`} />
-                  <div className="flex-1">
-                    <div className="font-medium">{option.label}</div>
-                    <div className={`text-xs ${
-                      isSelected 
-                        ? (actualTheme === 'dark' ? 'text-blue-200' : 'text-blue-600')
-                        : (actualTheme === 'dark' ? 'text-gray-400' : 'text-gray-500')
-                    }`}>
-                      {option.description}
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                      actualTheme === 'dark' ? 'bg-blue-500' : 'bg-blue-100'
-                    }`}>
-                      <div className={`h-2 w-2 rounded-full ${
-                        actualTheme === 'dark' ? 'bg-white' : 'bg-blue-600'
-                      }`} />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          
-          {theme === 'system' && (
-            <div className={`px-3 py-2 text-xs border-t ${
-              actualTheme === 'dark' 
-                ? 'text-gray-400 border-gray-600 bg-gray-900' 
-                : 'text-gray-500 border-gray-200 bg-gray-50'
-            }`}>
-              Følger system: <span className="font-medium">
-                {actualTheme === 'dark' ? 'Mørkt' : 'Lyst'} tema
-              </span>
-            </div>
-          )}
-        </div>
+      
+      {showLabel && (
+        <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+          {getThemeLabel()}
+        </span>
       )}
     </div>
   );

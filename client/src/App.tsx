@@ -20,6 +20,7 @@ import { AdminWrapper } from './components/AdminWrapper';
 
 // Lazy load alle sider for code splitting
 const Oversikt = lazy(() => import('./pages/Oversikt/Index'));
+const AdvancedDashboard = lazy(() => import('./components/dashboard/AdvancedDashboard'));
 const Oppgaver = lazy(() => import('./pages/Oppgaver/Index'));
 
 // Oppgaver forslag
@@ -201,6 +202,7 @@ export default function App() {
                     <Route path="/" element={<Navigate to="/oversikt" />} />
                     <Route path="/logg-inn" element={<LoggInn />} />
                     <Route path="/oversikt" element={<Oversikt />} />
+                    <Route path="/dashboard/avansert" element={<AdvancedDashboard />} />
                     <Route path="/oppgaver" element={<Oppgaver />} />
                     <Route path="/oppgaver/forslag1" element={<OppgaverForslag1 />} />
                     <Route path="/oppgaver/forslag2" element={<OppgaverForslag2 />} />
