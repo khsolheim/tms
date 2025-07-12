@@ -211,6 +211,10 @@ model Bedrift {
   
   // Service management relations
   bedriftServices      BedriftService[]
+  
+  // Advertiser and sponsor relations
+  annonsorer           Annonsor[]       @relation("AnnonsorBedrift")
+  sponsorer            Sponsor[]        @relation("SponsorBedrift")
 
   @@index([navn])
   @@index([opprettet])
@@ -291,6 +295,10 @@ model Ansatt {
   // Service management relations
   activatedBedriftServices         BedriftService[]     @relation("BedriftServiceActivatedBy")
   deactivatedBedriftServices       BedriftService[]     @relation("BedriftServiceDeactivatedBy")
+  
+  // Advertiser and sponsor delete relations
+  deletedAnnonsorer                Annonsor[]           @relation("AnnonsorDeletedBy")
+  deletedSponsorer                 Sponsor[]            @relation("SponsorDeletedBy")
 
   @@index([bedriftId, rolle])
   @@index([epost])
@@ -1681,4 +1689,138 @@ enum ServiceStatus {
   INACTIVE
   MAINTENANCE
   DEPRECATED
+}
+
+// ============================================================================
+// ADVERTISER AND SPONSOR MODELS - FOR STUDENT BENEFITS
+// ============================================================================
+
+model Annonsor {
+  id                Int        @id @default(autoincrement())
+  navn              String
+  beskrivelse       String?
+  logoUrl           String?
+  hjemmeside        String?
+  telefon           String?
+  epost             String?
+  bedriftId         Int?       // Optional connection to existing company
+  kategori          String     @default("GENERELT") // "RABATT", "TJENESTER", "PRODUKTER", "UTDANNING", etc.
+  tags              String[]   @default([])
+  aktiv             Boolean    @default(true)
+  prioritet         Int        @default(1) // For sorting/display order
+  visninger         Int        @default(0) // Track views
+  klikk             Int        @default(0) // Track clicks
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift?   @relation("AnnonsorBedrift", fields: [bedriftId], references: [id], onDelete: SetNull)
+  deletedByUser     Ansatt?    @relation("AnnonsorDeletedBy", fields: [deletedBy], references: [id])
+  fordeler          AnnonsorFordel[]
+  
+  @@index([aktiv])
+  @@index([kategori])
+  @@index([prioritet])
+  @@index([opprettet])
+  @@index([isDeleted])
+  @@index([bedriftId])
+  @@index([navn])
+}
+
+model Sponsor {
+  id                Int        @id @default(autoincrement())
+  navn              String
+  beskrivelse       String?
+  logoUrl           String?
+  hjemmeside        String?
+  telefon           String?
+  epost             String?
+  bedriftId         Int?       // Optional connection to existing company
+  type              String     @default("GENERELL") // "HOVEDSPONSOR", "GULLSPONSOR", "SØLVSPONSOR", "BRONSESPONSOR", etc.
+  kategori          String     @default("GENERELT") // "TEKNOLOGI", "TRANSPORT", "UTDANNING", etc.
+  sponsorbelop      Int?       // Amount sponsored in øre
+  kontraktStartDato DateTime?
+  kontraktSluttDato DateTime?
+  aktiv             Boolean    @default(true)
+  prioritet         Int        @default(1) // For sorting/display order
+  visninger         Int        @default(0) // Track views
+  klikk             Int        @default(0) // Track clicks
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean    @default(false)
+  
+  bedrift           Bedrift?   @relation("SponsorBedrift", fields: [bedriftId], references: [id], onDelete: SetNull)
+  deletedByUser     Ansatt?    @relation("SponsorDeletedBy", fields: [deletedBy], references: [id])
+  fordeler          SponsorFordel[]
+  
+  @@index([aktiv])
+  @@index([type])
+  @@index([kategori])
+  @@index([prioritet])
+  @@index([opprettet])
+  @@index([isDeleted])
+  @@index([bedriftId])
+  @@index([navn])
+  @@index([kontraktStartDato])
+  @@index([kontraktSluttDato])
+}
+
+model AnnonsorFordel {
+  id                Int        @id @default(autoincrement())
+  annonsorId        Int
+  tittel            String
+  beskrivelse       String
+  rabattKode        String?
+  rabattProsent     Int?       // Percentage discount
+  rabattBelop       Int?       // Fixed discount amount in øre
+  gyldigFra         DateTime?
+  gyldigTil         DateTime?
+  maksAntallBruk    Int?       // Max number of uses
+  antallBrukt       Int        @default(0) // Current usage count
+  aktiv             Boolean    @default(true)
+  vilkar            String?    // Terms and conditions
+  bildeUrl          String?
+  linkUrl           String?    // Link to the offer
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  
+  annonsor          Annonsor   @relation(fields: [annonsorId], references: [id], onDelete: Cascade)
+  
+  @@index([annonsorId])
+  @@index([aktiv])
+  @@index([gyldigFra])
+  @@index([gyldigTil])
+  @@index([opprettet])
+}
+
+model SponsorFordel {
+  id                Int        @id @default(autoincrement())
+  sponsorId         Int
+  tittel            String
+  beskrivelse       String
+  rabattKode        String?
+  rabattProsent     Int?       // Percentage discount
+  rabattBelop       Int?       // Fixed discount amount in øre
+  gyldigFra         DateTime?
+  gyldigTil         DateTime?
+  maksAntallBruk    Int?       // Max number of uses
+  antallBrukt       Int        @default(0) // Current usage count
+  aktiv             Boolean    @default(true)
+  vilkar            String?    // Terms and conditions
+  bildeUrl          String?
+  linkUrl           String?    // Link to the offer
+  opprettet         DateTime   @default(now())
+  oppdatert         DateTime   @default(now()) @updatedAt
+  
+  sponsor           Sponsor    @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  
+  @@index([sponsorId])
+  @@index([aktiv])
+  @@index([gyldigFra])
+  @@index([gyldigTil])
+  @@index([opprettet])
 }
