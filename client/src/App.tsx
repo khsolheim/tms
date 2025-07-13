@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import { Layout } from './components/ui';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import { AccessibilityProvider, AccessibilityToolbar, injectAccessibilityStyles } from './contexts/AccessibilityContext';
 import { I18nProvider } from './contexts/I18nContext';
@@ -170,7 +171,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
   
   if (!erInnlogget) {
-    return <Navigate to="/logg-inn" />;
+    return <Navigate to="/logg-inn" replace />;
   }
   
   return <>{children}</>;
@@ -183,204 +184,238 @@ export default function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <ThemeProvider>
-          <AccessibilityProvider>
-            <AuthProvider>
-            <Router>
-            <SkipLinks />
-            <AccessibilityToolbar />
-            <SkipNavigation />
-            <GlobalAnnouncements />
-            <div className="App min-h-screen bg-gray-50">
-              <PWAStatusBar className="fixed top-0 left-0 right-0 z-50" />
-              <Layout>
-                <MainContent>
-                  <Suspense fallback={<PageLoadingSpinner />}>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider>
+          <ThemeProvider>
+            <AccessibilityProvider>
+              <Router>
+                <AuthProvider>
+                  <div className="App">
+                    <SkipNavigation />
+                    <GlobalAnnouncements />
+                    <PWAStatusBar />
+                    
                     <Routes>
-                    <Route path="/" element={<Navigate to="/oversikt" />} />
-                    <Route path="/logg-inn" element={<LoggInn />} />
-                    <Route path="/oversikt" element={<Oversikt />} />
-                    <Route path="/dashboard/avansert" element={<AdvancedDashboard />} />
-                    <Route path="/oppgaver" element={<Oppgaver />} />
-                    <Route path="/oppgaver/forslag1" element={<OppgaverForslag1 />} />
-                    <Route path="/oppgaver/forslag2" element={<OppgaverForslag2 />} />
-                    <Route path="/oppgaver/forslag3" element={<OppgaverForslag3 />} />
-                    <Route path="/kalender" element={<Kalender />} />
-                    <Route path="/nyheter" element={<Nyheter />} />
-                    <Route path="/quiz" element={<Quiz />} />
-                    <Route path="/quiz/ta-quiz" element={<TaQuiz />} />
-                    <Route path="/quiz/oversikt" element={<QuizOversikt />} />
-                    <Route path="/quiz/oversikt/:tab" element={<QuizOversikt />} />
+                      <Route path="/logg-inn" element={
+                        <ErrorBoundary fallback={(error, errorInfo, retry) => (
+                          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                            <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
+                              <h2 className="text-lg font-medium text-gray-900 mb-4">
+                                Feil ved innlogging
+                              </h2>
+                              <p className="text-sm text-gray-500 mb-4">
+                                Det oppstod en feil på innloggingssiden. Vennligst prøv igjen.
+                              </p>
+                              <button
+                                onClick={retry}
+                                className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                              >
+                                Prøv igjen
+                              </button>
+                            </div>
+                          </div>
+                        )}>
+                          <Suspense fallback={<PageLoadingSpinner />}>
+                            <LoggInn />
+                          </Suspense>
+                        </ErrorBoundary>
+                      } />
+                      
+                      <Route path="/" element={
+                        <ProtectedRoute>
+                          <ErrorBoundary>
+                            <Layout>
+                              <MainContent>
+                                <Suspense fallback={<PageLoadingSpinner />}>
+                                  <Oversikt />
+                                </Suspense>
+                              </MainContent>
+                            </Layout>
+                          </ErrorBoundary>
+                        </ProtectedRoute>
+                      } />
+                      
+                      {/* Wrap all other routes with ErrorBoundary */}
+                      <Route path="/*" element={
+                        <ProtectedRoute>
+                          <ErrorBoundary>
+                            <Layout>
+                              <MainContent>
+                                <Suspense fallback={<PageLoadingSpinner />}>
+                                  <Routes>
+                                    {/* All existing routes here */}
+                                    <Route path="/dashboard/avansert" element={<AdvancedDashboard />} />
+                                    <Route path="/oppgaver" element={<Oppgaver />} />
+                                    <Route path="/oppgaver/forslag1" element={<OppgaverForslag1 />} />
+                                    <Route path="/oppgaver/forslag2" element={<OppgaverForslag2 />} />
+                                    <Route path="/oppgaver/forslag3" element={<OppgaverForslag3 />} />
+                                    <Route path="/kalender" element={<Kalender />} />
+                                    <Route path="/nyheter" element={<Nyheter />} />
+                                    <Route path="/quiz" element={<Quiz />} />
+                                    <Route path="/quiz/ta-quiz" element={<TaQuiz />} />
+                                    <Route path="/quiz/oversikt" element={<QuizOversikt />} />
+                                    <Route path="/quiz/oversikt/:tab" element={<QuizOversikt />} />
+                                    
+                                    {/* Quiz forslag - Brukerforslag */}
+                                    <Route path="/quiz/bruker-forslag1" element={<BrukerForslag1_Gamification />} />
+                                    <Route path="/quiz/bruker-forslag2" element={<BrukerForslag2_Adaptive />} />
+                                    <Route path="/quiz/bruker-forslag3" element={<BrukerForslag3_Social />} />
+                                    <Route path="/quiz/bruker-forslag4" element={<BrukerForslag4_Mobile />} />
+                                    <Route path="/quiz/bruker-forslag5" element={<BrukerForslag5_VR />} />
+                                    
+                                    {/* Quiz forslag - Lærerforslag */}
+                                    <Route path="/quiz/laerer-forslag1" element={<LaererForslag1_Dashboard />} />
+                                    <Route path="/quiz/laerer-forslag2" element={<LaererForslag2_Builder />} />
+                                    <Route path="/quiz/laerer-forslag3" element={<LaererForslag3_Analytics />} />
+                                    <Route path="/quiz/laerer-forslag4" element={<LaererForslag4_Collaboration />} />
+                                    <Route path="/quiz/laerer-forslag5" element={<LaererForslag5_Assessment />} />
+                                    
+                                    {/* Quiz forslag - Admin-forslag */}
+                                    <Route path="/quiz/admin-forslag1" element={<AdminQuizForslag1_System />} />
+                                    <Route path="/quiz/admin-forslag2" element={<AdminQuizForslag2_Analytics />} />
+                                    <Route path="/quiz/admin-forslag3" element={<AdminQuizForslag3_Platform />} />
+                                    <Route path="/quiz/admin-forslag4" element={<AdminQuizForslag4_Security />} />
+                                    <Route path="/quiz/admin-forslag5" element={<AdminQuizForslag5_AI />} />
+                                    
+                                    <Route path="/quiz/sporsmalsbibliotek" element={<Sporsmalsbibliotek />} />
+                                    <Route path="/quiz/kategorier" element={<Kategorier />} />
+                                    <Route path="/quiz/opprett-sporsmal" element={<OpprettSporsmal />} />
+                                    <Route path="/quiz/opprett-quiz" element={<OpprettQuiz />} />
+                                    <Route path="/quiz/sporsmal/:id" element={<RedigerSporsmal />} />
+                                    <Route path="/quiz/kategori/:id" element={<RedigerKategori />} />
+                                    <Route path="/kunde/oversikt" element={<KundeOversikt />} />
+                                    <Route path="/kunde/opprett" element={<OpprettKunde />} />
+                                    <Route path="/kunde/:id" element={<KundeDetaljer />} />
+                                    <Route path="/bedrifter" element={<Bedrifter />} />
+                                    <Route path="/ansatte" element={<Ansatte />} />
+                                    <Route path="/kontrakter" element={<Kontrakter />} />
+                                    <Route path="/bedrifter/:id" element={<BedriftDetaljer />} />
+                                    <Route path="/bedrifter/:id/:tab" element={<BedriftDetaljer />} />
+                                    <Route path="/bedrifter/:id/rediger" element={<BedriftRediger />} />
+                                    <Route path="/sikkerhetskontroll" element={<Sikkerhetskontroll />} />
+                                    <Route path="/sikkerhetskontroll/sjekkpunktbibliotek" element={<SjekkpunktBibliotek />} />
+                                    <Route path="/sikkerhetskontroll/opprett-sjekkpunkt" element={<OpprettSjekkpunkt />} />
+                                    <Route path="/sikkerhetskontroll/sjekkpunkt/:id" element={<RedigerSjekkpunkt />} />
+                                    <Route path="/sikkerhetskontroll/opprett-kontroll" element={<OpprettKontroll />} />
+                                    <Route path="/sikkerhetskontroll/kontroller" element={<KontrollerOversikt />} />
+                                    <Route path="/sikkerhetskontroll/liste-bibliotek" element={<ListeBibliotek />} />
+                                    <Route path="/sikkerhetskontroll/mal/opprett" element={<OpprettKontrollMal />} />
+                                    
+                                    {/* Sikkerhetskontroll forslag */}
+                                    <Route path="/sikkerhetskontroll/forslag1" element={<SikkerhetskontrollForslag1 />} />
+                                    <Route path="/sikkerhetskontroll/forslag2" element={<SikkerhetskontrollForslag2 />} />
+                                    <Route path="/sikkerhetskontroll/forslag3" element={<SikkerhetskontrollForslag3 />} />
+                                    <Route path="/sikkerhetskontroll/forslag4" element={<SikkerhetskontrollForslag4 />} />
+                                    <Route path="/sikkerhetskontroll/forslag5" element={<SikkerhetskontrollForslag5 />} />
+                                    
+                                    {/* Admin forslag */}
+                                    <Route path="/sikkerhetskontroll/admin-forslag1" element={<AdminForslag1 />} />
+                                    <Route path="/sikkerhetskontroll/admin-forslag2" element={<AdminForslag2 />} />
+                                    <Route path="/sikkerhetskontroll/admin-forslag3" element={<AdminForslag3 />} />
+                                    
+                                    {/* Admin routes */}
+                                    <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
+                                    <Route path="/admin/dashboard" element={<AdminWrapper><AdminDashboard /></AdminWrapper>} />
+                                    <Route path="/admin/security" element={<AdminWrapper><AdminSecurity /></AdminWrapper>} />
+                                    <Route path="/admin/services" element={<AdminWrapper><AdminServices /></AdminWrapper>} />
+                                    <Route path="/admin/bedrifter" element={<AdminWrapper><AdminBedrifter /></AdminWrapper>} />
+                                    <Route path="/admin/brukere" element={<AdminWrapper><AdminBrukere /></AdminWrapper>} />
+                                    <Route path="/admin/system" element={<AdminWrapper><AdminSystem /></AdminWrapper>} />
+                                    <Route path="/admin/middleware" element={<AdminWrapper><AdminMiddleware /></AdminWrapper>} />
+                                    
+                                    {/* Sikkerhetskontroll Læring-modulen */}
+                                    <Route path="/sikkerhetskontroll-laering" element={<SikkerhetskontrollLaering />} />
+                                    <Route path="/sikkerhetskontroll-laering/klasse/:klasseId" element={<KlasseOversikt />} />
+                                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId" element={<KategoriLaering />} />
+                                    <Route path="/sikkerhetskontroll-laering/achievements" element={<Achievements />} />
+                                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId/test" element={<KategoriTest />} />
+                                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId/testkandidat" element={<TestkandidatTest />} />
+                                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId/mester" element={<MesterTest />} />
+                                    <Route path="/sikkerhetskontroll-laering/leaderboard" element={<Leaderboard />} />
+                                    <Route path="/bedrifter/wizard" element={<BedriftWizard />} />
+                                    <Route path="/brukere" element={<Brukere />} />
+                                    <Route path="/elever" element={<Elever />} />
+                                    <Route path="/innstillinger" element={<Innstillinger />} />
+                                    <Route path="/innstillinger/admin/rolletilganger" element={<Rolletilganger />} />
+                                    <Route path="/innstillinger/admin/referanse-data" element={<ReferanseData />} />
+                                    <Route path="/innstillinger/system" element={<Systemkonfigurasjon />} />
+                                    <Route path="/bedrifter/:bedriftId/ansatte/:ansattId/rediger" element={<AnsattRegistrer />} />
+                                    <Route path="/bedrifter/:bedriftId/ansatte/ny" element={<AnsattRegistrer />} />
+                                    <Route path="/demo/asset-optimization" element={<AssetOptimizationDemo />} />
+                                    <Route path="/innstillinger/integrasjoner/epost" element={<EpostIntegrasjon />} />
+                                    
+                                    {/* Nye hovedsider */}
+                                    <Route path="/rapportering" element={<RapporteringIndex />} />
+                                    <Route path="/rapportering/business-intelligence" element={<BusinessIntelligence />} />
+                                    <Route path="/rapportering/finansiell" element={<Finansiell />} />
+                                    <Route path="/rapportering/operasjonell" element={<Operasjonell />} />
+                                    <Route path="/rapportering/kundeanalyse" element={<Kundeanalyse />} />
+                                    <Route path="/rapportering/personalanalyse" element={<PersonalAnalyse />} />
+                                    <Route path="/rapportering/eksport" element={<RapportEksport />} />
+                                    <Route path="/okonomi" element={<OkonomiIndex />} />
+                                    <Route path="/hr" element={<HRIndex />} />
+                                    <Route path="/prosjekt" element={<ProsjektIndex />} />
+                                    <Route path="/ressursplanlegging" element={<RessursplanleggingIndex />} />
+                                    
+                                    {/* Service administration sider */}
+                                    <Route path="/innstillinger/system/analytics" element={<AnalyticsAdmin />} />
+                                    <Route path="/innstillinger/system/performance" element={<PerformanceMonitoring />} />
+                                    <Route path="/innstillinger/system/assets" element={<AssetOptimization />} />
+                                    <Route path="/innstillinger/system/database" element={<DatabaseAdmin />} />
+                                    <Route path="/innstillinger/system/sidebar" element={<SidebarAdmin />} />
+                                    
+                                    {/* Undersider */}
+                                    <Route path="/bedrifter/:bedriftId/kjøretøy" element={<BedriftKjøretøy />} />
+                                    <Route path="/bedrifter/:bedriftId/kjoretoy" element={<KjoretoyOversikt />} />
+                                    <Route path="/bedrifter/:bedriftId/kjoretoy/ny" element={<KjoretoyRegistrering />} />
+                                    <Route path="/bedrifter/:bedriftId/fakturering" element={<BedriftFakturering />} />
+                                    <Route path="/bedrifter/:bedriftId/historikk" element={<BedriftHistorikk />} />
+                                    <Route path="/bedrifter/:bedriftId/elever" element={<BedriftElevStatistikk />} />
+                                    <Route path="/elever/:elevId" element={<ElevProfil />} />
+                                    <Route path="/kontrakter/:kontraktId" element={<KontraktDetaljer />} />
+                                    <Route path="/quiz/statistikk" element={<QuizStatistikk />} />
+                                    <Route path="/innstillinger/sikkerhet/logger" element={<LoggOversikt />} />
+                                    <Route path="/innstillinger/integrasjoner/api" element={<ApiAdmin />} />
+                                    
+                                    {/* Nye manglende undersider */}
+                                    <Route path="/bedrifter/:bedriftId/kontrakter" element={<BedriftKontrakter />} />
+                                    <Route path="/bedrifter/:bedriftId/dokumenter" element={<BedriftDokumenter />} />
+                                    <Route path="/bedrifter/:bedriftId/rapporter" element={<BedriftRapporter />} />
+                                    <Route path="/elever/:elevId/kontrakter" element={<ElevKontrakter />} />
+                                    <Route path="/sikkerhetskontroll/rapporter" element={<SikkerhetskontrollRapporter />} />
+                                  </Routes>
+                                </Suspense>
+                              </MainContent>
+                            </Layout>
+                          </ErrorBoundary>
+                        </ProtectedRoute>
+                      } />
+                    </Routes>
                     
-                    {/* Quiz forslag - Brukerforslag */}
-                    <Route path="/quiz/bruker-forslag1" element={<BrukerForslag1_Gamification />} />
-                    <Route path="/quiz/bruker-forslag2" element={<BrukerForslag2_Adaptive />} />
-                    <Route path="/quiz/bruker-forslag3" element={<BrukerForslag3_Social />} />
-                    <Route path="/quiz/bruker-forslag4" element={<BrukerForslag4_Mobile />} />
-                    <Route path="/quiz/bruker-forslag5" element={<BrukerForslag5_VR />} />
+                    <Toaster 
+                      position="top-right"
+                      toastOptions={{
+                        duration: 4000,
+                        style: {
+                          background: '#363636',
+                          color: '#fff',
+                        },
+                      }}
+                    />
                     
-                    {/* Quiz forslag - Lærerforslag */}
-                    <Route path="/quiz/laerer-forslag1" element={<LaererForslag1_Dashboard />} />
-                    <Route path="/quiz/laerer-forslag2" element={<LaererForslag2_Builder />} />
-                    <Route path="/quiz/laerer-forslag3" element={<LaererForslag3_Analytics />} />
-                    <Route path="/quiz/laerer-forslag4" element={<LaererForslag4_Collaboration />} />
-                    <Route path="/quiz/laerer-forslag5" element={<LaererForslag5_Assessment />} />
+                    <AccessibilityToolbar />
                     
-                    {/* Quiz forslag - Admin-forslag */}
-                    <Route path="/quiz/admin-forslag1" element={<AdminQuizForslag1_System />} />
-                    <Route path="/quiz/admin-forslag2" element={<AdminQuizForslag2_Analytics />} />
-                    <Route path="/quiz/admin-forslag3" element={<AdminQuizForslag3_Platform />} />
-                    <Route path="/quiz/admin-forslag4" element={<AdminQuizForslag4_Security />} />
-                    <Route path="/quiz/admin-forslag5" element={<AdminQuizForslag5_AI />} />
-                    
-                    <Route path="/quiz/sporsmalsbibliotek" element={<Sporsmalsbibliotek />} />
-                    <Route path="/quiz/kategorier" element={<Kategorier />} />
-                    <Route path="/quiz/opprett-sporsmal" element={<OpprettSporsmal />} />
-                    <Route path="/quiz/opprett-quiz" element={<OpprettQuiz />} />
-                    <Route path="/quiz/sporsmal/:id" element={<RedigerSporsmal />} />
-                    <Route path="/quiz/kategori/:id" element={<RedigerKategori />} />
-                    <Route path="/kunde/oversikt" element={<KundeOversikt />} />
-                    <Route path="/kunde/opprett" element={<OpprettKunde />} />
-                    <Route path="/kunde/:id" element={<KundeDetaljer />} />
-                    <Route path="/bedrifter" element={<Bedrifter />} />
-                    <Route path="/ansatte" element={<Ansatte />} />
-                    <Route path="/kontrakter" element={<Kontrakter />} />
-                    <Route path="/bedrifter/:id" element={<BedriftDetaljer />} />
-                    <Route path="/bedrifter/:id/:tab" element={<BedriftDetaljer />} />
-                    <Route path="/bedrifter/:id/rediger" element={<BedriftRediger />} />
-                    <Route path="/sikkerhetskontroll" element={<Sikkerhetskontroll />} />
-                    <Route path="/sikkerhetskontroll/sjekkpunktbibliotek" element={<SjekkpunktBibliotek />} />
-                    <Route path="/sikkerhetskontroll/opprett-sjekkpunkt" element={<OpprettSjekkpunkt />} />
-                    <Route path="/sikkerhetskontroll/sjekkpunkt/:id" element={<RedigerSjekkpunkt />} />
-                    <Route path="/sikkerhetskontroll/opprett-kontroll" element={<OpprettKontroll />} />
-                    <Route path="/sikkerhetskontroll/kontroller" element={<KontrollerOversikt />} />
-                    <Route path="/sikkerhetskontroll/liste-bibliotek" element={<ListeBibliotek />} />
-                    <Route path="/sikkerhetskontroll/mal/opprett" element={<OpprettKontrollMal />} />
-                    
-                    {/* Sikkerhetskontroll forslag */}
-                    <Route path="/sikkerhetskontroll/forslag1" element={<SikkerhetskontrollForslag1 />} />
-                    <Route path="/sikkerhetskontroll/forslag2" element={<SikkerhetskontrollForslag2 />} />
-                    <Route path="/sikkerhetskontroll/forslag3" element={<SikkerhetskontrollForslag3 />} />
-                    <Route path="/sikkerhetskontroll/forslag4" element={<SikkerhetskontrollForslag4 />} />
-                    <Route path="/sikkerhetskontroll/forslag5" element={<SikkerhetskontrollForslag5 />} />
-                    
-                    {/* Admin forslag */}
-                    <Route path="/sikkerhetskontroll/admin-forslag1" element={<AdminForslag1 />} />
-                    <Route path="/sikkerhetskontroll/admin-forslag2" element={<AdminForslag2 />} />
-                    <Route path="/sikkerhetskontroll/admin-forslag3" element={<AdminForslag3 />} />
-                    
-                    {/* Admin routes */}
-                    <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
-                    <Route path="/admin/dashboard" element={<AdminWrapper><AdminDashboard /></AdminWrapper>} />
-                    <Route path="/admin/security" element={<AdminWrapper><AdminSecurity /></AdminWrapper>} />
-                    <Route path="/admin/services" element={<AdminWrapper><AdminServices /></AdminWrapper>} />
-                    <Route path="/admin/bedrifter" element={<AdminWrapper><AdminBedrifter /></AdminWrapper>} />
-                    <Route path="/admin/brukere" element={<AdminWrapper><AdminBrukere /></AdminWrapper>} />
-                    <Route path="/admin/system" element={<AdminWrapper><AdminSystem /></AdminWrapper>} />
-                    <Route path="/admin/middleware" element={<AdminWrapper><AdminMiddleware /></AdminWrapper>} />
-                    
-                    {/* Sikkerhetskontroll Læring-modulen */}
-                    <Route path="/sikkerhetskontroll-laering" element={<SikkerhetskontrollLaering />} />
-                    <Route path="/sikkerhetskontroll-laering/klasse/:klasseId" element={<KlasseOversikt />} />
-                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId" element={<KategoriLaering />} />
-                    <Route path="/sikkerhetskontroll-laering/achievements" element={<Achievements />} />
-                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId/test" element={<KategoriTest />} />
-                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId/testkandidat" element={<TestkandidatTest />} />
-                    <Route path="/sikkerhetskontroll-laering/kategori/:kategoriId/mester" element={<MesterTest />} />
-                    <Route path="/sikkerhetskontroll-laering/leaderboard" element={<Leaderboard />} />
-                    <Route path="/bedrifter/wizard" element={<BedriftWizard />} />
-                    <Route path="/brukere" element={<Brukere />} />
-                    <Route path="/elever" element={<Elever />} />
-                    <Route path="/innstillinger" element={<Innstillinger />} />
-                    <Route path="/innstillinger/admin/rolletilganger" element={<Rolletilganger />} />
-                <Route path="/innstillinger/admin/referanse-data" element={<ReferanseData />} />
-                    <Route path="/innstillinger/system" element={<Systemkonfigurasjon />} />
-                    <Route path="/bedrifter/:bedriftId/ansatte/:ansattId/rediger" element={<AnsattRegistrer />} />
-                    <Route path="/bedrifter/:bedriftId/ansatte/ny" element={<AnsattRegistrer />} />
-                    <Route path="/demo/asset-optimization" element={<AssetOptimizationDemo />} />
-                    <Route path="/innstillinger/integrasjoner/epost" element={<EpostIntegrasjon />} />
-                    
-                    {/* Nye hovedsider */}
-                    <Route path="/rapportering" element={<RapporteringIndex />} />
-                    <Route path="/rapportering/business-intelligence" element={<BusinessIntelligence />} />
-                    <Route path="/rapportering/finansiell" element={<Finansiell />} />
-                    <Route path="/rapportering/operasjonell" element={<Operasjonell />} />
-                    <Route path="/rapportering/kundeanalyse" element={<Kundeanalyse />} />
-                    <Route path="/rapportering/personalanalyse" element={<PersonalAnalyse />} />
-                    <Route path="/rapportering/eksport" element={<RapportEksport />} />
-                    <Route path="/okonomi" element={<OkonomiIndex />} />
-                    <Route path="/hr" element={<HRIndex />} />
-                    <Route path="/prosjekt" element={<ProsjektIndex />} />
-                    <Route path="/ressursplanlegging" element={<RessursplanleggingIndex />} />
-                    
-                    {/* Service administration sider */}
-                    <Route path="/innstillinger/system/analytics" element={<AnalyticsAdmin />} />
-                    <Route path="/innstillinger/system/performance" element={<PerformanceMonitoring />} />
-                    <Route path="/innstillinger/system/assets" element={<AssetOptimization />} />
-                    <Route path="/innstillinger/system/database" element={<DatabaseAdmin />} />
-                    <Route path="/innstillinger/system/sidebar" element={<SidebarAdmin />} />
-                    
-                    {/* Undersider */}
-                    <Route path="/bedrifter/:bedriftId/kjøretøy" element={<BedriftKjøretøy />} />
-                    <Route path="/bedrifter/:bedriftId/kjoretoy" element={<KjoretoyOversikt />} />
-                  <Route path="/bedrifter/:bedriftId/kjoretoy/ny" element={<KjoretoyRegistrering />} />
-                    <Route path="/bedrifter/:bedriftId/fakturering" element={<BedriftFakturering />} />
-                    <Route path="/bedrifter/:bedriftId/historikk" element={<BedriftHistorikk />} />
-                    <Route path="/bedrifter/:bedriftId/elever" element={<BedriftElevStatistikk />} />
-                    <Route path="/elever/:elevId" element={<ElevProfil />} />
-                    <Route path="/kontrakter/:kontraktId" element={<KontraktDetaljer />} />
-                    <Route path="/quiz/statistikk" element={<QuizStatistikk />} />
-                    <Route path="/innstillinger/sikkerhet/logger" element={<LoggOversikt />} />
-                    <Route path="/innstillinger/integrasjoner/api" element={<ApiAdmin />} />
-                    
-                    {/* Nye manglende undersider */}
-                    <Route path="/bedrifter/:bedriftId/kontrakter" element={<BedriftKontrakter />} />
-                    <Route path="/bedrifter/:bedriftId/dokumenter" element={<BedriftDokumenter />} />
-                    <Route path="/bedrifter/:bedriftId/rapporter" element={<BedriftRapporter />} />
-                    <Route path="/elever/:elevId/kontrakter" element={<ElevKontrakter />} />
-                    <Route path="/sikkerhetskontroll/rapporter" element={<SikkerhetskontrollRapporter />} />
-                  </Routes>
-                  </Suspense>
-                </MainContent>
-              </Layout>
-            </div>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                },
-                success: {
-                  duration: 3000,
-                  iconTheme: {
-                    primary: '#4ade80',
-                    secondary: '#fff',
-                  },
-                },
-                error: {
-                  duration: 5000,
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#fff',
-                  },
-                },
-                ariaProps: {
-                  role: 'status',
-                  'aria-live': 'polite',
-                },
-              }}
-            />
-                      </Router>
-            </AuthProvider>
-          </AccessibilityProvider>
-        </ThemeProvider>
-      </I18nProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
-      {/* <PerformanceMonitor /> */}
-    </QueryClientProvider>
+                    {process.env.NODE_ENV === 'development' && (
+                      <ReactQueryDevtools initialIsOpen={false} />
+                    )}
+                  </div>
+                </AuthProvider>
+              </Router>
+            </AccessibilityProvider>
+          </ThemeProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 } 

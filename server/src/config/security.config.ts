@@ -10,9 +10,33 @@ import { config } from 'dotenv';
 // Load environment variables
 config();
 
+// Critical security validation for production
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    console.error('❌ CRITICAL ERROR: JWT_SECRET must be at least 32 characters in production');
+    process.exit(1);
+  }
+  
+  if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32) {
+    console.error('❌ CRITICAL ERROR: JWT_REFRESH_SECRET must be at least 32 characters in production');
+    process.exit(1);
+  }
+  
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+    console.error('❌ CRITICAL ERROR: SESSION_SECRET must be at least 32 characters in production');
+    process.exit(1);
+  }
+}
+
 export const JWT_CONFIG = {
-  secret: process.env.JWT_SECRET || 'super-secret-jwt-key-minimum-32-characters-long-for-security',
-  refreshSecret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+  secret: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? 
+    (() => { throw new Error('JWT_SECRET is required in production'); })() : 
+    'dev-jwt-secret-32-chars-minimum-dev-only'
+  ),
+  refreshSecret: process.env.JWT_REFRESH_SECRET || (process.env.NODE_ENV === 'production' ? 
+    (() => { throw new Error('JWT_REFRESH_SECRET is required in production'); })() : 
+    'dev-refresh-secret-32-chars-minimum-dev-only'
+  ),
   expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   issuer: 'tms-api',
@@ -32,10 +56,10 @@ export const PASSWORD_POLICY = {
   requireSpecialChars: process.env.PASSWORD_REQUIRE_SPECIAL !== 'false',
   maxAge: parseInt(process.env.PASSWORD_MAX_AGE_DAYS || '90'), // dager
   preventReuse: parseInt(process.env.PASSWORD_PREVENT_REUSE || '5'), // antall tidligere passord
-  bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12'),
+  bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || (process.env.NODE_ENV === 'production' ? '15' : '12')),
   
-  // Common weak passwords to prevent
-  weakPasswords: [
+  // Common weak passwords to prevent - loaded from environment or defaults
+  weakPasswords: process.env.WEAK_PASSWORDS?.split(',') || [
     'password', 'passord', '12345678', 'qwerty123', 
     'admin123', 'test1234', 'password123', 'passord123',
     '123456789', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm123'
@@ -54,11 +78,12 @@ export const RATE_LIMITS = {
     skipPaths: ['/health', '/api/health'],
   },
   
-  // Authentication endpoints (strict)
+  // Authentication endpoints (stricter)
   auth: {
     windowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutter
-    max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '5'),
+    max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '3'), // Reduced from 5 to 3
     skipSuccessfulRequests: true,
+    blockDuration: 3600000, // 1 hour block after max attempts
   },
   
   // Data modification endpoints
