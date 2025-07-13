@@ -223,6 +223,10 @@ model Bedrift {
   
   // Service management relations
   bedriftServices      BedriftService[]
+  
+  // Annonsør/sponsor relations
+  annonsorSponsorer    AnnonsorSponsor[]
+  annonseTargeting     AnnonseTargeting[] @relation("AnnonseTargetingSkole")
 
   @@index([navn])
   @@index([opprettet])
@@ -317,6 +321,9 @@ model Ansatt {
   reviewedSecurityEvents           SecurityEvent[]      @relation("SecurityEventReviewer")
   performanceMetrics               PerformanceMetrics[] @relation("UserPerformanceMetrics")
   learningPatterns                 LearningPattern[]    @relation("UserLearningPatterns")
+  
+  // Annonsør/sponsor relations
+  godkjentAnnonsorSponsorer        AnnonsorSponsor[]    @relation("AnnonsorGodkjentAv")
 
   @@index([bedriftId, rolle])
   @@index([epost])
@@ -791,6 +798,9 @@ model Elev {
   
   // New relations for additional pages
   kalenderEvents KalenderEvent[]
+  
+  // Annonsør/sponsor relations
+  annonseInteraksjoner AnnonseInteraksjon[]
 
   @@index([bedriftId])
   @@index([epost])
@@ -2220,4 +2230,194 @@ model Intervention {
   @@index([status])
   @@index([priority])
   @@index([createdAt])
+}
+
+// Geografisk targeting for annonsører
+model GeografiskEnhet {
+  id           Int                 @id @default(autoincrement())
+  type         GeografiskType      // LAND, FYLKE, KOMMUNE, BYDEL, SKOLE
+  navn         String
+  kode         String?             // Fylkesnummer, kommunenummer, etc.
+  parentId     Int?
+  parent       GeografiskEnhet?    @relation("GeografiskHierarki", fields: [parentId], references: [id])
+  children     GeografiskEnhet[]   @relation("GeografiskHierarki")
+  
+  // Annonsør/sponsor targeting
+  annonseTargeting AnnonseTargeting[]
+  
+  opprettet    DateTime            @default(now())
+  oppdatert    DateTime            @default(now()) @updatedAt
+  
+  @@unique([type, kode])
+  @@index([type, navn])
+}
+
+// Annonsør/Sponsor
+model AnnonsorSponsor {
+  id                Int                      @id @default(autoincrement())
+  bedriftId         Int
+  navn              String
+  type              AnnonsorType             // ANNONSOR, SPONSOR
+  kontaktperson     String?
+  telefon           String?
+  epost             String?
+  nettside          String?
+  
+  // Status og periode
+  aktiv             Boolean                  @default(true)
+  startDato         DateTime
+  sluttDato         DateTime?
+  
+  // Approval workflow
+  status            AnnonsorStatus           @default(PENDING)
+  godkjentAv        Int?
+  godkjentDato      DateTime?
+  avvistGrunn       String?
+  
+  // Budsjettering
+  budsjett          Float?
+  kostnadPerVisning Float?
+  kostnadPerKlikk   Float?
+  
+  bedrift           Bedrift                  @relation(fields: [bedriftId], references: [id])
+  godkjentAvBruker  Ansatt?                  @relation("AnnonsorGodkjentAv", fields: [godkjentAv], references: [id])
+  annonser          Annonse[]
+  
+  opprettet         DateTime                 @default(now())
+  oppdatert         DateTime                 @default(now()) @updatedAt
+  deletedAt         DateTime?
+  deletedBy         Int?
+  isDeleted         Boolean                  @default(false)
+  
+  @@index([bedriftId])
+  @@index([aktiv, status])
+  @@index([startDato, sluttDato])
+  @@index([isDeleted])
+}
+
+// Annonse
+model Annonse {
+  id                Int                      @id @default(autoincrement())
+  annonsorId        Int
+  tittel            String
+  innledning        String                   // Kort beskrivelse
+  fullInnhold       String                   // Rich text content
+  bildeUrl          String?
+  videoUrl          String?
+  
+  // Call-to-action
+  ctaText           String?
+  ctaUrl            String?
+  ctaTelefon        String?
+  ctaEpost          String?
+  ctaVeibeskrivelse String?
+  
+  // Innstillinger
+  aktiv             Boolean                  @default(true)
+  prioritet         Int                      @default(1)
+  maxVisninger      Int?
+  maxKlikk          Int?
+  
+  // Scheduling
+  startDato         DateTime
+  sluttDato         DateTime?
+  
+  annonsor          AnnonsorSponsor          @relation(fields: [annonsorId], references: [id])
+  targeting         AnnonseTargeting[]
+  statistikk        AnnonseStatistikk[]
+  interaksjoner     AnnonseInteraksjon[]
+  
+  opprettet         DateTime                 @default(now())
+  oppdatert         DateTime                 @default(now()) @updatedAt
+  deletedAt         DateTime?
+  isDeleted         Boolean                  @default(false)
+  
+  @@index([annonsorId])
+  @@index([aktiv, startDato, sluttDato])
+  @@index([prioritet])
+  @@index([isDeleted])
+}
+
+// Geografisk targeting for annonser
+model AnnonseTargeting {
+  id                Int                      @id @default(autoincrement())
+  annonseId         Int
+  geografiskId      Int?                     // Null = hele landet
+  spesifikkeSkoleId Int?                     // Targeting av spesifikke skoler
+  
+  annonse           Annonse                  @relation(fields: [annonseId], references: [id])
+  geografisk        GeografiskEnhet?         @relation(fields: [geografiskId], references: [id])
+  skole             Bedrift?                 @relation("AnnonseTargetingSkole", fields: [spesifikkeSkoleId], references: [id])
+  
+  @@unique([annonseId, geografiskId, spesifikkeSkoleId])
+}
+
+// Statistikk
+model AnnonseStatistikk {
+  id                Int                      @id @default(autoincrement())
+  annonseId         Int
+  dato              DateTime                 @default(now())
+  antallVisninger   Int                      @default(0)
+  antallKlikk       Int                      @default(0)
+  antallTelefonKlikk Int                     @default(0)
+  antallEpostKlikk  Int                      @default(0)
+  antallVeiKlikk    Int                      @default(0)
+  
+  annonse           Annonse                  @relation(fields: [annonseId], references: [id])
+  
+  @@unique([annonseId, dato])
+  @@index([annonseId])
+  @@index([dato])
+}
+
+// Detaljerte interaksjoner for analyse
+model AnnonseInteraksjon {
+  id                Int                      @id @default(autoincrement())
+  annonseId         Int
+  elevId            Int?
+  interaksjonsType  InteraksjonsType         // VISNING, KLIKK, TELEFON, EPOST, VEIBESKRIVELSE
+  tidspunkt         DateTime                 @default(now())
+  
+  // Metadata
+  ipAdresse         String?
+  userAgent         String?
+  referrer          String?
+  
+  annonse           Annonse                  @relation(fields: [annonseId], references: [id])
+  elev              Elev?                    @relation(fields: [elevId], references: [id])
+  
+  @@index([annonseId])
+  @@index([elevId])
+  @@index([tidspunkt])
+  @@index([interaksjonsType])
+}
+
+// Enums for annonsesystemet
+enum GeografiskType {
+  LAND
+  FYLKE
+  KOMMUNE
+  BYDEL
+  SKOLE
+}
+
+enum AnnonsorType {
+  ANNONSOR
+  SPONSOR
+}
+
+enum AnnonsorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum InteraksjonsType {
+  VISNING
+  KLIKK
+  TELEFON
+  EPOST
+  VEIBESKRIVELSE
+  EKSPANDERT
 }
