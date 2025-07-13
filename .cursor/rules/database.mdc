@@ -1,0 +1,11 @@
+Databasen i denne applikasjonen skal ALLTID være PostgreSQL.
+
+- Aldri bruk SQLite i produksjon eller development
+- Alle database-operasjoner skal gå gjennom Prisma ORM
+- Hvis du ser SQLite-konfigurasjon, bytt den til PostgreSQL
+- Opprett alltid tabeller og data i PostgreSQL-databasen først
+- Bruk PostgreSQL-spesifikke features når det er hensiktsmessig
+- Test alle database-operasjoner mot PostgreSQL
+- Når du lager nye features, opprett først tabeller i databasen, deretter implementer funksjonalitet
+- Bruk Database-First tilnærming: opprett i database, migrer med Prisma, så implementer kode
+- Valider alltid at DATABASE_URL peker til PostgreSQL, ikke SQLite

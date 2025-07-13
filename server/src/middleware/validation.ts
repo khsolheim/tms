@@ -1,17 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { ValidationError } from '../utils/errors';
+import logger from '../utils/logger';
 
 // Type for validation middleware
 export const validate = (schema: z.ZodTypeAny) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('DEBUGGING VALIDATION - Input:', {
-        body: req.body,
-        query: req.query,
-        params: req.params,
-        url: req.url
-      });
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        logger.debug('Validation input', {
+          body: req.body,
+          query: req.query,
+          params: req.params,
+          url: req.url
+        });
+      }
       
       // Valider request data
       const validatedData = await schema.parseAsync({
@@ -20,7 +24,9 @@ export const validate = (schema: z.ZodTypeAny) => {
         params: req.params,
       });
       
-      console.log('DEBUGGING VALIDATION - Success:', validatedData);
+      if (process.env.NODE_ENV === 'development') {
+        logger.debug('Validation success', validatedData);
+      }
 
       // Oppdater req objektet med validerte data
       req.body = validatedData.body || req.body;
@@ -29,10 +35,14 @@ export const validate = (schema: z.ZodTypeAny) => {
 
       next();
     } catch (error) {
-      console.log('DEBUGGING VALIDATION - Error:', error);
-      
       if (error instanceof ZodError) {
-        console.log('DEBUGGING VALIDATION - Zod Errors:', error.errors);
+        logger.warn('Validation error', {
+          url: req.url,
+          method: req.method,
+          errors: error.errors,
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
         
         // Format Zod errors til lesbar format
         const formattedErrors: Record<string, string[]> = {};
@@ -45,17 +55,25 @@ export const validate = (schema: z.ZodTypeAny) => {
           formattedErrors[path].push(err.message);
         });
 
-        console.log('DEBUGGING VALIDATION - Formatted Errors:', formattedErrors);
-
-        // Send 400 response directly instead of throwing
-        return res.status(400).json({
-          error: 'Valideringsfeil i forespørselen',
-          details: formattedErrors
+        // Create ValidationError and pass to error handler
+        const validationError = new ValidationError(
+          'Valideringsfeil i forespørselen',
+          formattedErrors
+        );
+        
+        next(validationError);
+      } else {
+        // Log unexpected errors
+        logger.error('Unexpected validation error', {
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          url: req.url,
+          method: req.method
         });
+        
+        // Pass the error to the error handler
+        next(error);
       }
-      
-      // Hvis det ikke er en Zod error, pass den videre
-      next(error);
     }
   };
 };
