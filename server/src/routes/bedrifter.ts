@@ -217,8 +217,7 @@ router.get("/by-name/:navn",
   const bedrift = await prisma.bedrift.findFirst({
     where: {
       navn: {
-        equals: bedriftNavn,
-        mode: 'insensitive'
+        equals: bedriftNavn
       },
       isDeleted: false
     },

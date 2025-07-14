@@ -11,28 +11,22 @@
   },
   "workspaces": [
     "client",
-    "server",
-    "admin",
-    "mobile"
+    "server"
   ],
   "scripts": {
-    "install:all": "npm install && npm run install:client && npm run install:server && npm run install:admin && npm run install:mobile",
+    "install:all": "npm install && npm run install:client && npm run install:server",
     "install:client": "cd client && npm install",
     "install:server": "cd server && npm install",
-    "install:admin": "cd admin && npm install",
-    "install:mobile": "cd mobile && npm install",
     
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:admin\"",
-    "dev:client": "cd client && npm run start",
+    "start": "./scripts/start.sh",
+    "stop": "./scripts/stop.sh",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "cd client && npm start",
     "dev:server": "cd server && npm run dev",
-    "dev:admin": "cd admin && npm run start",
-    "dev:mobile": "cd mobile && npm run start",
     
-    "build": "npm run build:client && npm run build:server && npm run build:admin",
+    "build": "npm run build:client && npm run build:server",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
-    "build:admin": "cd admin && npm run build",
-    "build:mobile": "cd mobile && npm run build",
     
     "test": "npm run test:client && npm run test:server",
     "test:client": "cd client && npm run test",
@@ -48,10 +42,9 @@
     "type-check:client": "cd client && npx tsc --noEmit",
     "type-check:server": "cd server && npx tsc --noEmit",
     
-    "clean": "npm run clean:client && npm run clean:server && npm run clean:admin",
+    "clean": "npm run clean:client && npm run clean:server",
     "clean:client": "cd client && rm -rf build node_modules",
     "clean:server": "cd server && rm -rf dist node_modules",
-    "clean:admin": "cd admin && rm -rf build node_modules",
     
     "security:audit": "npm audit --audit-level moderate",
     "security:fix": "npm audit fix",

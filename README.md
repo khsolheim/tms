@@ -31,7 +31,7 @@ TMS er et komplett system for håndtering av sikkerhetskontroll, bedriftsstyring
 │  ┌─────────────────┐    ┌─────────────────────────────┐ │
 │  │   Frontend      │    │        Backend API          │ │
 │  │   (React)       │◄──►│       (Node.js)             │ │
-│  │   Port: 3000    │    │       Port: 3000            │ │
+│  │   Port: 3000    │    │       Port: 4000            │ │
 │  └─────────────────┘    └─────────────────────────────┘ │
 │                                      │                  │
 │                         ┌─────────────────────────────┐ │
@@ -48,7 +48,7 @@ TMS er et komplett system for håndtering av sikkerhetskontroll, bedriftsstyring
 
 - **Node.js** 18+ 
 - **npm** 8+
-- **PostgreSQL** 14+
+- **PostgreSQL** 14+ (kjørende på port 5432)
 
 ### 1. Klon Repository
 
@@ -66,15 +66,7 @@ npm run install:all
 
 ### 3. Database Oppsett
 
-```bash
-# Opprett database
-createdb tms_development
-
-# Kjør migrasjoner
-cd server
-npm run prisma:migrate
-npm run prisma:seed
-```
+Sørg for at PostgreSQL kjører på port 5432. Database-migrasjoner kjøres automatisk ved oppstart.
 
 ### 4. Miljøvariabler
 
@@ -82,26 +74,39 @@ npm run prisma:seed
 # Kopier environment template
 cp server/.env.example server/.env
 
-# Rediger miljøvariabler
+# Rediger miljøvariabler (DATABASE_URL til din PostgreSQL)
 nano server/.env
 ```
 
 ### 5. Start Applikasjonen
 
 ```bash
-# Start hele systemet
+# Enkel oppstart (anbefalt)
+npm start
+
+# Eller start hele systemet for utvikling
 npm run dev
 
 # Eller start individuelt:
-npm run dev:server  # Backend på port 3000
-npm run dev:client  # Frontend på port 3001
+npm run dev:server  # Backend på port 4000
+npm run dev:client  # Frontend på port 3000
 ```
 
 ### 6. Tilgang til Systemet
 
-- **TMS Applikasjon**: http://localhost:3001
-- **API Dokumentasjon**: http://localhost:3000/api-docs
-- **Admin Portal**: http://localhost:3001/admin
+- **TMS Applikasjon**: http://localhost:3000
+- **API Dokumentasjon**: http://localhost:4000/api-docs
+
+## 🆕 NYHET: Docker-fri Arkitektur!
+
+🎉 **TMS har blitt forenklet!** Docker og mikroservices er fjernet for en enklere, raskere utviklingsopplevelse.
+
+- ⚡ **10x raskere oppstart** - Fra 2-3 minutter til 10 sekunder
+- 🔧 **Enklere vedlikehold** - En Node.js server i stedet for 29 mikroservices  
+- 💾 **Mindre ressursbruk** - Ingen Docker overhead
+- 📱 **SQLite for utvikling** - Ingen database-server nødvendig
+
+Se `DOCKER_MICROSERVICE_REMOVAL_REPORT.md` for fullstendige detaljer.
 
 ## 📚 Systemmoduleer
 

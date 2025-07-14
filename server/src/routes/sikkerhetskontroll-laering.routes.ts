@@ -1063,8 +1063,7 @@ async function sjekkOgTildelAchievements(elevId: number, kategoriId: number, sco
       where: {
         type: 'FERDIGHET',
         navn: {
-          contains: kategori.navn,
-          mode: 'insensitive'
+          contains: kategori.navn
         }
       }
     });
@@ -1100,8 +1099,7 @@ async function sjekkKlasseMestringAchievement(elevId: number, klasseId: number) 
       where: {
         type: 'FERDIGHET',
         navn: {
-          contains: 'Fullført',
-          mode: 'insensitive'
+          contains: 'Fullført'
         }
       }
     });
