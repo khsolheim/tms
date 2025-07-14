@@ -30,18 +30,14 @@ log_error() {
 }
 
 # Sjekk om Docker er installert og kjører
-check_docker() {
-    log_info "Sjekker Docker..."
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker er ikke installert. Vennligst installer Docker først."
+check_postgresql() {
+    log_info "Sjekker PostgreSQL..."
+    if ! command -v pg_isready &> /dev/null; then
+        log_error "PostgreSQL klient er ikke installert."
+        log_info "Installer postgresql-client eller postgresql"
         exit 1
     fi
-    
-    if ! docker info &> /dev/null; then
-        log_error "Docker kjører ikke. Vennligst start Docker først."
-        exit 1
-    fi
-    log_success "Docker er tilgjengelig"
+    log_success "PostgreSQL klient er tilgjengelig"
 }
 
 # Sjekk Node.js versjon
@@ -73,28 +69,18 @@ install_dependencies() {
     log_success "Alle avhengigheter er installert"
 }
 
-# Start databaser
-start_databases() {
-    log_info "Starter databaser med Docker Compose..."
+# Sjekk database-tilkobling
+check_database() {
+    log_info "Sjekker PostgreSQL database på port 5432..."
     
-    # Stopp eksisterende containere hvis de kjører
-    docker-compose down 2>/dev/null || true
+    # Sjekk om PostgreSQL kjører på port 5432
+    if ! pg_isready -p 5432 > /dev/null 2>&1; then
+        log_error "PostgreSQL er ikke tilgjengelig på port 5432"
+        log_error "Sørg for at PostgreSQL kjører på serveren på port 5432"
+        exit 1
+    fi
     
-    # Start databaser
-    docker-compose up -d
-    
-    # Vent på at databasene er klare
-    log_info "Venter på at PostgreSQL er klar..."
-    until docker-compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1; do
-        sleep 2
-    done
-    
-    log_info "Venter på at Redis er klar..."
-    until docker-compose exec -T redis redis-cli ping > /dev/null 2>&1; do
-        sleep 2
-    done
-    
-    log_success "Databaser er startet og klare"
+    log_success "PostgreSQL database er tilgjengelig"
 }
 
 # Generer Prisma klient og kjør migrasjoner
@@ -171,15 +157,15 @@ main() {
     echo ""
     
     # Sjekk forutsetninger
-    check_docker
+    check_postgresql
     check_node
     check_ports
     
     # Installer avhengigheter
     install_dependencies
     
-    # Start databaser
-    start_databases
+    # Sjekk database
+    check_database
     
     # Sett opp database
     setup_database
