@@ -4,7 +4,8 @@
 [![Node.js](https://img.shields.io/badge/node.js-18%2B-brightgreen.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/react-18%2B-61dafb.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5%2B-blue.svg)](https://typescriptlang.org/)
-[![API Documentation](https://img.shields.io/badge/API-documented-orange.svg)](http://localhost:3000/api-docs)
+[![PostgreSQL](https://img.shields.io/badge/postgresql-15%2B-blue.svg)](https://postgresql.org/)
+[![API Documentation](https://img.shields.io/badge/API-documented-orange.svg)](http://localhost:4000/api-docs)
 
 Omfattende treningssystem for sikkerhetskontroll bygget med moderne web-teknologier for norske transportbedrifter.
 
@@ -14,23 +15,24 @@ TMS er et komplett system for håndtering av sikkerhetskontroll, bedriftsstyring
 
 ### ✨ Hovedfunksjoner
 
-- 🎓 **Interaktiv Opplæring**: Sikkerhetskontroll-treningssystem
+- 🎓 **Interaktiv Opplæring**: Sikkerhetskontroll-treningssystem med adaptiv læring
 - 🏢 **Bedriftshåndtering**: Komplett bedrifts- og brukerstyring
 - 🛡️ **Sikkerhetskontroll**: Digitale inspeksjoner og compliance-tracking
-- 👥 **Brukeradministrasjon**: Integrert admin-portal
+- 👥 **Admin Portal**: Integrert administratorpanel med real-time dashboard
 - 📊 **Rapportering**: Detaljert progresjon og statistikk
-- 🔐 **Sikkerhet**: Rolle-basert tilgangskontroll
+- 🔐 **Sikkerhet**: Rolle-basert tilgangskontroll og 2FA-støtte
 - 📱 **Responsiv Design**: Optimalisert for alle enheter
+- 🎮 **Gamification**: XP-system, achievements og leaderboards
 
 ## 🏗️ Arkitektur
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   TMS Applikasjon                       │
+│                   TMS System                            │
 │                                                         │
 │  ┌─────────────────┐    ┌─────────────────────────────┐ │
 │  │   Frontend      │    │        Backend API          │ │
-│  │   (React)       │◄──►│       (Node.js)             │ │
+│  │   (React)       │◄──►│       (Node.js/Express)     │ │
 │  │   Port: 3000    │    │       Port: 4000            │ │
 │  └─────────────────┘    └─────────────────────────────┘ │
 │                                      │                  │
@@ -42,13 +44,19 @@ TMS er et komplett system for håndtering av sikkerhetskontroll, bedriftsstyring
 └─────────────────────────────────────────────────────────┘
 ```
 
+**Enkelt og effektivt:**
+- **En enkelt backend server** med all business logic
+- **PostgreSQL database** kjørende lokalt
+- **React frontend** med modern UI/UX
+- **Ingen Docker-avhengigheter** - kjører direkte på systemet
+
 ## 🚀 Rask Start
 
 ### Forutsetninger
 
 - **Node.js** 18+ 
 - **npm** 8+
-- **PostgreSQL** 14+ (kjørende på port 5432)
+- **PostgreSQL** 15+ (kjørende på port 5432)
 
 ### 1. Klon Repository
 
@@ -57,82 +65,77 @@ git clone https://github.com/your-org/tms.git
 cd tms
 ```
 
-### 2. Installer Dependencies
+### 2. Sett opp Database
+
+```bash
+# Automatisk database setup (anbefalt)
+./scripts/setup-local-db.sh
+```
+
+Eller manuelt:
+```bash
+# Opprett database
+createdb tms_db
+
+# Sett opp .env fil
+cp server/.env.example server/.env
+# Rediger DATABASE_URL og andre miljøvariabler
+```
+
+### 3. Installer Avhengigheter
 
 ```bash
 # Installer alle dependencies
 npm run install:all
 ```
 
-### 3. Database Oppsett
-
-Sørg for at PostgreSQL kjører på port 5432. Database-migrasjoner kjøres automatisk ved oppstart.
-
-### 4. Miljøvariabler
+### 4. Start Systemet
 
 ```bash
-# Kopier environment template
-cp server/.env.example server/.env
-
-# Rediger miljøvariabler (DATABASE_URL til din PostgreSQL)
-nano server/.env
-```
-
-### 5. Start Applikasjonen
-
-```bash
-# Enkel oppstart (anbefalt)
+# Start hele systemet (backend + frontend)
 npm start
 
-# Eller start hele systemet for utvikling
-npm run dev
-
-# Eller start individuelt:
-npm run dev:server  # Backend på port 4000
-npm run dev:client  # Frontend på port 3000
+# Eller bruk utviklerscripts
+./scripts/start.sh
 ```
 
-### 6. Tilgang til Systemet
+### 5. Tilgang til Systemet
 
 - **TMS Applikasjon**: http://localhost:3000
-- **API Dokumentasjon**: http://localhost:4000/api-docs
+- **Backend API**: http://localhost:4000
+- **Admin Login**: admin@test.no / admin123
 
-## 🆕 NYHET: Docker-fri Arkitektur!
-
-🎉 **TMS har blitt forenklet!** Docker og mikroservices er fjernet for en enklere, raskere utviklingsopplevelse.
-
-- ⚡ **10x raskere oppstart** - Fra 2-3 minutter til 10 sekunder
-- 🔧 **Enklere vedlikehold** - En Node.js server i stedet for 29 mikroservices  
-- 💾 **Mindre ressursbruk** - Ingen Docker overhead
-- 📱 **SQLite for utvikling** - Ingen database-server nødvendig
-
-Se `DOCKER_MICROSERVICE_REMOVAL_REPORT.md` for fullstendige detaljer.
-
-## 📚 Systemmoduleer
+## 📚 Systemmoduler
 
 ### 🎓 Sikkerhetskontroll Læring
-- Interaktive treningsmoduler
-- Progresjonssporing
-- Sertifisering og badges
-- Mester-test funksjonalitet
+- Interaktive treningsmoduler med "Bygg Bilen"-metafor
+- Progresjonssporing og adaptiv vanskelighetsgrad
+- XP-system med achievements og leaderboards
+- Quiz-system med moderne teknologi
 
 ### 🏢 Bedriftshåndtering
-- Bedriftsregistrering og -administrasjon
-- Brukeradministrasjon
+- Bedriftsregistrering med Brønnøysund-integrasjon
+- Ansatt- og elevadministrasjon
 - Rolle- og tilgangsstyring
 - Organisasjonsstruktur
 
 ### 👥 Admin Portal
-- Integrert administratorpanel
-- System-overvåkning
+- Real-time system dashboard
 - Bruker- og bedriftsstyring
-- Sikkerhetskonfigurasjon
+- Sikkerhetskonfiguration og audit logging
+- System performance monitoring
 
-### 📊 Rapportering
+### 📊 Rapportering & Analytics
 - Detaljert progresjonsoversikt
-- Statistikk og analyser
+- Statistikk og analyser med interaktive charts
 - Export-funksjonalitet
 - Compliance-rapporter
+
+### 💰 Annonsør/Sponsor System
+- Geografisk targeting av annonser
+- Sponsor-management for elever
+- Analytics og click-through tracking
+- Revenue generation system
 
 ## 🔧 Utvikling
 
@@ -147,25 +150,31 @@ tms/
 │   │   ├── services/      # API-tjenester
 │   │   └── contexts/      # React contexts
 │   └── public/
-├── server/                 # Node.js backend
+├── server/                 # Node.js backend (integrert admin)
 │   ├── src/
-│   │   ├── routes/        # API routes
-│   │   ├── controllers/   # Route controllers
-│   │   ├── models/        # Database models
+│   │   ├── routes/        # API routes (inkl. admin)
 │   │   ├── middleware/    # Express middleware
-│   │   └── services/      # Business logic
-│   └── prisma/            # Database schema
-├── shared/                 # Delte types og utilities
-└── scripts/               # Deployment og utility scripts
+│   │   ├── services/      # Business logic
+│   │   └── config/        # Konfigurasjon
+│   └── prisma/            # Database schema og migrasjoner
+├── mobile/                 # React Native app
+├── scripts/               # Setup og deployment scripts
+└── docs/                  # Dokumentasjon
 ```
 
 ### Tilgjengelige Scripts
 
 ```bash
 # Utvikling
-npm run dev                 # Start alle tjenester
+npm start                  # Start hele systemet
+npm run dev                # Start i utviklermodus
 npm run dev:client         # Start kun frontend
 npm run dev:server         # Start kun backend
+
+# Database
+./scripts/setup-local-db.sh # Sett opp lokal database
+npm run db:migrate         # Kjør migrasjoner
+npm run db:seed           # Seed database
 
 # Bygging
 npm run build              # Bygg alle moduler
@@ -180,103 +189,85 @@ npm run test:e2e          # End-to-end testing
 
 # Code Quality
 npm run lint              # Lint kodebase
-npm run lint:fix          # Fiks linting-problemer
-npm run type-check        # TypeScript type checking
+npm run lint:fix          # Fix linting issues
+npm run type-check        # TypeScript sjekk
+
+# Vedlikehold
+npm run clean             # Rens build-filer
+npm run security:audit    # Sikkerhetsjekk
 ```
 
-### Database Administrasjon
+## �️ Konfigurasjon
+
+### Database Konfigurasjon
+
+Standard database URL: `postgresql://postgres:postgres@localhost:5432/tms_db`
+
+Juster `DATABASE_URL` i `server/.env` for ditt oppsett.
+
+### Miljøvariabler
+
+Kopier `server/.env.example` til `server/.env` og juster verdier:
 
 ```bash
-# Prisma commands
-cd server
-npx prisma studio          # Database GUI
-npx prisma migrate dev     # Opprett ny migrasjon
-npx prisma generate        # Generer Prisma klient
-npx prisma seed           # Seed database
+# Database
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/tms_db"
+
+# Sikkerhet
+JWT_SECRET="your-secret-key"
+BCRYPT_ROUNDS=12
+
+# Server
+PORT=4000
+NODE_ENV=development
 ```
 
-## 🛡️ Sikkerhet
+### Admin Bruker
 
-### Sikkerhetsfunksjoner
+Standard admin-bruker opprettes automatisk:
+- **E-post**: admin@test.no
+- **Passord**: admin123
 
-- **Autentisering**: JWT-basert autentisering
-- **Autorisasjon**: Rolle-basert tilgangskontroll
-- **Input Validering**: Omfattende validering av alle inputs
-- **Rate Limiting**: Beskytte mot misbruk
-- **SQL Injection Prevention**: Parameteriserte queries
-- **XSS Protection**: Content Security Policy
+## 🔒 Sikkerhet
 
-### Roller og Tilganger
+- **JWT Authentication** med refresh tokens
+- **Bcrypt password hashing** (12 rounds)
+- **Rolle-basert tilgangskontroll** (RBAC)
+- **SQL injection beskyttelse** via Prisma ORM
+- **Rate limiting** på API-endepunkter
+- **Input validering** med Zod
+- **CORS-konfigurasjon** for sikre cross-origin requests
 
-| Rolle | Beskrivelse | Tilganger |
-|-------|-------------|-----------|
-| **ADMIN** | Systemadministrator | Full systemtilgang |
-| **HOVEDBRUKER** | Bedriftsleder | Bedriftsstyring, rapporter |
-| **BRUKER** | Standard bruker | Treningsmoduler, egen profil |
-| **ELEV** | Lærling/trainee | Begrenset tilgang til treningssystem |
+## 📈 Performance
 
-## 🧪 Testing
+- **Database indexing** for optimale spørringer
+- **Connection pooling** for database-tilkoblinger
+- **Lazy loading** av React-komponenter
+- **Query optimization** med Prisma
+- **Caching** via in-memory eller Redis
+- **Bundle optimization** for frontend
 
-### Testtyper
+## � Deployment
 
-```bash
-# Unit testing
-npm run test:unit
-
-# Integration testing  
-npm run test:integration
-
-# End-to-end testing
-npm run test:e2e
-
-# Performance testing
-npm run test:performance
-```
-
-### Test Coverage
-
-Systemet har omfattende test-dekning:
-- Unit tests for alle komponenter
-- Integration tests for API-endepunkter
-- E2E tests for kritiske brukerflyter
-- Performance tests for responsivitet
-
-## 📈 Deployment
-
-### Lokal Deployment
+Systemet er designet for enkel deployment:
 
 ```bash
-# Produksjonsmodus
+# Produksjonsbygg
 npm run build
-npm start
+
+# Start produksjonsserver
+cd server && npm start
 ```
 
-### Environment Variables
-
-| Variable | Beskrivelse | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment | `development` |
-| `PORT` | Server port | `3000` |
-| `DATABASE_URL` | PostgreSQL connection | - |
-| `JWT_SECRET` | JWT signing key | - |
-| `LOG_LEVEL` | Logging level | `info` |
+For avansert deployment, se `docs/DEPLOYMENT.md`.
 
 ## 🤝 Bidrag
 
-### Utvikling
-
-1. Fork repository
+1. Fork prosjektet
 2. Opprett feature branch (`git checkout -b feature/ny-funksjon`)
-3. Commit endringer (`git commit -m 'Legg til ny funksjon'`)
+3. Commit endringer (`git commit -am 'Legger til ny funksjon'`)
 4. Push til branch (`git push origin feature/ny-funksjon`)
-5. Åpne Pull Request
-
-### Code Standards
-
-- **TypeScript**: Strict mode aktivert
-- **ESLint**: Airbnb configuration
-- **Prettier**: Automatisk code formatting
-- **Husky**: Pre-commit hooks for kvalitetssikring
+5. Opprett Pull Request
 
 ## 📄 Lisens
 
@@ -284,14 +275,11 @@ Dette prosjektet er lisensiert under MIT License - se [LICENSE](LICENSE) filen f
 
 ## 🆘 Support
 
-### Dokumentasjon
-- [API Dokumentasjon](http://localhost:3000/api-docs)
-- [Utviklerdokumentasjon](docs/)
-
-### Kontakt
-- **Issues**: [GitHub Issues](https://github.com/your-org/tms/issues)
-- **Diskusjoner**: [GitHub Discussions](https://github.com/your-org/tms/discussions)
+- **Dokumentasjon**: `/docs` mappen
+- **API Docs**: http://localhost:4000/api-docs
+- **Issues**: GitHub Issues
+- **E-post**: support@tms-system.no
 
 ---
 
-**Bygget med ❤️ for norske transportbedrifter** 🇳🇴 
+Bygget med ❤️ av TMS Team 
