@@ -1,0 +1,55 @@
+name: Deploy til VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: 91.108.121.251
+      VPS_USER: root
+      VPS_PATH: /root/tms
+      REPO_URL: git@github.com:khsolheim/tms.git
+    steps:
+      - name: Sjekk ut kode
+        uses: actions/checkout@v4
+
+      - name: Sett opp Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Legg til SSH-nøkkel
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Kopier kode til VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST '
+            if [ ! -d "$VPS_PATH" ]; then
+              git clone $REPO_URL $VPS_PATH
+            else
+              cd $VPS_PATH && git fetch origin && git reset --hard origin/main
+            fi
+          '
+
+      - name: Installer avhengigheter og bygg på VPS
+        run: |
+          ssh $VPS_USER@$VPS_HOST '
+            cd $VPS_PATH/client && npm install && npm run build
+            cd $VPS_PATH/server && npm install && npm run build
+          '
+
+      - name: Restart pm2 prosesser
+        run: |
+          ssh $VPS_USER@$VPS_HOST '
+            cd $VPS_PATH/server && pm2 delete tms-backend || true
+            cd $VPS_PATH/client && pm2 delete tms-frontend || true
+            cd $VPS_PATH/server && pm2 start dist/index.js --name tms-backend
+            cd $VPS_PATH/client && pm2 start node_modules/.bin/serve --name tms-frontend -- -s build -l 3000
+            pm2 save
+          ' 
