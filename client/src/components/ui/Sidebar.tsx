@@ -18,7 +18,9 @@ import {
   SpeakerWaveIcon,
   QuestionMarkCircleIcon,
   ChevronDownIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  MegaphoneIcon,
+  GiftIcon
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeSolidIcon,
@@ -29,7 +31,9 @@ import {
   TruckIcon as TruckSolidIcon,
   CalendarDaysIcon as CalendarDaysSolidIcon,
   SpeakerWaveIcon as SpeakerWaveSolidIcon,
-  QuestionMarkCircleIcon as QuestionMarkCircleSolidIcon
+  QuestionMarkCircleIcon as QuestionMarkCircleSolidIcon,
+  MegaphoneIcon as MegaphoneSolidIcon,
+  GiftIcon as GiftSolidIcon
 } from '@heroicons/react/24/solid';
 import RoleBased from '../auth/RoleBased';
 
@@ -149,6 +153,55 @@ export default function Sidebar() {
               Kalender
             </MenuItem>
           </RoleBased>
+        </MenuGroup>
+
+        {/* Annonsør & Sponsor System */}
+        <MenuGroup title="Annonsør & Sponsor" defaultOpen={true}>
+          <RoleBased roles={['ELEV']}>
+            <MenuItem 
+              to="/fordeler" 
+              icon={GiftIcon} 
+              activeIcon={GiftSolidIcon}
+            >
+              Elevfordeler
+            </MenuItem>
+          </RoleBased>
+
+          <RoleBased roles={['HOVEDBRUKER', 'ADMIN']}>
+            <MenuItem 
+              to="/admin/annonsor" 
+              icon={MegaphoneIcon} 
+              activeIcon={MegaphoneSolidIcon}
+            >
+              Annonsør Admin
+            </MenuItem>
+          </RoleBased>
+
+          <RoleBased roles={['HOVEDBRUKER', 'ADMIN']}>
+            <MenuItem 
+              to="/admin/annonsor/sponsorer" 
+              icon={BuildingOfficeIcon}
+            >
+              Sponsorer
+            </MenuItem>
+          </RoleBased>
+
+          <RoleBased roles={['HOVEDBRUKER', 'ADMIN']}>
+            <MenuItem 
+              to="/admin/annonsor/annonser" 
+              icon={DocumentTextIcon}
+            >
+              Annonser
+            </MenuItem>
+          </RoleBased>
+
+          <RoleBased roles={['HOVEDBRUKER', 'ADMIN']}>
+            <MenuItem 
+              to="/admin/annonsor/statistikk" 
+              icon={ChartBarIcon}
+            >
+              Statistikk
+            </RoleBased>
         </MenuGroup>
 
         {/* Business Moduler */}
@@ -297,6 +350,15 @@ export default function Sidebar() {
               icon={Cog6ToothIcon}
             >
               Admin Portal
+            </MenuItem>
+          </RoleBased>
+
+          <RoleBased roles={['ADMIN']}>
+            <MenuItem 
+              to="/admin/page-access" 
+              icon={Cog6ToothIcon}
+            >
+              Side-tilgang
             </MenuItem>
           </RoleBased>
 
