@@ -98,6 +98,15 @@ const Operasjonell = lazy(() => import('./pages/Rapportering/Operasjonell'));
 const Kundeanalyse = lazy(() => import('./pages/Rapportering/Kundeanalyse'));
 const PersonalAnalyse = lazy(() => import('./pages/Rapportering/PersonalAnalyse'));
 const RapportEksport = lazy(() => import('./pages/Rapportering/Eksport'));
+
+// Annonsør & Sponsor System
+const AnnonsorAdmin = lazy(() => import('./pages/Admin/AnnonsorAdmin'));
+const AnnonsorSponsorer = lazy(() => import('./pages/Admin/AnnonsorSponsorer'));
+const AnnonsorAnnonser = lazy(() => import('./pages/Admin/AnnonsorAnnonser'));
+const AnnonsorStatistikk = lazy(() => import('./pages/Admin/AnnonsorStatistikk'));
+const AnnonsorSponsorForm = lazy(() => import('./pages/Admin/AnnonsorSponsorForm'));
+const PageAccessAdmin = lazy(() => import('./pages/Admin/PageAccessAdmin'));
+const Fordeler = lazy(() => import('./pages/Elever/Fordeler'));
 const OkonomiIndex = lazy(() => import('./pages/Okonomi/Index'));
 const HRIndex = lazy(() => import('./pages/HR/Index'));
 const ProsjektIndex = lazy(() => import('./pages/Prosjekt/Index'));
@@ -357,6 +366,16 @@ export default function App() {
                                     <Route path="/hr" element={<HRIndex />} />
                                     <Route path="/prosjekt" element={<ProsjektIndex />} />
                                     <Route path="/ressursplanlegging" element={<RessursplanleggingIndex />} />
+                                    
+                                    {/* Annonsør & Sponsor System */}
+                                    <Route path="/fordeler" element={<Fordeler />} />
+                                    <Route path="/admin/annonsor" element={<AnnonsorAdmin />} />
+                                    <Route path="/admin/annonsor/sponsorer" element={<AnnonsorSponsorer />} />
+                                    <Route path="/admin/annonsor/sponsorer/ny" element={<AnnonsorSponsorForm />} />
+                                    <Route path="/admin/annonsor/sponsorer/:id/rediger" element={<AnnonsorSponsorForm />} />
+                                    <Route path="/admin/annonsor/annonser" element={<AnnonsorAnnonser />} />
+                                    <Route path="/admin/annonsor/statistikk" element={<AnnonsorStatistikk />} />
+                                    <Route path="/admin/page-access" element={<PageAccessAdmin />} />
                                     
                                     {/* Service administration sider */}
                                     <Route path="/innstillinger/system/analytics" element={<AnalyticsAdmin />} />

@@ -8,21 +8,19 @@ import {
   TrashIcon,
   CheckIcon,
   XMarkIcon,
-  ChartBarIcon,
   BuildingOfficeIcon,
-  DocumentTextIcon,
-  MegaphoneIcon,
-  GiftIcon
+  GiftIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 
-interface AnnonsorSponsor {
+interface Sponsor {
   id: number;
   navn: string;
   bedriftId: number;
   bedrift: {
     navn: string;
   };
-  type: 'ANNONSOR' | 'SPONSOR';
+  type: 'SPONSOR';
   kontaktperson: string | null;
   telefon: string | null;
   epost: string | null;
@@ -46,10 +44,9 @@ interface AnnonsorSponsor {
   }>;
 }
 
-export default function AnnonsorAdmin() {
-  const [sponsorer, setSponsorer] = useState<AnnonsorSponsor[]>([]);
+export default function AnnonsorSponsorer() {
+  const [sponsorer, setSponsorer] = useState<Sponsor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'ALLE' | 'SPONSOR' | 'ANNONSOR'>('ALLE');
   const [statusFilter, setStatusFilter] = useState<'ALLE' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'>('ALLE');
 
   useEffect(() => {
@@ -59,7 +56,7 @@ export default function AnnonsorAdmin() {
   const fetchSponsorer = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/annonsor/sponsorer', {
+      const response = await fetch('/api/annonsor/sponsorer?type=SPONSOR', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -72,8 +69,8 @@ export default function AnnonsorAdmin() {
       const data = await response.json();
       setSponsorer(data);
     } catch (error) {
-      console.error('Feil ved henting av annonsører:', error);
-      toast.error('Kunne ikke hente annonsører/sponsorer');
+      console.error('Feil ved henting av sponsorer:', error);
+      toast.error('Kunne ikke hente sponsorer');
     } finally {
       setLoading(false);
     }
@@ -94,8 +91,8 @@ export default function AnnonsorAdmin() {
         throw new Error('Kunne ikke oppdatere status');
       }
 
-      toast.success(`Annonsør/sponsor ${action === 'godkjenn' ? 'godkjent' : 'avvist'}`);
-      fetchSponsorer(); // Refresh data
+      toast.success(`Sponsor ${action === 'godkjenn' ? 'godkjent' : 'avvist'}`);
+      fetchSponsorer();
     } catch (error) {
       console.error('Feil ved statusoppdatering:', error);
       toast.error('Kunne ikke oppdatere status');
@@ -103,7 +100,7 @@ export default function AnnonsorAdmin() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Er du sikker på at du vil slette denne annonsøren/sponsoren?')) {
+    if (!confirm('Er du sikker på at du vil slette denne sponsoren?')) {
       return;
     }
 
@@ -119,11 +116,11 @@ export default function AnnonsorAdmin() {
         throw new Error('Kunne ikke slette');
       }
 
-      toast.success('Annonsør/sponsor slettet');
-      fetchSponsorer(); // Refresh data
+      toast.success('Sponsor slettet');
+      fetchSponsorer();
     } catch (error) {
       console.error('Feil ved sletting:', error);
-      toast.error('Kunne ikke slette annonsør/sponsor');
+      toast.error('Kunne ikke slette sponsor');
     }
   };
 
@@ -151,24 +148,16 @@ export default function AnnonsorAdmin() {
     }
   };
 
-  const getTypeColor = (type: string) => {
-    return type === 'SPONSOR' 
-      ? 'bg-purple-100 text-purple-800 border-purple-200' 
-      : 'bg-blue-100 text-blue-800 border-blue-200';
-  };
-
   const filteredSponsorer = sponsorer.filter(sponsor => {
-    const typeMatch = filter === 'ALLE' || sponsor.type === filter;
-    const statusMatch = statusFilter === 'ALLE' || sponsor.status === statusFilter;
-    return typeMatch && statusMatch;
+    return statusFilter === 'ALLE' || sponsor.status === statusFilter;
   });
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Laster annonsører og sponsorer...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="text-gray-600 mt-4">Laster sponsorer...</p>
         </div>
       </div>
     );
@@ -179,26 +168,23 @@ export default function AnnonsorAdmin() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Annonsør & Sponsor Administrasjon</h1>
-          <p className="text-lg text-gray-600">Administrer annonsører, sponsorer og deres tilbud</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Sponsor Administrasjon</h1>
+              <p className="text-lg text-gray-600">Administrer sponsorer og deres tilbud til elever</p>
+            </div>
+            <Link
+              to="/admin/annonsor/sponsorer/ny"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Ny Sponsor
+            </Link>
+          </div>
         </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <BuildingOfficeIcon className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Totalt Annonsører</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {sponsorer.filter(s => s.type === 'ANNONSOR').length}
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 rounded-lg">
@@ -206,9 +192,7 @@ export default function AnnonsorAdmin() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Totalt Sponsorer</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {sponsorer.filter(s => s.type === 'SPONSOR').length}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">{sponsorer.length}</p>
               </div>
             </div>
           </div>
@@ -216,12 +200,12 @@ export default function AnnonsorAdmin() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded-lg">
-                <DocumentTextIcon className="h-6 w-6 text-green-600" />
+                <CheckIcon className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Aktive Annonser</p>
+                <p className="text-sm font-medium text-gray-600">Aktive Sponsorer</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {sponsorer.reduce((acc, s) => acc + s.annonser.filter(a => a.aktiv).length, 0)}
+                  {sponsorer.filter(s => s.status === 'APPROVED' && s.aktiv).length}
                 </p>
               </div>
             </div>
@@ -240,47 +224,33 @@ export default function AnnonsorAdmin() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <BuildingOfficeIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Aktive Annonser</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {sponsorer.reduce((acc, s) => acc + s.annonser.filter(a => a.aktiv).length, 0)}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Actions */}
+        {/* Filters */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-lg font-medium text-gray-900">Filtrer Sponsorer</h2>
+              
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  to="/admin/annonsor/ny"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  Ny Annonsør/Sponsor
-                </Link>
-
-                <Link
-                  to="/admin/annonsor/annonser/ny"
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  Ny annonse
-                </Link>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Type Filter */}
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value as any)}
-                  className="block w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="ALLE">Alle typer</option>
-                  <option value="SPONSOR">Sponsorer</option>
-                  <option value="ANNONSOR">Annonsører</option>
-                </select>
-
-                {/* Status Filter */}
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="block w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                 >
                   <option value="ALLE">Alle statuser</option>
                   <option value="PENDING">Venter</option>
@@ -297,9 +267,9 @@ export default function AnnonsorAdmin() {
         <div className="bg-white rounded-lg shadow">
           {filteredSponsorer.length === 0 ? (
             <div className="text-center py-12">
-              <MegaphoneIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Ingen annonsører/sponsorer funnet</h3>
-              <p className="text-gray-500">Prøv å endre filtrene eller opprett en ny annonsør/sponsor.</p>
+              <GiftIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Ingen sponsorer funnet</h3>
+              <p className="text-gray-500">Prøv å endre filtrene eller opprett en ny sponsor.</p>
             </div>
           ) : (
             <div className="overflow-hidden">
@@ -307,10 +277,7 @@ export default function AnnonsorAdmin() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Annonsør/Sponsor
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
+                      Sponsor
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -342,11 +309,6 @@ export default function AnnonsorAdmin() {
                               <div className="text-sm text-gray-500">{sponsor.kontaktperson}</div>
                             )}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getTypeColor(sponsor.type)}`}>
-                            {sponsor.type === 'SPONSOR' ? 'Sponsor' : 'Annonsør'}
-                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(sponsor.status)}`}>
