@@ -270,10 +270,20 @@ async function seedPageAccess() {
               featureKey: feature.key
             }
           },
-          update: feature,
+          update: {
+            featureKey: feature.key,
+            featureName: feature.name,
+            description: feature.description,
+            isIncluded: feature.isIncluded,
+            limitValue: feature.limitValue
+          },
           create: {
             planId: createdPlan.id,
-            ...feature
+            featureKey: feature.key,
+            featureName: feature.name,
+            description: feature.description,
+            isIncluded: feature.isIncluded,
+            limitValue: feature.limitValue
           }
         });
       }
@@ -289,10 +299,10 @@ async function seedPageAccess() {
       for (const pageKey of basicPages) {
         await prisma.bedriftPageAccess.upsert({
           where: {
-            bedrift_id_page_key: {
-              bedriftId: bedrift.id,
-              pageKey
-            }
+                    bedriftId_pageKey: {
+          bedriftId: bedrift.id,
+          pageKey
+        }
           },
           update: { isEnabled: true },
           create: {

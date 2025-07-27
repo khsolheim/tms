@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken, requireRole } from '../middleware/auth.middleware';
+import { verifyToken, sjekkRolle, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 // GET /api/admin/subscription-plans - Hent alle abonnementsplaner
-router.get('/admin/subscription-plans', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.get('/admin/subscription-plans', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const plans = await prisma.subscriptionPlan.findMany({
       where: { isActive: true },
@@ -24,7 +24,7 @@ router.get('/admin/subscription-plans', authenticateToken, requireRole(['ADMIN']
 });
 
 // GET /api/admin/bedrifter/:id/subscription - Hent bedriftens abonnement
-router.get('/admin/bedrifter/:bedriftId/subscription', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.get('/admin/bedrifter/:bedriftId/subscription', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { bedriftId } = req.params;
 
@@ -47,11 +47,11 @@ router.get('/admin/bedrifter/:bedriftId/subscription', authenticateToken, requir
 });
 
 // PUT /api/admin/bedrifter/:id/subscription - Oppdater bedriftens abonnement
-router.put('/admin/bedrifter/:bedriftId/subscription', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.put('/admin/bedrifter/:bedriftId/subscription', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { bedriftId } = req.params;
     const { planId, status, notes } = req.body;
-    const userId = req.user?.id;
+    const userId = req.bruker?.id;
 
     // Sjekk om bedriften eksisterer
     const bedrift = await prisma.bedrift.findUnique({
@@ -116,9 +116,9 @@ router.put('/admin/bedrifter/:bedriftId/subscription', authenticateToken, requir
 });
 
 // GET /api/bedrift/subscription - Hent bedriftens eget abonnement
-router.get('/bedrift/subscription', authenticateToken, async (req, res) => {
+router.get('/bedrift/subscription', verifyToken, async (req: AuthRequest, res) => {
   try {
-    const bedriftId = req.user?.bedriftId;
+    const bedriftId = req.bruker?.bedriftId;
 
     if (!bedriftId) {
       return res.status(403).json({ error: 'Ingen bedrift tilknyttet' });
@@ -143,9 +143,9 @@ router.get('/bedrift/subscription', authenticateToken, async (req, res) => {
 });
 
 // GET /api/bedrift/features - Hent tilgjengelige funksjoner for bedrift
-router.get('/bedrift/features', authenticateToken, async (req, res) => {
+router.get('/bedrift/features', verifyToken, async (req: AuthRequest, res) => {
   try {
-    const bedriftId = req.user?.bedriftId;
+    const bedriftId = req.bruker?.bedriftId;
 
     if (!bedriftId) {
       return res.status(403).json({ error: 'Ingen bedrift tilknyttet' });
@@ -182,7 +182,7 @@ router.get('/bedrift/features', authenticateToken, async (req, res) => {
 });
 
 // GET /api/admin/bedrifter/:id/subscription-history - Hent abonnementshistorikk
-router.get('/admin/bedrifter/:bedriftId/subscription-history', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.get('/admin/bedrifter/:bedriftId/subscription-history', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { bedriftId } = req.params;
     const { page = 1, limit = 50 } = req.query;
@@ -226,7 +226,7 @@ router.get('/admin/bedrifter/:bedriftId/subscription-history', authenticateToken
 });
 
 // POST /api/admin/subscription-plans - Opprett ny abonnementsplan
-router.post('/admin/subscription-plans', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.post('/admin/subscription-plans', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { name, description, priceMonthly, priceYearly, features, maxUsers, maxBedrifter } = req.body;
 
@@ -251,7 +251,7 @@ router.post('/admin/subscription-plans', authenticateToken, requireRole(['ADMIN'
 });
 
 // PUT /api/admin/subscription-plans/:id - Oppdater abonnementsplan
-router.put('/admin/subscription-plans/:id', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.put('/admin/subscription-plans/:id', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { name, description, priceMonthly, priceYearly, features, maxUsers, maxBedrifter, isActive } = req.body;
@@ -278,7 +278,7 @@ router.put('/admin/subscription-plans/:id', authenticateToken, requireRole(['ADM
 });
 
 // POST /api/admin/subscription-plans/:id/features - Legg til funksjon til plan
-router.post('/admin/subscription-plans/:id/features', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.post('/admin/subscription-plans/:id/features', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { featureKey, featureName, description, isIncluded, limitValue } = req.body;

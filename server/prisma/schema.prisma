@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -1239,7 +1239,7 @@ model IntegrationConfiguration {
   lastSyncStatus   String?  // "SUCCESS", "ERROR", "PARTIAL"
   
   // Encrypted configuration data (API keys, tokens, etc.)
-      konfigurasjonsdata String    // Encrypted JSON with provider-specific config
+      konfigurasjonsdata Json    // Encrypted JSON with provider-specific config
   
   // Sync preferences
   syncKunder       Boolean  @default(true)
@@ -1248,7 +1248,7 @@ model IntegrationConfiguration {
   syncKontrakter   Boolean  @default(true)
   
   // Mapping configuration
-      feltMapping      String?    @default("{}") // Field mappings between TMS and external system
+      feltMapping      Json?    @default("{}") // Field mappings between TMS and external system
   
   // Error handling
   maxRetries       Int      @default(3)
@@ -1286,7 +1286,7 @@ model IntegrationLog {
   status          String   // "SUCCESS", "ERROR", "WARNING"
   melding         String?  // Human-readable message
   feildetaljer    String?  // Technical error details
-      metadata        String?    // Additional operation data
+      metadata        Json?    // Additional operation data
   
   // Performance tracking
   starttid        DateTime
@@ -1339,7 +1339,7 @@ model IntegrationSyncJob {
   progressMelding  String?
   
   // Result summary
-      resultatSammendrag String?  // Summary of sync results
+      resultatSammendrag Json?  // Summary of sync results
   feilmelding       String?
   
   // Retry logic
@@ -1373,7 +1373,7 @@ model Tenant {
   slug        String   @unique // URL-friendly identifier
   domain      String?  @unique // Custom domain support
   logo        String?
-      settings    String     @default("{}") // Tenant-specific settings
+      settings    Json     @default("{}") // Tenant-specific settings
   plan        TenantPlan @default(BASIC)
   aktiv       Boolean  @default(true)
   opprettet   DateTime @default(now())
@@ -1776,7 +1776,7 @@ model Oppgave {
   kategori          String     @default("GENERELT")
   tags              String     @default("[]")
   vedlegg           String     @default("[]")
-      kommentarer       String       @default("[]")
+      kommentarer       Json       @default("[]")
   bedriftId         Int
   relatertTabell    String?    // "Elev", "Kontrakt", etc.
   relatertId        Int?
@@ -1815,8 +1815,8 @@ model Prosjekt {
   kategori          String     @default("GENERELT")
   prioritet         String     @default("MEDIUM") // "LAV", "MEDIUM", "HOY"
   progresjon        Int        @default(0) // 0-100%
-      milepaler         String       @default("[]")
-    risikofaktorer    String       @default("[]")
+      milepaler         Json       @default("[]")
+    risikofaktorer    Json       @default("[]")
   bedriftId         Int
   opprettet         DateTime   @default(now())
   oppdatert         DateTime   @default(now()) @updatedAt
@@ -1843,7 +1843,7 @@ model Ressurs {
   type              String     // "LOKALE", "UTSTYR", "KJØRETØY", "PERSONELL"
   beskrivelse       String?
   kapasitet         Int        @default(1)
-      ledigTid          String       @default("{}") // Tilgjengelighet schema
+      ledigTid          Json       @default("{}") // Tilgjengelighet schema
   status            String     @default("TILGJENGELIG") // "TILGJENGELIG", "OPPTATT", "VEDLIKEHOLD", "IKKE_TILGJENGELIG"
   kostnad           Int?       // kostnad per time i øre
   lokasjon          String?
@@ -1985,7 +1985,7 @@ model Service {
   beskrivelse  String
   status       ServiceStatus @default(ACTIVE)
   versjon      String        @default("1.0.0")
-  konfiguration String?        @default("{}")
+  konfiguration Json?        @default("{}")
   opprettet    DateTime      @default(now())
   oppdatert    DateTime      @default(now()) @updatedAt
   
@@ -2006,7 +2006,7 @@ model BedriftService {
   deactivatedAt DateTime?
   activatedBy   Int
   deactivatedBy Int?
-  konfiguration String?    @default("{}")
+  konfiguration Json?    @default("{}")
   opprettet     DateTime @default(now())
   oppdatert     DateTime @default(now()) @updatedAt
   
@@ -2497,8 +2497,8 @@ model SubscriptionPlan {
   id            Int      @id @default(autoincrement())
   name          String   @unique
   description   String?
-  priceMonthly  Float?
-  priceYearly   Float?
+  priceMonthly  Decimal? @db.Decimal(10, 2)
+  priceYearly   Decimal? @db.Decimal(10, 2)
   features      String   @default("[]") // JSON array of features
   maxUsers      Int?
   maxBedrifter  Int?

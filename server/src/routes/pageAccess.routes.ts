@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { authenticateToken, requireRole } from '../middleware/auth.middleware';
+import { verifyToken, sjekkRolle, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 // GET /api/admin/pages - Hent alle tilgjengelige sider
-router.get('/admin/pages', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.get('/admin/pages', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const pages = await prisma.pageDefinition.findMany({
       where: { isActive: true },
@@ -21,7 +21,7 @@ router.get('/admin/pages', authenticateToken, requireRole(['ADMIN']), async (req
 });
 
 // GET /api/admin/bedrifter/:id/pages - Hent side-tilgang for bedrift
-router.get('/admin/bedrifter/:bedriftId/pages', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.get('/admin/bedrifter/:bedriftId/pages', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { bedriftId } = req.params;
 
@@ -48,11 +48,11 @@ router.get('/admin/bedrifter/:bedriftId/pages', authenticateToken, requireRole([
 });
 
 // PUT /api/admin/bedrifter/:id/pages/:pageKey - Oppdater side-tilgang
-router.put('/admin/bedrifter/:bedriftId/pages/:pageKey', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.put('/admin/bedrifter/:bedriftId/pages/:pageKey', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { bedriftId, pageKey } = req.params;
     const { isEnabled, notes } = req.body;
-    const userId = req.user?.id;
+    const userId = req.bruker?.id;
 
     if (typeof isEnabled !== 'boolean') {
       return res.status(400).json({ error: 'isEnabled must be a boolean' });
@@ -79,7 +79,7 @@ router.put('/admin/bedrifter/:bedriftId/pages/:pageKey', authenticateToken, requ
     // Oppdater eller opprett side-tilgang
     const pageAccess = await prisma.bedriftPageAccess.upsert({
       where: {
-        bedrift_id_page_key: {
+        bedriftId_pageKey: {
           bedriftId: parseInt(bedriftId),
           pageKey
         }
@@ -121,9 +121,9 @@ router.put('/admin/bedrifter/:bedriftId/pages/:pageKey', authenticateToken, requ
 });
 
 // GET /api/bedrift/pages - Hent tilgjengelige sider for bedrift
-router.get('/bedrift/pages', authenticateToken, async (req, res) => {
+router.get('/bedrift/pages', verifyToken, async (req: AuthRequest, res) => {
   try {
-    const bedriftId = req.user?.bedriftId;
+    const bedriftId = req.bruker?.bedriftId;
 
     if (!bedriftId) {
       return res.status(403).json({ error: 'Ingen bedrift tilknyttet' });
@@ -148,10 +148,10 @@ router.get('/bedrift/pages', authenticateToken, async (req, res) => {
 });
 
 // GET /api/bedrift/pages/:pageKey/check - Sjekk om side er tilgjengelig
-router.get('/bedrift/pages/:pageKey/check', authenticateToken, async (req, res) => {
+router.get('/bedrift/pages/:pageKey/check', verifyToken, async (req: AuthRequest, res) => {
   try {
     const { pageKey } = req.params;
-    const bedriftId = req.user?.bedriftId;
+    const bedriftId = req.bruker?.bedriftId;
 
     if (!bedriftId) {
       return res.status(403).json({ error: 'Ingen bedrift tilknyttet' });
@@ -159,7 +159,7 @@ router.get('/bedrift/pages/:pageKey/check', authenticateToken, async (req, res) 
 
     const pageAccess = await prisma.bedriftPageAccess.findUnique({
       where: {
-        bedrift_id_page_key: {
+        bedriftId_pageKey: {
           bedriftId,
           pageKey
         }
@@ -177,7 +177,7 @@ router.get('/bedrift/pages/:pageKey/check', authenticateToken, async (req, res) 
 });
 
 // GET /api/admin/bedrifter/:id/page-history - Hent side-tilgang historikk
-router.get('/admin/bedrifter/:bedriftId/page-history', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+router.get('/admin/bedrifter/:bedriftId/page-history', verifyToken, sjekkRolle(['ADMIN']), async (req: AuthRequest, res) => {
   try {
     const { bedriftId } = req.params;
     const { page = 1, limit = 50 } = req.query;
