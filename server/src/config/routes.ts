@@ -4,6 +4,8 @@ import bedrifterRoutes from "../routes/bedrifter";
 import sikkerhetskontrollLaeringRoutes from "../routes/sikkerhetskontroll-laering.routes";
 import dashboardRoutes from "../routes/dashboard.routes";
 import quizRoutes from "../routes/quiz.routes";
+import pageAccessRoutes from "../routes/pageAccess.routes";
+import subscriptionRoutes from "../routes/subscription.routes";
 import logger from "../utils/logger";
 
 export function configureRoutes(app: Express): void {
@@ -32,6 +34,12 @@ export function configureRoutes(app: Express): void {
   
   // Quiz routes - enhanced quiz system
   app.use('/api/quiz', quizRoutes);
+  
+  // Page access management routes
+  app.use('/api', pageAccessRoutes);
+  
+  // Subscription management routes
+  app.use('/api', subscriptionRoutes);
 
   console.log('✅ Routes konfigurert!');
 }

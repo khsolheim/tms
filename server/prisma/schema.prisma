@@ -40,6 +40,11 @@ model User {
   riskAssessments   UserRiskAssessment[]
   interventions     Intervention[]
   executedInterventions Intervention[] @relation("InterventionExecutor")
+  
+  // New relations for page access management
+  enabledPageAccess    BedriftPageAccess[]
+  pageAccessHistory    PageAccessHistory[]
+  subscriptionHistory  SubscriptionHistory[]
 }
 
 model Sjekkpunkt {
@@ -227,7 +232,13 @@ model Bedrift {
   // Annonsør/sponsor relations
   annonsorSponsorer    AnnonsorSponsor[]
   annonseTargeting     AnnonseTargeting[] @relation("AnnonseTargetingSkole")
-
+  
+  // New relations for page access and subscriptions
+  pageAccess           BedriftPageAccess[]
+  pageAccessHistory    PageAccessHistory[]
+  subscription         BedriftSubscription?
+  subscriptionHistory  SubscriptionHistory[]
+  
   @@index([navn])
   @@index([opprettet])
   @@index([organisasjonsnummer])
@@ -324,7 +335,7 @@ model Ansatt {
   
   // Annonsør/sponsor relations
   godkjentAnnonsorSponsorer        AnnonsorSponsor[]    @relation("AnnonsorGodkjentAv")
-
+  
   @@index([bedriftId, rolle])
   @@index([epost])
   @@index([bedriftId])
@@ -801,7 +812,7 @@ model Elev {
   
   // Annonsør/sponsor relations
   annonseInteraksjoner AnnonseInteraksjon[]
-
+  
   @@index([bedriftId])
   @@index([epost])
   @@index([personnummer])
@@ -1228,7 +1239,7 @@ model IntegrationConfiguration {
   lastSyncStatus   String?  // "SUCCESS", "ERROR", "PARTIAL"
   
   // Encrypted configuration data (API keys, tokens, etc.)
-  konfigurasjonsdata Json    // Encrypted JSON with provider-specific config
+      konfigurasjonsdata String    // Encrypted JSON with provider-specific config
   
   // Sync preferences
   syncKunder       Boolean  @default(true)
@@ -1237,7 +1248,7 @@ model IntegrationConfiguration {
   syncKontrakter   Boolean  @default(true)
   
   // Mapping configuration
-  feltMapping      Json?    @default("{}") // Field mappings between TMS and external system
+      feltMapping      String?    @default("{}") // Field mappings between TMS and external system
   
   // Error handling
   maxRetries       Int      @default(3)
@@ -1275,7 +1286,7 @@ model IntegrationLog {
   status          String   // "SUCCESS", "ERROR", "WARNING"
   melding         String?  // Human-readable message
   feildetaljer    String?  // Technical error details
-  metadata        Json?    // Additional operation data
+      metadata        String?    // Additional operation data
   
   // Performance tracking
   starttid        DateTime
@@ -1328,7 +1339,7 @@ model IntegrationSyncJob {
   progressMelding  String?
   
   // Result summary
-  resultatSammendrag Json?  // Summary of sync results
+      resultatSammendrag String?  // Summary of sync results
   feilmelding       String?
   
   // Retry logic
@@ -1362,7 +1373,7 @@ model Tenant {
   slug        String   @unique // URL-friendly identifier
   domain      String?  @unique // Custom domain support
   logo        String?
-  settings    Json     @default("{}") // Tenant-specific settings
+      settings    String     @default("{}") // Tenant-specific settings
   plan        TenantPlan @default(BASIC)
   aktiv       Boolean  @default(true)
   opprettet   DateTime @default(now())
@@ -1765,7 +1776,7 @@ model Oppgave {
   kategori          String     @default("GENERELT")
   tags              String     @default("[]")
   vedlegg           String     @default("[]")
-  kommentarer       Json       @default("[]")
+      kommentarer       String       @default("[]")
   bedriftId         Int
   relatertTabell    String?    // "Elev", "Kontrakt", etc.
   relatertId        Int?
@@ -1804,8 +1815,8 @@ model Prosjekt {
   kategori          String     @default("GENERELT")
   prioritet         String     @default("MEDIUM") // "LAV", "MEDIUM", "HOY"
   progresjon        Int        @default(0) // 0-100%
-  milepaler         Json       @default("[]")
-  risikofaktorer    Json       @default("[]")
+      milepaler         String       @default("[]")
+    risikofaktorer    String       @default("[]")
   bedriftId         Int
   opprettet         DateTime   @default(now())
   oppdatert         DateTime   @default(now()) @updatedAt
@@ -1832,7 +1843,7 @@ model Ressurs {
   type              String     // "LOKALE", "UTSTYR", "KJØRETØY", "PERSONELL"
   beskrivelse       String?
   kapasitet         Int        @default(1)
-  ledigTid          Json       @default("{}") // Tilgjengelighet schema
+      ledigTid          String       @default("{}") // Tilgjengelighet schema
   status            String     @default("TILGJENGELIG") // "TILGJENGELIG", "OPPTATT", "VEDLIKEHOLD", "IKKE_TILGJENGELIG"
   kostnad           Int?       // kostnad per time i øre
   lokasjon          String?
@@ -1974,7 +1985,7 @@ model Service {
   beskrivelse  String
   status       ServiceStatus @default(ACTIVE)
   versjon      String        @default("1.0.0")
-  konfiguration Json?        @default("{}")
+  konfiguration String?        @default("{}")
   opprettet    DateTime      @default(now())
   oppdatert    DateTime      @default(now()) @updatedAt
   
@@ -1995,7 +2006,7 @@ model BedriftService {
   deactivatedAt DateTime?
   activatedBy   Int
   deactivatedBy Int?
-  konfiguration Json?    @default("{}")
+  konfiguration String?    @default("{}")
   opprettet     DateTime @default(now())
   oppdatert     DateTime @default(now()) @updatedAt
   
@@ -2420,4 +2431,143 @@ enum InteraksjonsType {
   EPOST
   VEIBESKRIVELSE
   EKSPANDERT
+}
+
+// Page Access Management System
+model PageDefinition {
+  id                    Int      @id @default(autoincrement())
+  pageKey               String   @unique
+  pageName              String
+  description           String?
+  category              String?  // 'core', 'premium', 'enterprise'
+  icon                  String?
+  isActive              Boolean  @default(true)
+  requiresSubscription  Boolean  @default(false)
+  subscriptionTier      String?  // 'basic', 'premium', 'enterprise'
+  createdAt             DateTime @default(now())
+  
+  bedriftPageAccess     BedriftPageAccess[]
+  
+  @@index([pageKey])
+  @@index([category])
+  @@index([isActive])
+}
+
+model BedriftPageAccess {
+  id          Int      @id @default(autoincrement())
+  bedriftId   Int
+  pageKey     String
+  isEnabled   Boolean  @default(false)
+  enabledAt   DateTime?
+  disabledAt  DateTime?
+  enabledBy   Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  bedrift     Bedrift        @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  page        PageDefinition @relation(fields: [pageKey], references: [pageKey])
+  enabledByUser User?        @relation(fields: [enabledBy], references: [id])
+  
+  @@unique([bedriftId, pageKey])
+  @@index([bedriftId])
+  @@index([pageKey])
+  @@index([isEnabled])
+}
+
+model PageAccessHistory {
+  id           Int      @id @default(autoincrement())
+  bedriftId    Int
+  pageKey      String
+  action       String   // 'enabled', 'disabled'
+  performedBy  Int?
+  reason       String?
+  performedAt  DateTime @default(now())
+  
+  bedrift      Bedrift @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  performedByUser User? @relation(fields: [performedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([pageKey])
+  @@index([performedAt])
+}
+
+// Subscription System
+model SubscriptionPlan {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  description   String?
+  priceMonthly  Float?
+  priceYearly   Float?
+  features      String   @default("[]") // JSON array of features
+  maxUsers      Int?
+  maxBedrifter  Int?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  
+  bedriftSubscriptions BedriftSubscription[]
+  subscriptionFeatures  SubscriptionFeature[]
+  subscriptionHistory   SubscriptionHistory[]
+  oldPlanHistory        SubscriptionHistory[] @relation("OldPlan")
+  newPlanHistory        SubscriptionHistory[] @relation("NewPlan")
+  
+  @@index([isActive])
+}
+
+model BedriftSubscription {
+  id                Int      @id @default(autoincrement())
+  bedriftId         Int      @unique
+  planId            Int
+  status            String   @default("active") // 'active', 'cancelled', 'expired', 'suspended'
+  startDate         DateTime
+  endDate           DateTime
+  autoRenew         Boolean  @default(true)
+  paymentMethod     String?
+  lastPaymentDate   DateTime?
+  nextPaymentDate   DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  bedrift           Bedrift          @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  plan              SubscriptionPlan @relation(fields: [planId], references: [id])
+  
+  @@index([status])
+  @@index([endDate])
+}
+
+model SubscriptionFeature {
+  id           Int      @id @default(autoincrement())
+  planId       Int
+  featureKey   String
+  featureName  String
+  description  String?
+  isIncluded   Boolean  @default(true)
+  limitValue   Int?     // NULL = unlimited
+  
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  @@unique([planId, featureKey])
+  @@index([planId])
+}
+
+model SubscriptionHistory {
+  id            Int      @id @default(autoincrement())
+  bedriftId     Int
+  planId        Int
+  action        String   // 'started', 'upgraded', 'downgraded', 'cancelled', 'renewed'
+  oldPlanId     Int?
+  newPlanId     Int?
+  performedBy   Int?
+  notes         String?
+  performedAt   DateTime @default(now())
+  
+  bedrift       Bedrift          @relation(fields: [bedriftId], references: [id], onDelete: Cascade)
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id])
+  oldPlan       SubscriptionPlan? @relation("OldPlan", fields: [oldPlanId], references: [id])
+  newPlan       SubscriptionPlan? @relation("NewPlan", fields: [newPlanId], references: [id])
+  performedByUser User?          @relation(fields: [performedBy], references: [id])
+  
+  @@index([bedriftId])
+  @@index([action])
+  @@index([performedAt])
 }
