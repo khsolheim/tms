@@ -1,0 +1,12 @@
+#!/usr/bin/expect -f
+set timeout 30
+spawn ssh -o StrictHostKeyChecking=no root@91.108.121.251
+expect "password:"
+send "0iq3-DEOH-jck4\r"
+expect "#"
+send "ls -la\r"
+expect "#"
+send "ps aux | grep -E '(node|npm|pm2)'\r"
+expect "#"
+send "exit\r"
+expect eof
