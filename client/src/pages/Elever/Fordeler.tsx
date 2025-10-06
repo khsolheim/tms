@@ -221,7 +221,7 @@ export default function Fordeler() {
             <Card 
               key={annonse.id} 
               className="hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-blue-500"
-              onMouseEnter={() => handleCardView(annonse.id)}
+
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -328,7 +328,7 @@ export default function Fordeler() {
                   
                   {annonse.ctaVeibeskrivelse && (
                     <Button
-                      onClick={() => handleAction(annonse.id, 'VEIBESKRIVELSE', `https://maps.google.com/maps?q=${encodeURIComponent(annonse.ctaVeibeskrivelse)}`)}
+                                             onClick={() => handleAction(annonse.id, 'VEIBESKRIVELSE', `https://maps.google.com/maps?q=${encodeURIComponent(annonse.ctaVeibeskrivelse || '')}`)}
                       variant="outline"
                       className="flex items-center text-sm"
                       size="sm"

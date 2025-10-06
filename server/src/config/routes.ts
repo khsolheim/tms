@@ -1,6 +1,7 @@
 import { Express, Request, Response } from "express";
 import authRoutes from "../routes/auth";
 import bedrifterRoutes from "../routes/bedrifter";
+import kontraktRoutes from "../routes/kontrakt.routes";
 import sikkerhetskontrollLaeringRoutes from "../routes/sikkerhetskontroll-laering.routes";
 import dashboardRoutes from "../routes/dashboard.routes";
 import quizRoutes from "../routes/quiz.routes";
@@ -25,6 +26,9 @@ export function configureRoutes(app: Express): void {
   
   // Bedrifter routes
   app.use('/api/bedrifter', bedrifterRoutes);
+  
+  // Kontrakter routes
+  app.use('/api/kontrakter', kontraktRoutes);
   
   // Sikkerhetskontroll læring routes
   app.use('/api/sikkerhetskontroll-laering', sikkerhetskontrollLaeringRoutes);

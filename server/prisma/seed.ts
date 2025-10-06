@@ -35,7 +35,7 @@ async function createSuperAdminFromEnv() {
         passordHash,
         rolle: 'ADMIN',
         bedriftId: null, // Super admin er ikke tilknyttet en bedrift
-        tilganger: ['ADMIN', 'HOVEDBRUKER', 'TRAFIKKLARER']
+        tilganger: JSON.stringify(['ADMIN', 'HOVEDBRUKER', 'TRAFIKKLARER'])
       }
     });
 
@@ -102,7 +102,7 @@ async function main() {
       passordHash,
       rolle: 'ADMIN',
       bedriftId: testBedrift.id,
-      tilganger: ['ADMIN', 'HOVEDBRUKER', 'TRAFIKKLARER']
+      tilganger: JSON.stringify(['ADMIN', 'HOVEDBRUKER', 'TRAFIKKLARER'])
     }
   });
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiEye, FiSearch, FiCheck, FiClock, FiX } from 'react-icons/fi';
-import { useKontrakter, useDeleteKontrakt } from '../../hooks/useKontrakter';
+import { useKontrakter, useDeleteKontrakt, KontraktFilters, KontraktersResponse } from '../../hooks/useKontrakter';
 import { TableSkeleton, LoadingButton } from '../../components/ui/LoadingStates';
 import { NoContractsEmptyState } from '../../components/ui/EmptyStates';
 // import { useUIStore } from '../../stores/ui.store'; // Unused import - commented out
@@ -30,15 +30,6 @@ const announceSort = (column: string, direction: 'asc' | 'desc') => {
 // ============================================================================
 
 // Local type definitions for this component
-interface KontraktFilters {
-  page?: number;
-  limit?: number;
-  elevNavn?: string;
-  status?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
 interface Kontrakt {
   id: number;
   bedriftId: number;
@@ -66,7 +57,7 @@ const KontraktOversikt: React.FC = () => {
   
   // React Query hooks
   const { 
-    data: kontrakter = [], 
+    data,
     isLoading, 
     error,
     refetch 
@@ -74,8 +65,11 @@ const KontraktOversikt: React.FC = () => {
   
   const deleteKontraktMutation = useDeleteKontrakt();
 
-  const totalCount = kontrakter.length;
-  const totalPages = Math.ceil(totalCount / (filters.limit || 20));
+  // Extract data from API response
+  const kontrakter = data?.kontrakter || [];
+  const totalCount = data?.totalAntall || 0;
+  const currentPage = data?.side || 1;
+  const totalPages = data?.antallSider || 0;
 
   // Hent kontrakt-statuser fra API
   useEffect(() => {
@@ -99,7 +93,7 @@ const KontraktOversikt: React.FC = () => {
     
     setFilters((prev: KontraktFilters) => ({
       ...prev,
-      elevNavn: searchQuery || undefined,
+      search: searchQuery || undefined,
       page: 1
     }));
 
@@ -211,13 +205,13 @@ const KontraktOversikt: React.FC = () => {
             </p>
           </div>
           <div className="mt-4 sm:mt-0">
-            <Link 
-              to="/kontrakter/ny"
+            <button
+              onClick={() => window.location.href = '/kontrakter/ny'}
               className="inline-flex items-center px-2 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <FiPlus className="-ml-1 mr-2 h-5 w-5" />
               Ny kontrakt
-            </Link>
+            </button>
           </div>
         </div>
 

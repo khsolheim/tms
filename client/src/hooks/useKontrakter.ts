@@ -6,6 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../lib/api';
 import { toast } from 'react-hot-toast';
 
 // ============================================================================
@@ -24,15 +25,23 @@ interface Kontrakt {
   bedriftNavn?: string;
 }
 
+// Paginering/Filtrering definisjon
 export interface KontraktFilters {
+  page?: number;
+  limit?: number;
   status?: string;
   bedriftId?: number;
   search?: string;
-  elevNavn?: string;
-  page?: number;
-  limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+}
+
+// API Response interface for kontrakter
+export interface KontraktersResponse {
+  kontrakter: Kontrakt[];
+  totalAntall: number;
+  side: number;
+  antallSider: number;
 }
 
 interface CreateKontraktData {
@@ -58,52 +67,37 @@ interface KontraktStats {
 
 const kontraktApi = {
   // Hent alle kontrakter
-  getKontrakter: async (filters?: KontraktFilters): Promise<Kontrakt[]> => {
+  getKontrakter: async (filters?: KontraktFilters): Promise<KontraktersResponse> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.bedriftId) params.append('bedriftId', filters.bedriftId.toString());
     if (filters?.search) params.append('search', filters.search);
 
-    const response = await fetch(`/api/kontrakter?${params}`);
-    if (!response.ok) throw new Error('Kunne ikke hente kontrakter');
-    return response.json();
+    const response = await api.get(`/kontrakter?${params}`);
+    return response.data;
   },
 
   // Hent enkelt kontrakt
   getKontrakt: async (id: number): Promise<Kontrakt> => {
-    const response = await fetch(`/api/kontrakter/${id}`);
-    if (!response.ok) throw new Error('Kunne ikke hente kontrakt');
-    return response.json();
+    const response = await api.get(`/kontrakter/${id}`);
+    return response.data;
   },
 
   // Opprett ny kontrakt
   createKontrakt: async (data: CreateKontraktData): Promise<Kontrakt> => {
-    const response = await fetch('/api/kontrakter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Kunne ikke opprette kontrakt');
-    return response.json();
+    const response = await api.post('/kontrakter', data);
+    return response.data;
   },
 
   // Oppdater kontrakt
   updateKontrakt: async (id: number, data: Partial<Kontrakt>): Promise<Kontrakt> => {
-    const response = await fetch(`/api/kontrakter/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Kunne ikke oppdatere kontrakt');
-    return response.json();
+    const response = await api.put(`/kontrakter/${id}`, data);
+    return response.data;
   },
 
   // Slett kontrakt
   deleteKontrakt: async (id: number): Promise<void> => {
-    const response = await fetch(`/api/kontrakter/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Kunne ikke slette kontrakt');
+    await api.delete(`/kontrakter/${id}`);
   },
 
   // Hent kontrakt-statistikk
@@ -112,9 +106,8 @@ const kontraktApi = {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.bedriftId) params.append('bedriftId', filters.bedriftId.toString());
 
-    const response = await fetch(`/api/kontrakter/stats?${params}`);
-    if (!response.ok) throw new Error('Kunne ikke hente statistikk');
-    return response.json();
+    const response = await api.get(`/kontrakter/stats?${params}`);
+    return response.data;
   },
 };
 

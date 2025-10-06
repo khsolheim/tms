@@ -74,7 +74,7 @@ interface SikkerhetskontrollProgress {
 const StatCard: React.FC<{
   title: string;
   value: number | string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: React.ComponentType<any>;
   color?: string;
   trend?: number;
   onClick?: () => void;

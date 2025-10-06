@@ -33,7 +33,7 @@ interface RecentActivity {
 const StatCard: React.FC<{
   title: string;
   value: number | string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: React.ComponentType<any>;
   trend?: number;
   color?: string;
 }> = ({ title, value, icon: Icon, trend, color = 'blue' }) => {

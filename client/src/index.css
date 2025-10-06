@@ -5,10 +5,16 @@
 /* MDEditor CSS */
 @import '@uiw/react-md-editor/markdown-editor.css';
 
+/* Global hvit bakgrunn for hele appen */
+html {
+  background-color: white;
+}
+
 /* Legg til global styling eller Tailwind-import her */
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
+  background-color: white;
 }
 
 /* Global spacing for kort-containere */

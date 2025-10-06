@@ -5,7 +5,7 @@ import ErrorBoundary from './ErrorBoundary';
 interface LazyRouteProps {
   component: ComponentType<any>;
   fallback?: React.ReactNode;
-  errorFallback?: React.ReactNode;
+  errorFallback?: (error: Error, errorInfo: any, retry: () => void) => React.ReactNode;
 }
 
 /**
@@ -21,7 +21,18 @@ export const LazyRoute: React.FC<LazyRouteProps> = ({
   const defaultFallback = fallback || <PageSkeleton />;
   
   return (
-    <ErrorBoundary fallback={errorFallback}>
+    <ErrorBoundary fallback={errorFallback || ((error, errorInfo, retry) => (
+      <div className="text-center p-8">
+        <h2 className="text-xl font-bold text-red-600 mb-4">Noe gikk galt</h2>
+        <p className="text-gray-600">Det oppstod en feil ved lasting av denne komponenten.</p>
+        <button 
+          onClick={retry}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Prøv igjen
+        </button>
+      </div>
+    ))}>
       <Suspense fallback={defaultFallback}>
         <Component {...props} />
       </Suspense>

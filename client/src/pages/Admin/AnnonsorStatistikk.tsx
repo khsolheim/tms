@@ -8,8 +8,8 @@ import {
   EnvelopeIcon,
   MapPinIcon,
   CalendarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   DocumentTextIcon,
   GiftIcon
 } from '@heroicons/react/24/outline';
@@ -102,9 +102,9 @@ export default function AnnonsorStatistikk() {
 
   const getTrendIcon = (current: number, previous: number) => {
     if (current > previous) {
-      return <TrendingUpIcon className="h-4 w-4 text-green-600" />;
+      return <div className="h-4 w-4 text-green-600">↗</div>;
     } else if (current < previous) {
-      return <TrendingDownIcon className="h-4 w-4 text-red-600" />;
+      return <div className="h-4 w-4 text-red-600">↘</div>;
     }
     return null;
   };
@@ -217,7 +217,7 @@ export default function AnnonsorStatistikk() {
                 <p className="text-2xl font-bold text-gray-900">{formatPercentage(statistikk.gjennomsnittligCTR)}</p>
               </div>
               <div className="p-2 bg-blue-100 rounded-lg">
-                <ChartBarIcon className="h-6 w-6 text-blue-600" />
+                <div className="h-6 w-6 text-blue-600">📊</div>
               </div>
             </div>
           </div>

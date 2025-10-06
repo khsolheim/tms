@@ -1,14 +1,13 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function opprettTestBrukere() {
   const brukere = [
-    { navn: 'Test Hovedbruker', epost: 'hovedbruker@test.no', rolle: 'HOVEDBRUKER' as const, bedriftId: 1 },
-    { navn: 'Test Trafikklærer', epost: 'trafikklarer@test.no', rolle: 'TRAFIKKLARER' as const, bedriftId: 1 },
-    { navn: 'Anna Nordmann', epost: 'anna@transportfirma.no', rolle: 'HOVEDBRUKER' as const, bedriftId: 4 },
-    { navn: 'Erik Hansen', epost: 'erik@kjoresenteret.no', rolle: 'TRAFIKKLARER' as const, bedriftId: 5 }
+    { fornavn: 'Test', etternavn: 'Hovedbruker', epost: 'hovedbruker@test.no', rolle: 'HOVEDBRUKER' as const, bedriftId: null },
+    { fornavn: 'Test', etternavn: 'Trafikklarer', epost: 'trafikklarer@test.no', rolle: 'TRAFIKKLARER' as const, bedriftId: null },
+    { fornavn: 'Admin', etternavn: 'Bruker', epost: 'admin@test.no', rolle: 'HOVEDBRUKER' as const, bedriftId: null }
   ];
 
   console.log('Oppretter testbrukere...');
@@ -20,17 +19,19 @@ async function opprettTestBrukere() {
         data: {
           ...bruker,
           passordHash,
-          tilganger: bruker.rolle === 'HOVEDBRUKER' ? ['HOVEDBRUKER', 'TRAFIKKLARER'] : ['TRAFIKKLARER']
+          tilganger: bruker.rolle === 'HOVEDBRUKER' ? JSON.stringify(['HOVEDBRUKER', 'TRAFIKKLARER']) : JSON.stringify(['TRAFIKKLARER'])
         }
       });
-      console.log(`✅ Opprettet: ${opprettet.navn} (${opprettet.rolle})`);
+      console.log(`✅ Opprettet: ${opprettet.fornavn} ${opprettet.etternavn} (${opprettet.rolle})`);
     } catch (error) {
-      console.log(`⚠️  Finnes eller feil: ${bruker.navn}`);
+      console.log(`⚠️  Finnes eller feil: ${bruker.fornavn} ${bruker.etternavn}`);
     }
   }
   
   const antall = await prisma.ansatt.count();
   console.log(`\n🎉 Total: ${antall} brukere i systemet`);
+
+  await prisma.$disconnect();
 }
 
 opprettTestBrukere()

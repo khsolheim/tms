@@ -39,8 +39,8 @@ import RoleBased from '../auth/RoleBased';
 
 interface MenuItemProps {
   to: string;
-  icon: React.ComponentType<{ className?: string }>;
-  activeIcon?: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<any>;
+  activeIcon?: React.ComponentType<any>;
   children: React.ReactNode;
   badge?: number;
 }
@@ -201,7 +201,8 @@ export default function Sidebar() {
               icon={ChartBarIcon}
             >
               Statistikk
-            </RoleBased>
+            </MenuItem>
+          </RoleBased>
         </MenuGroup>
 
         {/* Business Moduler */}

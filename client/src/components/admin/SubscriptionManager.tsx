@@ -347,7 +347,7 @@ export default function SubscriptionManager({ bedriftId, bedriftNavn }: Subscrip
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="plan">Velg plan</Label>
-                  <Select value={selectedPlanId?.toString()} onValueChange={(value) => setSelectedPlanId(parseInt(value))}>
+                  <Select value={selectedPlanId?.toString()} onValueChange={(value: string) => setSelectedPlanId(parseInt(value))}>
                     <SelectTrigger>
                       <SelectValue placeholder="Velg en plan" />
                     </SelectTrigger>
@@ -374,7 +374,7 @@ export default function SubscriptionManager({ bedriftId, bedriftNavn }: Subscrip
                     id="notes"
                     placeholder="Legg til notater om denne endringen..."
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                     rows={3}
                   />
                 </div>

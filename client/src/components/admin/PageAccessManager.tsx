@@ -333,7 +333,7 @@ export default function PageAccessManager({ bedriftId, bedriftNavn }: PageAccess
                         <Switch
                           id={`toggle-${access.pageKey}`}
                           checked={access.isEnabled}
-                          onCheckedChange={(checked) => updatePageAccess(access.pageKey, checked)}
+                          onCheckedChange={(checked: boolean) => updatePageAccess(access.pageKey, checked)}
                           disabled={updating === access.pageKey}
                         />
                       </div>
@@ -345,7 +345,7 @@ export default function PageAccessManager({ bedriftId, bedriftNavn }: PageAccess
                             id={`notes-${access.pageKey}`}
                             placeholder="Legg til notater om denne endringen..."
                             value={notes[access.pageKey] || ''}
-                            onChange={(e) => setNotes(prev => ({
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(prev => ({
                               ...prev,
                               [access.pageKey]: e.target.value
                             }))}

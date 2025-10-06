@@ -87,9 +87,9 @@ export function I18nProvider({ children }: I18nProviderProps) {
 
   return (
     <I18nContext.Provider value={contextValue}>
-      <IntlProvider {...intlProps}>
+      <div>
         {children}
-      </IntlProvider>
+      </div>
     </I18nContext.Provider>
   );
 }

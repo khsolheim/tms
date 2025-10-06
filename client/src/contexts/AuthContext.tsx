@@ -55,12 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Demo mode only in development
   const [demoModus, setDemoModus] = useState(
-    process.env.NODE_ENV === 'development' && process.env.REACT_APP_DEMO_MODE === 'true'
+    process.env.NODE_ENV === 'development' // Aktivert som standard i development
   );
 
   useEffect(() => {
     // Only activate demo mode in development
-    if (process.env.NODE_ENV === 'development' && process.env.REACT_APP_DEMO_MODE === 'true') {
+    if (process.env.NODE_ENV === 'development') {
       aktiverDemoModus();
     } else {
       // In production, check for existing token
@@ -108,8 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setBruker(DUMMY_BRUKER);
     setLoading(false);
     
-    // Lagre dummy token med sikker storage
+    // Lagre dummy token med sikker storage OG localStorage for API wrapper
     secureStorage.setItem('token', DUMMY_TOKEN);
+    localStorage.setItem('token', DUMMY_TOKEN); // For API wrapper
     secureStorage.setObject('bruker', DUMMY_BRUKER);
     
     // Oppdater Sentry

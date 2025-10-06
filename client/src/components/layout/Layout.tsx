@@ -48,79 +48,92 @@ const navigationStructure = [
     key: 'navigation.overview', 
     href: '/oversikt', 
     icon: HomeIcon,
-    descriptionKey: 'navigation.overview.description'
+    descriptionKey: 'navigation.overview.description',
+    name: 'Oversikt'
   },
   { 
     key: 'navigation.companies', 
     href: '/bedrifter', 
     icon: BuildingOfficeIcon,
-    descriptionKey: 'navigation.companies.description'
+    descriptionKey: 'navigation.companies.description',
+    name: 'Bedrifter'
   },
   { 
     key: 'navigation.contracts', 
     href: '/kontrakter', 
     icon: DocumentTextIcon,
-    descriptionKey: 'navigation.contracts.description'
+    descriptionKey: 'navigation.contracts.description',
+    name: 'Kontrakter'
   },
   { 
     key: 'navigation.tasks', 
     href: '/oppgaver', 
     icon: ClipboardDocumentListIcon,
-    descriptionKey: 'navigation.tasks.description'
+    descriptionKey: 'navigation.tasks.description',
+    name: 'Oppgaver'
   },
   { 
     key: 'navigation.reporting', 
     href: '/rapportering', 
     icon: ChartBarIcon,
-    descriptionKey: 'navigation.reporting.description'
+    descriptionKey: 'navigation.reporting.description',
+    name: 'Rapportering'
   },
   { 
     key: 'navigation.finance', 
     href: '/okonomi', 
     icon: CurrencyDollarIcon,
-    descriptionKey: 'navigation.finance.description'
+    descriptionKey: 'navigation.finance.description',
+    name: 'Økonomi'
   },
   { 
     key: 'navigation.hr', 
     href: '/hr', 
     icon: UsersIcon,
-    descriptionKey: 'navigation.hr.description'
+    descriptionKey: 'navigation.hr.description',
+    name: 'HR'
   },
   { 
     key: 'navigation.project', 
     href: '/prosjekt', 
     icon: BriefcaseIcon,
-    descriptionKey: 'navigation.project.description'
+    descriptionKey: 'navigation.project.description',
+    name: 'Prosjekt'
   },
   { 
     key: 'navigation.resources', 
     href: '/ressursplanlegging', 
     icon: CalendarIcon,
-    descriptionKey: 'navigation.resources.description'
+    descriptionKey: 'navigation.resources.description',
+    name: 'Ressursplanlegging'
   },
   { 
     key: 'navigation.quiz', 
     href: '/quiz', 
     icon: AcademicCapIcon,
-    descriptionKey: 'navigation.quiz.description'
+    descriptionKey: 'navigation.quiz.description',
+    name: 'Quiz'
   },
   { 
     key: 'navigation.security', 
     href: '/sikkerhetskontroll', 
     icon: ShieldCheckIcon,
-    descriptionKey: 'navigation.security.description'
+    descriptionKey: 'navigation.security.description',
+    name: 'Sikkerhetskontroll'
   },
   { 
     key: 'navigation.settings', 
     href: '/innstillinger', 
     icon: CogIcon,
-    descriptionKey: 'navigation.settings.description'
+    descriptionKey: 'navigation.settings.description',
+    name: 'Innstillinger'
   },
   { 
     key: 'navigation.help', 
     href: '/hjelp', 
     icon: QuestionMarkCircleIcon,
-    descriptionKey: 'navigation.help.description'
+    descriptionKey: 'navigation.help.description',
+    name: 'Hjelp'
   },
 ];
 
@@ -133,7 +146,6 @@ export default function Layout({ children }: LayoutProps) {
   // Create navigation with translations
   const navigation: NavItem[] = navigationStructure.map(item => ({
     ...item,
-    name: t(item.key),
     description: t(item.descriptionKey)
   }));
 

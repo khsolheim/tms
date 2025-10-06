@@ -52,7 +52,7 @@ interface UpcomingEvent {
 const StatCard: React.FC<{
   title: string;
   value: number | string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  icon: React.ComponentType<any>;
   trend?: number;
   color?: string;
   onClick?: () => void;
